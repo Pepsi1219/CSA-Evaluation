@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IE Production & Actual Performance</title>
+    <title>CSA Evaluation Planning</title>
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         
@@ -52,20 +52,23 @@
 <body>
 
 <div class="container">
-    <h2>IE Production Tool</h2>
+    <h2>CSA Evaluation Planning</h2>
 
-    <h3>1. การตั้งเป้าหมาย (Production Plan)</h3>
+    <h3>1. การตั้งเป้าหมาย (Training Plan)</h3>
     <div class="input-group">
         <label>ค่า SAM (นาที)</label>
         <input type="number" id="samInput" step="0.00001" placeholder="เช่น 0.52000" oninput="calculateAll()">
+        <div class="unit">* รองรับทศนิยมสูงสุด 5 ตำแหน่ง</div>
     </div>
     <div class="input-group">
         <label>Efficiency (%) ที่ตั้งเป้าไว้</label>
         <input type="number" id="effTargetInput" placeholder="เช่น 75" oninput="calculateAll()">
+        <div class="unit">* ใส่เฉพาะตัวเลขไม่ต้องใส่ %</div>
     </div>
     <div class="input-group">
         <label>เป้าหมายชิ้นงาน (ชิ้น/ชม.)</label>
         <input type="text" id="targetDisplay" readonly class="highlight-result">
+        <div class="unit">* คำนวณจาก (60 / SAM) * Eff และปัดเศษขึ้น</div>
     </div>
 
     <div class="actual-section">
@@ -150,3 +153,4 @@
 
 </body>
 </html>
+

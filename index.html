@@ -2,11 +2,10 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IE Production Planning</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IE Production & Actual Performance</title>
     <style>
-        /* 1. พื้นหลังสีขาว และตั้งค่า Font */
-        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         
         body { 
             background-color: #ffffff; 
@@ -14,92 +13,137 @@
             display: flex; 
             justify-content: center; 
             padding: 20px;
+            color: #333;
         }
 
         .container { 
             width: 100%; 
             max-width: 500px; 
-            background: #f9f9f9; 
-            padding: 30px; 
-            border-radius: 15px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 25px; 
+            border: 1px solid #eee;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
         }
 
-        h2 { text-align: center; color: #333; margin-bottom: 25px; }
+        h2 { text-align: center; font-size: 20px; margin-bottom: 20px; color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        h3 { font-size: 16px; margin-top: 25px; color: #555; border-left: 4px solid #007bff; padding-left: 10px; }
 
-        .input-group { margin-bottom: 20px; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; color: #666; }
 
-        label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
-
-        /* ปรับแต่งกล่องข้อความให้อินพุตง่ายทั้งคอมและมือถือ */
         input { 
             width: 100%; 
             padding: 12px; 
-            border: 2px solid #ddd; 
+            border: 2px solid #f0f0f0; 
             border-radius: 8px; 
-            font-size: 18px; 
+            font-size: 16px; 
             outline: none;
-            transition: border-color 0.3s;
+            background-color: #fcfcfc;
         }
 
-        input:focus { border-color: #007bff; }
+        input:focus { border-color: #007bff; background-color: #fff; }
+        input[readonly] { background-color: #e9ecef; color: #495057; cursor: not-allowed; border-color: #dee2e6; }
 
-        .result-box { 
-            background-color: #e7f3ff; 
-            border: 2px solid #007bff; 
-            color: #007bff;
-            font-weight: bold;
-        }
-
-        .unit { font-size: 14px; color: #888; margin-top: 5px; }
+        /* เน้นกล่องผลลัพธ์ */
+        .highlight-result { background-color: #fff3cd !important; border-color: #ffc107 !important; font-weight: bold; color: #856404 !important; }
+        .actual-section { background-color: #f8f9fa; padding: 15px; border-radius: 10px; margin-top: 20px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>IE Production Planning</h2>
+    <h2>IE Production Tool</h2>
 
+    <h3>1. การตั้งเป้าหมาย (Production Plan)</h3>
     <div class="input-group">
-        <label for="sam">ค่า SAM (นาที)</label>
-        <input type="number" id="sam" step="0.00001" placeholder="เช่น 0.52345" oninput="calculateProduction()">
-        <div class="unit">* รองรับทศนิยมสูงสุด 5 ตำแหน่ง</div>
+        <label>ค่า SAM (นาที)</label>
+        <input type="number" id="samInput" step="0.00001" placeholder="เช่น 0.52000" oninput="calculateAll()">
+    </div>
+    <div class="input-group">
+        <label>Efficiency (%) ที่ตั้งเป้าไว้</label>
+        <input type="number" id="effTargetInput" placeholder="เช่น 75" oninput="calculateAll()">
+    </div>
+    <div class="input-group">
+        <label>เป้าหมายชิ้นงาน (ชิ้น/ชม.)</label>
+        <input type="text" id="targetDisplay" readonly class="highlight-result">
     </div>
 
-    <div class="input-group">
-        <label for="eff">Efficiency (%)</label>
-        <input type="number" id="eff" placeholder="เช่น 75" oninput="calculateProduction()">
-        <div class="unit">* ใส่เฉพาะตัวเลขไม่ต้องใส่ %</div>
-    </div>
+    <div class="actual-section">
+        <h3>2. บันทึกผลงานจริง (Actual Performance)</h3>
+        
+        <div class="input-group">
+            <label>เวลารวมทั้งหมด (วินาที)</label>
+            <input type="number" id="totalTime" placeholder="กรอกเวลารวม" oninput="calculateAll()">
+        </div>
+        
+        <div class="input-group">
+            <label>จำนวนครั้งที่ทำได้ (รอบ)</label>
+            <input type="number" id="totalCount" placeholder="กรอกจำนวนรอบ" oninput="calculateAll()">
+        </div>
 
-    <hr style="margin: 30px 0; border: 0; border-top: 1px solid #ddd;">
+        <div class="input-group">
+            <label>เวลาเฉลี่ยจริง (วินาที/รอบ)</label>
+            <input type="text" id="avgTimeSec" readonly>
+        </div>
 
-    <div class="input-group">
-        <label for="target">จำนวนชิ้น (Target / Hour)</label>
-        <input type="text" id="target" class="result-box" readonly placeholder="ผลลัพธ์">
-        <div class="unit">* คำนวณจาก (60 / SAM) * Eff และปัดเศษขึ้น</div>
+        <div class="input-group">
+            <label>เวลาต่อรอบจริง (นาที)</label>
+            <input type="text" id="avgTimeMin" readonly>
+        </div>
+
+        <hr>
+
+        <div class="input-group">
+            <label>ประสิทธิภาพจริง (%)</label>
+            <input type="text" id="actualEffPerc" readonly class="highlight-result">
+        </div>
+
+        <div class="input-group">
+            <label>ประสิทธิภาพจริง (ชิ้น/ชม.)</label>
+            <input type="text" id="actualPcs" readonly class="highlight-result">
+        </div>
     </div>
 </div>
 
 <script>
-    function calculateProduction() {
-        // ดึงค่าจากช่อง Input
-        const sam = parseFloat(document.getElementById('sam').value);
-        const eff = parseFloat(document.getElementById('eff').value);
-        const targetField = document.getElementById('target');
+    function calculateAll() {
+        // ดึงค่า Input
+        const sam = parseFloat(document.getElementById('samInput').value);
+        const effTarget = parseFloat(document.getElementById('effTargetInput').value);
+        const totalTime = parseFloat(document.getElementById('totalTime').value);
+        const totalCount = parseFloat(document.getElementById('totalCount').value);
 
-        // ตรวจสอบว่ามีข้อมูลครบถ้วนและ SAM ไม่เป็น 0
-        if (sam > 0 && !isNaN(eff)) {
-            // สูตร: (60 / SAM) * (Efficiency / 100)
-            let effDecimal = eff / 100;
-            let result = (60 / sam) * effDecimal;
+        // 1. คำนวณเป้าหมาย (เหมือนโค้ดเดิม)
+        if (sam > 0 && !isNaN(effTarget)) {
+            let target = Math.ceil((60 / sam) * (effTarget / 100));
+            document.getElementById('targetDisplay').value = target.toLocaleString() + " ชิ้น";
+        }
 
-            // ปัดทศนิยมขึ้นเสมอตามโจทย์
-            let finalResult = Math.ceil(result);
+        // 2. คำนวณงานจริง
+        if (totalTime > 0 && totalCount > 0) {
+            // (1) เวลาเฉลี่ยจริง (วินาที) = เวลารวม / จำนวนครั้ง
+            let avgSec = totalTime / totalCount;
+            document.getElementById('avgTimeSec').value = avgSec.toFixed(2);
 
-            // แสดงผลลัพธ์พร้อมคอมม่าคั่นหลักพัน
-            targetField.value = finalResult.toLocaleString('en-US');
+            // (2) เวลาต่อรอบจริง (นาที) = เวลาเฉลี่ยจริง (วินาที) / 60
+            let avgMin = avgSec / 60;
+            document.getElementById('avgTimeMin').value = avgMin.toFixed(2);
+
+            // (3) ประสิทธิภาพจริง (%) = (SAM / เวลาต่อรอบจริง (นาที)) * 100
+            if (sam > 0 && avgMin > 0) {
+                let actualEff = (sam / avgMin) * 100;
+                document.getElementById('actualEffPerc').value = Math.ceil(actualEff) + " %";
+
+                // (4) ประสิทธิภาพจริง (ชิ้น) = 60 / เวลาต่อรอบจริง (นาที)
+                let actualPcsVal = 60 / avgMin;
+                document.getElementById('actualPcs').value = Math.ceil(actualPcsVal).toLocaleString() + " ชิ้น";
+            }
         } else {
-            targetField.value = "";
+            // ล้างค่าถ้าข้อมูลไม่ครบ
+            document.getElementById('avgTimeSec').value = "";
+            document.getElementById('avgTimeMin').value = "";
+            document.getElementById('actualEffPerc').value = "";
+            document.getElementById('actualPcs').value = "";
         }
     }
 </script>

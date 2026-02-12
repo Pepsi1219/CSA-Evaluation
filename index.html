@@ -57,12 +57,12 @@
     <h3>1. การตั้งเป้าหมาย (Training Plan)</h3>
     <div class="input-group">
         <label>ค่า SAM (นาที)</label>
-        <input type="number" id="samInput" step="0.00001" placeholder="เช่น 0.52000" oninput="calculateAll()">
+        <input type="number" id="samInput" inputmode="decimal" step="0.00001" placeholder="0.00000" oninput="calculateAll()">
         <div class="unit">* รองรับทศนิยมสูงสุด 5 ตำแหน่ง</div>
     </div>
     <div class="input-group">
         <label>Efficiency (%) ที่ตั้งเป้าไว้</label>
-        <input type="number" id="effTargetInput" placeholder="เช่น 75" oninput="calculateAll()">
+        <input type="number" id="effTargetInput" inputmode="numeric" placeholder="00" oninput="calculateAll()">
         <div class="unit">* ใส่เฉพาะตัวเลขไม่ต้องใส่ %</div>
     </div>
     <div class="input-group">
@@ -76,12 +76,12 @@
         
         <div class="input-group">
             <label>เวลารวมทั้งหมด (วินาที)</label>
-            <input type="number" id="totalTime" placeholder="กรอกเวลารวม" oninput="calculateAll()">
+            <input type="number" id="totalTime" inputmode="numeric" placeholder="กรอกเวลารวม" oninput="calculateAll()">
         </div>
         
         <div class="input-group">
             <label>จำนวนครั้งที่ทำได้ (รอบ)</label>
-            <input type="number" id="totalCount" placeholder="กรอกจำนวนรอบ" oninput="calculateAll()">
+            <input type="number" id="totalCount" inputmode="numeric" placeholder="กรอกจำนวนรอบ" oninput="calculateAll()">
         </div>
 
         <div class="input-group">
@@ -153,4 +153,5 @@
 
 </body>
 </html>
+
 

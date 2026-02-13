@@ -105,6 +105,24 @@
             <label>ประสิทธิภาพจริง (ชิ้น/ชม.)</label>
             <input type="text" id="actualPcs" readonly class="highlight-result">
         </div>
+        
+        <div class="quality-section" style="background-color: #f0fff4; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #c6f6d5;">
+        <h3 style="color: #2f855a; border-left-color: #38a169;">3. คุณภาพ (Quality Control)</h3>
+        
+        <div class="input-group">
+            <label>จำนวนที่ "ผ่าน" (ชิ้น)</label>
+            <input type="number" id="passQty" inputmode="numeric" placeholder="กรอกจำนวนงานดี" oninput="calculateAll()">
+        </div>
+        
+        <div class="input-group">
+            <label>จำนวนที่ "ไม่ผ่าน" (ชิ้น)</label>
+            <input type="number" id="failQty" inputmode="numeric" placeholder="กรอกจำนวนงานเสีย" oninput="calculateAll()">
+        </div>
+
+        <div class="input-group">
+            <label>อัตราการผ่าน (%)</label>
+            <input type="text" id="passRate" readonly class="highlight-result" style="background-color: #e6fffa !important; border-color: #38a169 !important; color: #234e52 !important;">
+        </div>
     </div>
 </div>
 
@@ -148,10 +166,20 @@
             document.getElementById('actualEffPerc').value = "";
             document.getElementById('actualPcs').value = "";
         }
+        // --- 3. คำนวณส่วนคุณภาพ ---
+        const totalQty = passQty + failQty;
+        if (totalQty > 0) {
+            let passRate = (passQty / totalQty) * 100;
+            // ปัดเศษขึ้นตามโจทย์
+            document.getElementById('passRate').value = Math.ceil(passRate) + " %";
+        } else {
+            document.getElementById('passRate').value = "";
+        }
     }
 </script>
 
 </body>
 </html>
+
 
 

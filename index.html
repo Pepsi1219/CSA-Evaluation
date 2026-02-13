@@ -56,17 +56,15 @@
     <div class="input-group">
         <label>ค่า SAM (นาที)</label>
         <input type="number" id="samInput" inputmode="decimal" step="0.00001" placeholder="0.00000" oninput="calculateAll()">
-        <div class="unit">* รองรับทศนิยมสูงสุด 5 ตำแหน่ง</div>
     </div>
     <div class="input-group">
         <label>Efficiency (%) ที่ตั้งเป้าไว้</label>
         <input type="number" id="effTargetInput" inputmode="numeric" placeholder="00" oninput="calculateAll()">
-        <div class="unit">* ใส่เฉพาะตัวเลขไม่ต้องใส่ %</div>
     </div>
     <div class="input-group">
         <label>เป้าหมายชิ้นงาน (ชิ้น/ชม.)</label>
         <input type="text" id="targetDisplay" readonly class="highlight-result">
-        <div class="unit">* คำนวณจาก (60 / SAM) * Eff และปัดเศษขึ้น</div>
+        <div class="unit">*(60 / SAM) * Eff </div>
     </div>
     
     <hr>
@@ -147,7 +145,7 @@ function calculateAll() {
     // 2. คำนวณงานจริง
     if (totalTime > 0 && totalCount > 0) {
         let avgSec = totalTime / totalCount;
-        document.getElementById('avgTimeSec').value = avgSec.toFixed(2);
+        document.getElementById('avgTimeSec').value = Math.round(avgSec);
 
         let avgMin = avgSec / 60;
         document.getElementById('avgTimeMin').value = avgMin.toFixed(2);

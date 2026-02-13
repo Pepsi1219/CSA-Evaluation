@@ -105,9 +105,9 @@
             <label>ประสิทธิภาพจริง (ชิ้น/ชม.)</label>
             <input type="text" id="actualPcs" readonly class="highlight-result">
         </div>
-        
-        <div class="quality-section" style="background-color: #f0fff4; padding: 15px; border-radius: 10px; margin-top: 20px; border: 1px solid #c6f6d5;">
-        <h3 style="color: #2f855a; border-left-color: #38a169;">3. คุณภาพ (Quality Control)</h3>
+
+        <div class="quality-section">
+        <h4>3. คุณภาพ (Quality Control)</h4>
         
         <div class="input-group">
             <label>จำนวนที่ "ผ่าน" (ชิ้น)</label>
@@ -119,9 +119,11 @@
             <input type="number" id="failQty" inputmode="numeric" placeholder="กรอกจำนวนงานเสีย" oninput="calculateAll()">
         </div>
 
+        <hr>
+
         <div class="input-group">
             <label>อัตราการผ่าน (%)</label>
-            <input type="text" id="passRate" readonly class="highlight-result" style="background-color: #e6fffa !important; border-color: #38a169 !important; color: #234e52 !important;">
+            <input type="text" id="passRate" readonly class="highlight-result">
         </div>
     </div>
 </div>
@@ -167,18 +169,20 @@
             document.getElementById('actualPcs').value = "";
         }
         // --- 3. คำนวณส่วนคุณภาพ ---
-        const totalQty = passQty + failQty;
-        if (totalQty > 0) {
-            let passRate = (passQty / totalQty) * 100;
-            // ปัดเศษขึ้นตามโจทย์
-            document.getElementById('passRate').value = Math.ceil(passRate) + " %";
-            document.getElementById('passRate').value = "";
-        }
+    const totalQty = passQty + failQty;
+    if (totalQty > 0) {
+        let passRate = (passQty / totalQty) * 100;
+        document.getElementById('passRate').value = Math.ceil(passRate) + " %";
+        // --- จุดที่แก้ไข: ลบบรรทัดที่สั่งล้างค่า "" ออกไป ---
+    } else {
+        document.getElementById('passRate').value = ""; // ล้างค่าเมื่อยังไม่มีการกรอกจำนวน
     }
+}
 </script>
 
 </body>
 </html>
+
 
 
 

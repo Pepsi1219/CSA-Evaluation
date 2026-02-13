@@ -70,7 +70,9 @@
         <input type="text" id="targetDisplay" readonly class="highlight-result">
         <div class="unit">* คำนวณจาก (60 / SAM) * Eff และปัดเศษขึ้น</div>
     </div>
-
+    
+    <hr>
+    
     <div class="actual-section">
         <h3>2. บันทึกผลงานจริง (Actual Performance)</h3>
         
@@ -94,8 +96,6 @@
             <input type="text" id="avgTimeMin" readonly>
         </div>
 
-        <hr>
-
         <div class="input-group">
             <label>ประสิทธิภาพจริง (%)</label>
             <input type="text" id="actualEffPerc" readonly class="highlight-result">
@@ -106,8 +106,10 @@
             <input type="text" id="actualPcs" readonly class="highlight-result">
         </div>
 
+        <hr>
+        
         <div class="quality-section">
-        <h4>3. คุณภาพ (Quality Control)</h4>
+        <h3>3. คุณภาพ (Quality Control)</h3>
         
         <div class="input-group">
             <label>จำนวนที่ "ผ่าน" (ชิ้น)</label>
@@ -129,51 +131,51 @@
 </div>
 
 <script>
-    function calculateAll() {
-        // ดึงค่า Input
-        const sam = parseFloat(document.getElementById('samInput').value);
-        const effTarget = parseFloat(document.getElementById('effTargetInput').value);
-        const totalTime = parseFloat(document.getElementById('totalTime').value);
-        const totalCount = parseFloat(document.getElementById('totalCount').value);
+function calculateAll() {
+    // 1. ดึงค่า Input ทั้งหมดมาเก็บในตัวแปร
+    const sam = parseFloat(document.getElementById('samInput').value);
+    const effTarget = parseFloat(document.getElementById('effTargetInput').value);
+    const totalTime = parseFloat(document.getElementById('totalTime').value);
+    const totalCount = parseFloat(document.getElementById('totalCount').value);
+    const passQty = parseFloat(document.getElementById('passQty').value) || 0;
+    const failQty = parseFloat(document.getElementById('failQty').value) || 0;
 
-        // 1. คำนวณเป้าหมาย (เหมือนโค้ดเดิม)
-        if (sam > 0 && !isNaN(effTarget)) {
-            let target = Math.ceil((60 / sam) * (effTarget / 100));
-            document.getElementById('targetDisplay').value = target.toLocaleString() + " ชิ้น";
+    // 1. คำนวณเป้าหมาย
+    if (sam > 0 && !isNaN(effTarget)) {
+        let target = Math.ceil((60 / sam) * (effTarget / 100));
+        document.getElementById('targetDisplay').value = target.toLocaleString() + " ชิ้น";
+    } else {
+        document.getElementById('targetDisplay').value = ""; // เพิ่มการล้างค่า
+    }
+
+    // 2. คำนวณงานจริง
+    if (totalTime > 0 && totalCount > 0) {
+        let avgSec = totalTime / totalCount;
+        document.getElementById('avgTimeSec').value = avgSec.toFixed(2);
+
+        let avgMin = avgSec / 60;
+        document.getElementById('avgTimeMin').value = avgMin.toFixed(2);
+
+        if (sam > 0 && avgMin > 0) {
+            let actualEff = (sam / avgMin) * 100;
+            document.getElementById('actualEffPerc').value = Math.ceil(actualEff) + " %";
+
+            let actualPcsVal = 60 / avgMin;
+            document.getElementById('actualPcs').value = Math.ceil(actualPcsVal).toLocaleString() + " ชิ้น";
         }
+    } else {
+        document.getElementById('avgTimeSec').value = "";
+        document.getElementById('avgTimeMin').value = "";
+        document.getElementById('actualEffPerc').value = "";
+        document.getElementById('actualPcs').value = "";
+    }
 
-        // 2. คำนวณงานจริง
-        if (totalTime > 0 && totalCount > 0) {
-            // (1) เวลาเฉลี่ยจริง (วินาที) = เวลารวม / จำนวนครั้ง
-            let avgSec = totalTime / totalCount;
-            document.getElementById('avgTimeSec').value = avgSec.toFixed(2);
-
-            // (2) เวลาต่อรอบจริง (นาที) = เวลาเฉลี่ยจริง (วินาที) / 60
-            let avgMin = avgSec / 60;
-            document.getElementById('avgTimeMin').value = avgMin.toFixed(2);
-
-            // (3) ประสิทธิภาพจริง (%) = (SAM / เวลาต่อรอบจริง (นาที)) * 100
-            if (sam > 0 && avgMin > 0) {
-                let actualEff = (sam / avgMin) * 100;
-                document.getElementById('actualEffPerc').value = Math.ceil(actualEff) + " %";
-
-                // (4) ประสิทธิภาพจริง (ชิ้น) = 60 / เวลาต่อรอบจริง (นาที)
-                let actualPcsVal = 60 / avgMin;
-                document.getElementById('actualPcs').value = Math.ceil(actualPcsVal).toLocaleString() + " ชิ้น";
-            }
-        } else {
-            // ล้างค่าถ้าข้อมูลไม่ครบ
-            document.getElementById('avgTimeSec').value = "";
-            document.getElementById('avgTimeMin').value = "";
-            document.getElementById('actualEffPerc').value = "";
-            document.getElementById('actualPcs').value = "";
-        }
-        // --- 3. คำนวณส่วนคุณภาพ ---
+    // 3. คำนวณส่วนคุณภาพ
     const totalQty = passQty + failQty;
     if (totalQty > 0) {
         let passRate = (passQty / totalQty) * 100;
         document.getElementById('passRate').value = Math.ceil(passRate) + " %";
-        // --- จุดที่แก้ไข: ลบบรรทัดที่สั่งล้างค่า "" ออกไป ---
+
     } else {
         document.getElementById('passRate').value = ""; // ล้างค่าเมื่อยังไม่มีการกรอกจำนวน
     }
@@ -182,6 +184,7 @@
 
 </body>
 </html>
+
 
 
 

@@ -8,7 +8,7 @@
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         
         body { 
-            background-color: #333; 
+            background-color: #fff; 
             margin: 8px; 
             display: flex; 
             justify-content: center; 
@@ -136,61 +136,73 @@
 
 <script>
 function calculateAll() {
-    // 1. ดึงค่า Input ทั้งหมดมาเก็บในตัวแปร
-    const sam = parseFloat(document.getElementById('samInput').value);
-    const effTarget = parseFloat(document.getElementById('effTargetInput').value);
-    const totalTime = parseFloat(document.getElementById('totalTime').value);
-    const totalCount = parseFloat(document.getElementById('totalCount').value);
-    const passQty = parseFloat(document.getElementById('passQty').value) || 0;
-    const failQty = parseFloat(document.getElementById('failQty').value) || 0;
 
-    // 1. คำนวณเป้าหมาย
+    // ===== Helper Function =====
+    function setResult(el, value) {
+        if (value !== "" && value !== null && !isNaN(value)) {
+            el.value = value;
+            el.classList.add("highlight-result");
+        } else {
+            el.value = "";
+            el.classList.remove("highlight-result");
+        }
+    }
+
+    // ===== Get Elements (cache DOM) =====
+    const sam = parseFloat(samInput.value);
+    const effTarget = parseFloat(effTargetInput.value);
+    const totalTime = parseFloat(totalTime.value);
+    const totalCount = parseFloat(totalCount.value);
+    const passQty = parseFloat(passQtyInput.value) || 0;
+    const failQty = parseFloat(failQtyInput.value) || 0;
+
+    // ===== 1. TARGET CALCULATION =====
     if (sam > 0 && !isNaN(effTarget)) {
-
-    let target = Math.ceil((60 / sam) * (effTarget / 100));
-    targetDisplay.value = target.toLocaleString() + " ชิ้น";
-    targetDisplay.classList.add("highlight-result");
-    }
-    else {targetDisplay.value = "";
-    targetDisplay.classList.remove("highlight-result");
+        const target = Math.ceil((60 / sam) * (effTarget / 100));
+        setResult(targetDisplay, target.toLocaleString() + " ชิ้น");
+    } else {
+        setResult(targetDisplay, "");
     }
 
-    // 2. คำนวณงานจริง
+    // ===== 2. ACTUAL PERFORMANCE =====
     if (totalTime > 0 && totalCount > 0) {
-        let avgSec = totalTime / totalCount;
-        document.getElementById('avgTimeSec').value = Math.round(avgSec);
 
-        let avgMin = avgSec / 60;
-        document.getElementById('avgTimeMin').value = avgMin.toFixed(2);
+        const avgSec = totalTime / totalCount;
+        setResult(avgTimeSec, Math.round(avgSec));
+
+        const avgMin = avgSec / 60;
+        setResult(avgTimeMin, avgMin.toFixed(2));
 
         if (sam > 0 && avgMin > 0) {
-            let actualEff = (sam / avgMin) * 100;
-            document.getElementById('actualEffPerc').value = Math.ceil(actualEff) + " %";
 
-            let actualPcsVal = 60 / avgMin;
-            document.getElementById('actualPcs').value = Math.ceil(actualPcsVal).toLocaleString() + " ชิ้น";
+            const actualEff = (sam / avgMin) * 100;
+            setResult(actualEffPerc, Math.ceil(actualEff) + " %");
+
+            const actualPcsVal = 60 / avgMin;
+            setResult(actualPcs, Math.ceil(actualPcsVal).toLocaleString() + " ชิ้น");
         }
     } else {
-        document.getElementById('avgTimeSec').value = "";
-        document.getElementById('avgTimeMin').value = "";
-        document.getElementById('actualEffPerc').value = "";
-        document.getElementById('actualPcs').value = "";
+        setResult(avgTimeSec, "");
+        setResult(avgTimeMin, "");
+        setResult(actualEffPerc, "");
+        setResult(actualPcs, "");
     }
 
-    // 3. คำนวณส่วนคุณภาพ
+    // ===== 3. QUALITY =====
     const totalQty = passQty + failQty;
-    if (totalQty > 0) {
-        let passRate = (passQty / totalQty) * 100;
-        document.getElementById('passRate').value = Math.round(passRate) + " %";
 
+    if (totalQty > 0) {
+        const passRate = (passQty / totalQty) * 100;
+        setResult(passRateInput, Math.round(passRate) + " %");
     } else {
-        document.getElementById('passRate').value = ""; // ล้างค่าเมื่อยังไม่มีการกรอกจำนวน
+        setResult(passRateInput, "");
     }
 }
 </script>
 
 </body>
 </html>
+
 
 
 

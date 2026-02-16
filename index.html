@@ -136,57 +136,87 @@
 
 <script>
 function calculateAll() {
-    // 1. ดึงค่า Input ทั้งหมดมาเก็บในตัวแปร
+    // 1. ประกาศตัวแปรเพื่อดึงค่าจาก Input
     const sam = parseFloat(document.getElementById('samInput').value);
     const effTarget = parseFloat(document.getElementById('effTargetInput').value);
     const totalTime = parseFloat(document.getElementById('totalTime').value);
     const totalCount = parseFloat(document.getElementById('totalCount').value);
-    
-    // --- จุดที่แก้ไข: เพิ่มการดึงค่า Pass และ Fail ---
     const passQty = parseFloat(document.getElementById('passQty').value) || 0;
     const failQty = parseFloat(document.getElementById('failQty').value) || 0;
 
-    // 1. คำนวณเป้าหมาย
+    // 2. ประกาศตัวแปรสำหรับแสดงผล (Display Elements)
+    const targetDisplay = document.getElementById('targetDisplay');
+    const avgTimeSec = document.getElementById('avgTimeSec');
+    const avgTimeMin = document.getElementById('avgTimeMin');
+    const actualEffPerc = document.getElementById('actualEffPerc');
+    const actualPcs = document.getElementById('actualPcs');
+    const passRate = document.getElementById('passRate');
+
+    // --- ส่วนที่ 1: คำนวณเป้าหมาย (Target) ---
     if (sam > 0 && !isNaN(effTarget)) {
-    let target = Math.ceil((60 / sam) * (effTarget / 100));
-    targetDisplay.value = target.toLocaleString() + " ชิ้น";
-    targetDisplay.classList.add("highlight-result");   
-    }
-    else {
-    targetDisplay.value = "";
-    targetDisplay.classList.remove("highlight-result");
+        let target = Math.ceil((60 / sam) * (effTarget / 100));
+        targetDisplay.value = target.toLocaleString() + " ชิ้น";
+        targetDisplay.classList.add("highlight-result");   
+    } else {
+        targetDisplay.value = "";
+        targetDisplay.classList.remove("highlight-result");
     }
 
-    // 2. คำนวณงานจริง
+    // --- ส่วนที่ 2: คำนวณงานจริง (Actual) ---
     if (totalTime > 0 && totalCount > 0) {
-        let avgSec = totalTime / totalCount;
-        document.getElementById('avgTimeSec').value = avgSec.toFixed(2);
+        let avgSecValue = totalTime / totalCount;
+        let avgMinValue = avgSecValue / 60;
 
-        let avgMin = avgSec / 60;
-        document.getElementById('avgTimeMin').value = avgMin.toFixed(2);
+        // แสดงผลวินาทีและนาที
+        avgTimeSec.value = avgSecValue.toFixed(2);
+        avgTimeMin.value = avgMinValue.toFixed(2);
+        
+        avgTimeSec.classList.add("highlight-result");
+        avgTimeMin.classList.add("highlight-result");
 
-        if (sam > 0 && avgMin > 0) {
-            let actualEff = (sam / avgMin) * 100;
-            document.getElementById('actualEffPerc').value = Math.ceil(actualEff) + " %";
+        // คำนวณประสิทธิภาพจริงต่อ (ถ้ามี SAM)
+        if (sam > 0) {
+            let effActual = Math.ceil((sam / avgMinValue) * 100);
+            let pcsActual = Math.ceil(60 / avgMinValue);
 
-            let actualPcsVal = 60 / avgMin;
-            document.getElementById('actualPcs').value = Math.ceil(actualPcsVal).toLocaleString() + " ชิ้น";
+            actualEffPerc.value = effActual + " %";
+            actualPcs.value = pcsActual.toLocaleString() + " ชิ้น";
+            
+            actualEffPerc.classList.add("highlight-result");
+            actualPcs.classList.add("highlight-result");
         }
     } else {
-        document.getElementById('avgTimeSec').value = "";
-        document.getElementById('avgTimeMin').value = "";
-        document.getElementById('actualEffPerc').value = "";
-        document.getElementById('actualPcs').value = "";
+        // ล้างค่าส่วนงานจริงทั้งหมด
+        avgTimeSec.value = "";
+        avgTimeMin.value = "";
+        actualEffPerc.value = "";
+        actualPcs.value = "";
+        
+        avgTimeSec.classList.remove("highlight-result");
+        avgTimeMin.classList.remove("highlight-result");
+        actualEffPerc.classList.remove("highlight-result");
+        actualPcs.classList.remove("highlight-result");
     }
 
-    // 3. คำนวณส่วนคุณภาพ
+    // --- ส่วนที่ 3: คำนวณคุณภาพ (Quality) ---
     const totalQty = passQty + failQty;
+
     if (totalQty > 0) {
-        let passRate = (passQty / totalQty) * 100;
-        document.getElementById('passRate').value = Math.ceil(passRate) + " %";
-        // --- จุดที่แก้ไข: ลบบรรทัดที่สั่งล้างค่า "" ออกไป ---
-    } else {
-        document.getElementById('passRate').value = ""; // ล้างค่าเมื่อยังไม่มีการกรอกจำนวน
+        // คำนวณอัตราการผ่าน
+        let rate = Math.ceil((passQty / totalQty) * 100);
+        
+        // แสดงผล
+        passRate.value = rate + " %";
+        
+        // ใส่สีไฮไลท์ (ใช้ class เดียวกับส่วนอื่นเพื่อให้สีเหมือนกัน หรือจะแยก class ก็ได้)
+        passRate.classList.add("highlight-result"); 
+    } 
+    else {
+        // ล้างค่าเมื่อข้อมูลไม่ครบหรือผลรวมเป็น 0
+        passRate.value = "";
+        
+        // ล้างสีไฮไลท์ออก
+        passRate.classList.remove("highlight-result");
     }
 }
 </script>

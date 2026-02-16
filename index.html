@@ -50,27 +50,54 @@
 <body>
 
 <div class="container">
-    <h2>CSA Evaluation Planning</h2>
-  <button type="button" onclick="resetForm()" style="width: 100%; padding: 12px; background-color: #ff4d4d; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-bottom: 20px; font-size: 16px;">
-    🗑️ ล้างข้อมูลทั้งหมด
-</button>
+      <h2 style="margin: 10; font-size: 22px; color: #007bff;align-items: center">CSA Evaluation Planning</h2>
+  
+     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; gap: 10px; ">
+    
+    <div style="display: flex; gap: 10px; align-items: center;">
+        
+        <button type="button"
+                onclick="changeLanguage('th')" 
+                style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px; font-weight: 500;">
+            🇹🇭
+        </button>
+      
+        <button type="button"
+                onclick="changeLanguage('en')" 
+                style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px; font-weight: 500;">
+            🇺🇸
+        </button>
 
-    <h3>1. การตั้งเป้าหมาย (Training Plan)</h3>
+        <button type="button" onclick="resetForm()" 
+                style="padding: 8px 15px; background-color: #ff4d4d; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; white-space: nowrap; display: flex; align-items: center; gap: 5px;">
+            🗑️ ล้างข้อมูล
+        </button>
+      <button type="button" onclick="scrollToBottom()" 
+        style="padding: 8px 15px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; white-space: nowrap; display: flex; align-items: center; gap: 5px;">
+    ⬇️ วางแผนการฝึก
+</button>
+        
+    </div>
+</div>
+<hr style="border: 0; border-top: 2px solid #007bff; margin-bottom: 25px; opacity: 0.2;">
+  
+
+    <h3>1. การตั้งเป้าหมาย (Set Target)</h3>
     <div class="input-group">
-        <label>ค่า SAM (นาที)</label>
+        <label>เวลามาตรฐาน (นาที)</label>
         <input type="number"
                id="samInput"
                inputmode="decimal"
                step="0.00001"
-               placeholder="0.00000"
+               placeholder="SAM"
                oninput="calculateAll()">
     </div>
     <div class="input-group">
-        <label>Efficiency (%) ที่ตั้งเป้าไว้</label>
+        <label>เป้าหมายประสิทธิภาพ (%)</label>
         <input type="number"
                id="effTargetInput"
                inputmode="numeric"
-               placeholder="00"
+               placeholder="Eff%"
                oninput="calculateAll()">
     </div>
     <div class="input-group">
@@ -100,7 +127,7 @@
         </div>
 
         <div class="input-group">
-            <label>เวลาเฉลี่ยจริง (วินาที/รอบ)</label>
+            <label>เวลาต่อรอบจริง (วินาที)</label>
             <input type="text" id="avgTimeSec" readonly class="highlight-result">
         </div>
 
@@ -126,22 +153,126 @@
         
         <div class="input-group">
             <label>จำนวนที่ "ผ่าน" (ชิ้น)</label>
-            <input type="number" id="passQty" inputmode="numeric" placeholder="กรอกจำนวนงานดี" oninput="calculateAll()">
+            <input type="number"
+                   id="passQty"
+                   inputmode="numeric"
+                   placeholder="จำนวนงานดี"
+                   oninput="calculateAll()">
         </div>
         
         <div class="input-group">
             <label>จำนวนที่ "ไม่ผ่าน" (ชิ้น)</label>
-            <input type="number" id="failQty" inputmode="numeric" placeholder="กรอกจำนวนงานเสีย" oninput="calculateAll()">
+            <input type="number"
+                   id="failQty"
+                   inputmode="numeric"
+                   placeholder="จำนวนงานเสีย"
+                   oninput="calculateAll()">
         </div>
 
         <div class="input-group">
             <label>อัตราการผ่าน (%)</label>
-            <input type="text" id="passRate" readonly class="highlight-result">
+            <input type="text" 
+                   id="passRate"
+                   readonly class="highlight-result">
+        </div>
+          
+         <hr>
+        
+        <div class="Stamina Planning">
+        <h3 id="training-plan">4. วางแผนการฝึก (Training Plan)</h3>
+        
+        <div class="input-group">
+            <label>ระยะเวลาการฝึก (วัน/ชม)</label>
+            <input type="number"
+                   id="passQty"
+                   inputmode="numeric"
+                   placeholder=""
+                   oninput="calculateAll()">
+        </div>
+
+        <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 1</label>
+            <input type="text" 
+                   id="d1"
+                   readonly class="highlight-result">
+        </div>
+        <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 2</label>
+            <input type="text" 
+                   id="d2"
+                   readonly class="highlight-result">
+        </div>
+        <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 3</label>
+            <input type="text" 
+                   id="d3"
+                   readonly class="highlight-result">
+        </div>
+                  <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 4</label>
+            <input type="text" 
+                   id="d4"
+                   readonly class="highlight-result">
+        </div>
+                  <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 5</label>
+            <input type="text" 
+                   id="d5"
+                   readonly class="highlight-result">
+        </div>
+                  <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 6</label>
+            <input type="text" 
+                   id="d6"
+                   readonly class="highlight-result">
+        </div>
+                  <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 7</label>
+            <input type="text" 
+                   id="d7"
+                   readonly class="highlight-result">
+        </div>
+                  <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 2</label>
+            <input type="text" 
+                   id="d2"
+                   readonly class="highlight-result">
+        </div>
+                  <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 8</label>
+            <input type="text" 
+                   id="d8"
+                   readonly class="highlight-result">
+        </div>
+                  <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 9</label>
+            <input type="text" 
+                   id="d9"
+                   readonly class="highlight-result">
+        </div>
+                  <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 10</label>
+            <input type="text" 
+                   id="d10"
+                   readonly class="highlight-result">
         </div>
     </div>
 </div>
 
 <script>
+function scrollToBottom() {
+    // ดึง Element เป้าหมายด้วย ID
+    const target = document.getElementById('training-plan');
+    
+    if (target) {
+        // สั่งให้เลื่อนหน้าจอไปที่ Element นั้น
+        target.scrollIntoView({
+            behavior: 'smooth', // เลื่อนแบบนุ่มนวล
+            block: 'start'      // ให้ส่วนบนของหัวข้ออยู่บนสุดของจอ
+        });
+    }
+}
+  
 function resetForm() {
     // 1. สร้างรายการ ID ของ Input ทั้งหมดที่ต้องการล้าง
     const inputs = [
@@ -186,7 +317,7 @@ function calculateAll() {
     // --- ส่วนที่ 1: คำนวณเป้าหมาย (Target) ---
     if (sam > 0 && !isNaN(effTarget)) {
         let target = Math.ceil((60 / sam) * (effTarget / 100));
-        targetDisplay.value = target.toLocaleString() + " ชิ้น";
+        targetDisplay.value = Math.ceil(target);
         targetDisplay.classList.add("highlight-result");   
     } else {
         targetDisplay.value = "";
@@ -197,11 +328,11 @@ function calculateAll() {
     // เงื่อนไข: ต้องมีจำนวนครั้ง (totalCount) และ มีเวลาอย่างใดอย่างหนึ่ง (นาที หรือ วินาที)
     if (totalCount > 0 && (totalMin > 0 || totalTime > 0)) {
         // สูตรใหม่ที่คุณปรับ: แปลงนาทีเป็นวินาที + วินาทีที่เหลือ แล้วหารด้วยจำนวนครั้ง
-        let avgSecValue = ((totalMin * 60) + totalTime) / totalCount;
+        let avgSecValue = Math.ceil((totalMin * 60) + totalTime) / totalCount;
         let avgMinValue = avgSecValue / 60;
 
         // แสดงผล
-        avgTimeSec.value = avgSecValue.toFixed(2);
+        avgTimeSec.value = Math.ceil(avgSecValue);
         avgTimeMin.value = avgMinValue.toFixed(2);
         
         avgTimeSec.classList.add("highlight-result");
@@ -211,6 +342,7 @@ function calculateAll() {
             let effActual = Math.ceil((sam / avgMinValue) * 100);
             let pcsActual = Math.ceil(60 / avgMinValue);
 
+           
             actualEffPerc.value = effActual + " %";
             actualPcs.value = pcsActual.toLocaleString() + " ชิ้น";
             
@@ -245,9 +377,6 @@ function calculateAll() {
 
 </body>
 </html>
-
-
-
 
 
 

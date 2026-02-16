@@ -44,13 +44,16 @@
         input:focus { border-color: #007bff; background-color: #fff; }
         input[readonly] { background-color: #e9ecef; color: #495057; cursor: not-allowed; border-color: #dee2e6; }
         
-        .highlight-result { background-color: #fff3cd !important; border-color: #ffc107 !important; font-weight: bold; color: #856404 !important; }
+        .highlight-result { background-color: #E6E6FA !important; border-color: #D3D3D3 !important; font-weight: bold; color: #856404 !important; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>CSA Evaluation Planning</h2>
+  <button type="button" onclick="resetForm()" style="width: 100%; padding: 12px; background-color: #ff4d4d; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-bottom: 20px; font-size: 16px;">
+    🗑️ ล้างข้อมูลทั้งหมด
+</button>
 
     <h3>1. การตั้งเป้าหมาย (Training Plan)</h3>
     <div class="input-group">
@@ -81,15 +84,19 @@
     
     <div class="actual-section">
         <h3>2. บันทึกผลงานจริง (Actual Performance)</h3>
-        
-        <div class="input-group">
-            <label>เวลารวมทั้งหมด (วินาที)</label>
-            <input type="number" id="totalTime" inputmode="numeric" placeholder="กรอกเวลารวม" oninput="calculateAll()">
+            <div class="input-group">
+            <label>เวลารวมทั้งหมด (นาที)</label>
+            <input type="number" id="totalMin" inputmode="numeric" placeholder="นาที" oninput="calculateAll()">
         </div>
-        
+
+          <div class="input-group">
+            <label>เวลารวมทั้งหมด (วินาที)</label>
+            <input type="number" id="totalTime" inputmode="numeric" placeholder="วินาที" oninput="calculateAll()">
+        </div>
+      
         <div class="input-group">
             <label>จำนวนครั้งที่ทำได้ (รอบ)</label>
-            <input type="number" id="totalCount" inputmode="numeric" placeholder="กรอกจำนวนรอบ" oninput="calculateAll()">
+            <input type="number" id="totalCount" inputmode="numeric" placeholder="จำนวนรอบ" oninput="calculateAll()">
         </div>
 
         <div class="input-group">
@@ -135,16 +142,40 @@
 </div>
 
 <script>
+function resetForm() {
+    // 1. สร้างรายการ ID ของ Input ทั้งหมดที่ต้องการล้าง
+    const inputs = [
+        'samInput', 'effTargetInput', 'totalMin', 
+        'totalTime', 'totalCount', 'passQty', 'failQty'
+    ];
+
+    // 2. ลบค่าใน Input ทุกช่อง
+    inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
+
+    // 3. เรียกใช้ฟังก์ชันคำนวณใหม่ เพื่อให้ผลลัพธ์และสีไฮไลท์หายไปอัตโนมัติ
+    calculateAll();
+    
+    // 4. เลื่อนหน้าจอกลับไปด้านบนสุด (เผื่อใช้บนมือถือ)
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+  
 function calculateAll() {
-    // 1. ประกาศตัวแปรเพื่อดึงค่าจาก Input
+    // 1. ดึงค่าจาก Input (เพิ่ม totalMin เข้ามา)
     const sam = parseFloat(document.getElementById('samInput').value);
     const effTarget = parseFloat(document.getElementById('effTargetInput').value);
-    const totalTime = parseFloat(document.getElementById('totalTime').value);
+    
+    // ดึงค่านาทีและวินาที (ใส่ || 0 เพื่อกันค่าว่าง)
+    const totalMin = parseFloat(document.getElementById('totalMin').value) || 0; 
+    const totalTime = parseFloat(document.getElementById('totalTime').value) || 0;
     const totalCount = parseFloat(document.getElementById('totalCount').value);
+    
     const passQty = parseFloat(document.getElementById('passQty').value) || 0;
     const failQty = parseFloat(document.getElementById('failQty').value) || 0;
 
-    // 2. ประกาศตัวแปรสำหรับแสดงผล (Display Elements)
+    // 2. ประกาศตัวแปรสำหรับแสดงผล
     const targetDisplay = document.getElementById('targetDisplay');
     const avgTimeSec = document.getElementById('avgTimeSec');
     const avgTimeMin = document.getElementById('avgTimeMin');
@@ -163,19 +194,20 @@ function calculateAll() {
     }
 
     // --- ส่วนที่ 2: คำนวณงานจริง (Actual) ---
-    if (totalTime > 0 && totalCount > 0) {
-        let avgSecValue = totalTime / totalCount;
+    // เงื่อนไข: ต้องมีจำนวนครั้ง (totalCount) และ มีเวลาอย่างใดอย่างหนึ่ง (นาที หรือ วินาที)
+    if (totalCount > 0 && (totalMin > 0 || totalTime > 0)) {
+        // สูตรใหม่ที่คุณปรับ: แปลงนาทีเป็นวินาที + วินาทีที่เหลือ แล้วหารด้วยจำนวนครั้ง
+        let avgSecValue = ((totalMin * 60) + totalTime) / totalCount;
         let avgMinValue = avgSecValue / 60;
 
-        // แสดงผลวินาทีและนาที
+        // แสดงผล
         avgTimeSec.value = avgSecValue.toFixed(2);
         avgTimeMin.value = avgMinValue.toFixed(2);
         
         avgTimeSec.classList.add("highlight-result");
         avgTimeMin.classList.add("highlight-result");
 
-        // คำนวณประสิทธิภาพจริงต่อ (ถ้ามี SAM)
-        if (sam > 0) {
+        if (sam > 0 && avgMinValue > 0) {
             let effActual = Math.ceil((sam / avgMinValue) * 100);
             let pcsActual = Math.ceil(60 / avgMinValue);
 
@@ -186,7 +218,7 @@ function calculateAll() {
             actualPcs.classList.add("highlight-result");
         }
     } else {
-        // ล้างค่าส่วนงานจริงทั้งหมด
+        // ล้างค่าเมื่อข้อมูลไม่ครบ
         avgTimeSec.value = "";
         avgTimeMin.value = "";
         actualEffPerc.value = "";
@@ -200,22 +232,12 @@ function calculateAll() {
 
     // --- ส่วนที่ 3: คำนวณคุณภาพ (Quality) ---
     const totalQty = passQty + failQty;
-
     if (totalQty > 0) {
-        // คำนวณอัตราการผ่าน
         let rate = Math.ceil((passQty / totalQty) * 100);
-        
-        // แสดงผล
         passRate.value = rate + " %";
-        
-        // ใส่สีไฮไลท์ (ใช้ class เดียวกับส่วนอื่นเพื่อให้สีเหมือนกัน หรือจะแยก class ก็ได้)
         passRate.classList.add("highlight-result"); 
-    } 
-    else {
-        // ล้างค่าเมื่อข้อมูลไม่ครบหรือผลรวมเป็น 0
+    } else {
         passRate.value = "";
-        
-        // ล้างสีไฮไลท์ออก
         passRate.classList.remove("highlight-result");
     }
 }
@@ -223,6 +245,7 @@ function calculateAll() {
 
 </body>
 </html>
+
 
 
 

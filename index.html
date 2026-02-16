@@ -148,10 +148,13 @@ function calculateAll() {
 
     // 1. คำนวณเป้าหมาย
     if (sam > 0 && !isNaN(effTarget)) {
-        let target = Math.ceil((60 / sam) * (effTarget / 100));
-        document.getElementById('targetDisplay').value = target.toLocaleString() + " ชิ้น";
-    } else {
-        document.getElementById('targetDisplay').value = ""; // เพิ่มการล้างค่า
+    let target = Math.ceil((60 / sam) * (effTarget / 100));
+    targetDisplay.value = target.toLocaleString() + " ชิ้น";
+    targetDisplay.classList.add("highlight-result");   
+    }
+    else {
+    targetDisplay.value = "";
+    targetDisplay.classList.remove("highlight-result");
     }
 
     // 2. คำนวณงานจริง
@@ -190,6 +193,7 @@ function calculateAll() {
 
 </body>
 </html>
+
 
 
 

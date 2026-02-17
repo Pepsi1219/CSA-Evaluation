@@ -2,19 +2,22 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0,
+                   maximum-scale=1.0, user-scalable=no">
     <title>CSA Evaluation Planning</title>
+  
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         
-        body { 
+        body{ 
             background-color: #fff; 
             margin: 8px; 
             display: flex; 
             justify-content: center; 
             padding: 20px;
             color: #333;
-        }
+      }
 
         .container { 
             width: 100%; 
@@ -50,41 +53,42 @@
 <body>
 
 <div class="container">
-      <h2 style="margin: 10; font-size: 22px; color: #007bff;align-items: center">CSA Evaluation Planning</h2>
   
-     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; gap: 10px; ">
-    
-    <div style="display: flex; gap: 10px; align-items: center;">
-        
-        <button type="button"
-                onclick="changeLanguage('th')" 
-                style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px; font-weight: 500;">
-            🇹🇭
-        </button>
-      
-        <button type="button"
-                onclick="changeLanguage('en')" 
-                style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px; font-weight: 500;">
-            🇺🇸
-        </button>
+<div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px;">
+    <button type="button" onclick="changeLanguage('th')" 
+            style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center;">
+        🇹🇭
+    </button>
+    <button type="button" onclick="changeLanguage('en')" 
+            style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center;">
+        🇺🇸
+    </button>
+    <button type="button" onclick="changeLanguage('vn')" 
+            style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center;">
+        🇻🇳
+    </button>
+</div>
 
-        <button type="button" onclick="resetForm()" 
-                style="padding: 6px 10px; background-color: #ff4d4d; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; white-space: nowrap; display: flex; align-items: center; gap: 5px;">
-            🗑️
-        </button>
-      <button type="button" onclick="scrollToBottom()" 
-        style="padding: 6px 10px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; white-space: nowrap; display: flex; align-items: center; gap: 5px;">
-    ⬇️
-</button>
-        
+    <h2 style="margin: 10; font-size: 25px; color: #007bff;
+                 align-items: center">CSA Evaluation Planning</h2>
+    <div style="display: flex; gap: 10px; align-items: center;">
+    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 15px;">
+    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 15px;">
+    <button type="button" onclick="resetForm()" 
+            style="padding: 6px 10px; background-color: #ff4d4d; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px;">
+        🗑️
+    </button>
+    <button type="button" onclick="scrollToBottom()" 
+            style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px;">
+        ⬇️
+    </button>
+      </div>
     </div>
 </div>
-<hr style="border: 0; border-top: 2px solid #007bff; margin-bottom: 25px; opacity: 0.2;">
-  
 
-    <h3>1. การตั้งเป้าหมาย (Set Target)</h3>
+    <h3 class="lang-text" data-key="header1">1. การตั้งเป้าหมาย</h3>
     <div class="input-group">
-        <label>เวลามาตรฐาน (นาที)</label>
+        <label class="lang-text" data-key="sam_label">เวลามาตรฐาน (นาที)</label>
         <input type="number"
                id="samInput"
                inputmode="decimal"
@@ -92,8 +96,9 @@
                placeholder="SAM"
                oninput="calculateAll()">
     </div>
+  
     <div class="input-group">
-        <label>เป้าหมายประสิทธิภาพ (%)</label>
+        <label class="lang-text" data-key="eff_target">เป้าหมายประสิทธิภาพ (%)</label>
         <input type="number"
                id="effTargetInput"
                inputmode="numeric"
@@ -260,6 +265,65 @@
 </div>
 
 <script>
+  
+// 1. คลังคำศัพท์ 2 ภาษา
+const translations = {
+    'th': {
+        'header1': '1. การตั้งเป้าหมาย',
+        'sam_label': 'ค่า SAM (นาที)',
+        'eff_target': 'เป้าหมายประสิทธิภาพ (%)',
+        'total_min': 'เวลารวมทั้งหมด (นาที)',
+        'total_sec': 'เวลารวมทั้งหมด (วินาที)',
+        'total_count': 'จำนวนครั้งที่ทำได้ (รอบ)',
+        'pass_qty': 'จำนวนที่ "ผ่าน" (ชิ้น)',
+        'fail_qty': 'จำนวนที่ "ไม่ผ่าน" (ชิ้น)',
+
+    },
+    'en': {
+        'header1': '1. Set Target',
+        'sam_label': 'SAM Value (Minutes)',
+        'eff_target': 'Target Efficiency (%)',
+        'total_min': 'Total Time (Minutes)',
+        'total_sec': 'Total Time (Seconds)',
+        'total_count': 'Total Cycles/Output',
+        'pass_qty': 'Passed Qty (Pcs)',
+        'fail_qty': 'Failed Qty (Pcs)',
+    },
+    'vn': {
+        'header1': '1. Thiết lập mục tiêu',
+        'sam_label': 'Giá trị SAM (Phút)',
+        'eff_target': 'Hiệu suất mục tiêu (%)',
+
+    }
+};
+
+// 2. ฟังก์ชันสำหรับเปลี่ยนภาษา
+function changeLanguage(lang) {
+    // ดึง Element ทั้งหมดที่มีคลาส lang-text
+    const elements = document.querySelectorAll('.lang-text');
+    
+    elements.forEach(el => {
+        const key = el.getAttribute('data-key');
+        if (translations[lang] && translations[lang][key]) {
+            el.innerText = translations[lang][key];
+        }
+    });
+
+    // ปรับแต่งเพิ่มเติม: เปลี่ยนข้อความในปุ่มที่มีข้อความ
+    // (ถ้าคุณใส่ data-key ไว้ที่ปุ่มด้วย)
+    console.log("Language changed to: " + lang);
+}
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
 function scrollToBottom() {
     // ดึง Element เป้าหมายด้วย ID
     const target = document.getElementById('training-plan');

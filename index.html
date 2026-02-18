@@ -55,18 +55,26 @@
 <div class="container">
   
 <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px;">
-    <button type="button" onclick="changeLanguage('th')" 
+    <button type="button"
+            onclick="changeLanguage('th')" 
             style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center;">
         🇹🇭
     </button>
-    <button type="button" onclick="changeLanguage('en')" 
+    <button type="button"
+            onclick="changeLanguage('en')" 
             style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center;">
         🇺🇸
     </button>
-    <button type="button" onclick="changeLanguage('vn')" 
+    <button type="button"
+            onclick="changeLanguage('vn')" 
             style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center;">
         🇻🇳
     </button>
+   <button type="button"
+           onclick="changeLanguage('la')" 
+           style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;
+                  cursor: pointer; font-size: 14px; display: flex; align-items: center;">🇱🇦
+</button>
 </div>
 
     <h2 style="margin: 10; font-size: 25px; color: #007bff;
@@ -74,21 +82,25 @@
     <div style="display: flex; gap: 10px; align-items: center;">
     <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 15px;">
     <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 15px;">
-    <button type="button" onclick="resetForm()" 
+    <button type="button"
+            onclick="resetForm()" 
             style="padding: 6px 10px; background-color: #ff4d4d; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px;">
         🗑️
     </button>
-    <button type="button" onclick="scrollToBottom()" 
+    <button type="button"
+            onclick="scrollToBottom()" 
             style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px;">
         ⬇️
     </button>
       </div>
     </div>
 </div>
-
-    <h3 class="lang-text" data-key="header1">1. การตั้งเป้าหมาย</h3>
+  
+    <h3 class="lang-text"
+        data-key="header1">1. การตั้งเป้าหมาย</h3>
     <div class="input-group">
-        <label class="lang-text" data-key="sam_label">เวลามาตรฐาน (นาที)</label>
+        <label class="lang-text"
+               data-key="sam_label">เวลามาตรฐาน (นาที)</label>
         <input type="number"
                id="samInput"
                inputmode="decimal"
@@ -98,7 +110,8 @@
     </div>
   
     <div class="input-group">
-        <label class="lang-text" data-key="eff_target">เป้าหมายประสิทธิภาพ (%)</label>
+        <label class="lang-text"
+               data-key="eff_target">เป้าหมายประสิทธิภาพ (%)</label>
         <input type="number"
                id="effTargetInput"
                inputmode="numeric"
@@ -106,7 +119,8 @@
                oninput="calculateAll()">
     </div>
     <div class="input-group">
-        <label>เป้าหมายชิ้นงาน (ชิ้น/ชม.)</label>
+        <label class="lang-text"
+               data-key="qty_label">เป้าหมายชิ้นงาน (ชิ้น/ชม.)</label>
         <input type="text"
                id="targetDisplay"
                readonly>
@@ -115,67 +129,100 @@
     <hr>
     
     <div class="actual-section">
-        <h3>2. บันทึกผลงานจริง (Actual Performance)</h3>
+    <h3 class="lang-text"
+        data-key="header2">2. บันทึกผลงานจริง</h3>
             <div class="input-group">
-            <label>เวลารวมทั้งหมด (นาที)</label>
-            <input type="number" id="totalMin" inputmode="numeric" placeholder="นาที" oninput="calculateAll()">
+            <label class="lang-text"
+                   data-key="total_min">เวลารวมทั้งหมด (นาที)</label>
+            <input type="number"
+                   id="totalMin"
+                   inputmode="numeric"
+                   placeholder=""
+                   oninput="calculateAll()">
         </div>
 
           <div class="input-group">
-            <label>เวลารวมทั้งหมด (วินาที)</label>
-            <input type="number" id="totalTime" inputmode="numeric" placeholder="วินาที" oninput="calculateAll()">
+            <label class="lang-text"
+                   data-key="total_sec">เวลารวมทั้งหมด (วินาที)</label>
+            <input type="number"
+                   id="totalTime"
+                   inputmode="numeric"
+                   placeholder=""
+                   oninput="calculateAll()">
         </div>
       
         <div class="input-group">
-            <label>จำนวนครั้งที่ทำได้ (รอบ)</label>
-            <input type="number" id="totalCount" inputmode="numeric" placeholder="จำนวนรอบ" oninput="calculateAll()">
+            <label class="lang-text"
+                   data-key="total_count">จำนวนครั้งที่ทำได้ (รอบ)</label>
+            <input type="number"
+                   id="totalCount"
+                   inputmode="numeric"
+                   placeholder=""
+                   oninput="calculateAll()">
         </div>
 
         <div class="input-group">
-            <label>เวลาต่อรอบจริง (วินาที)</label>
-            <input type="text" id="avgTimeSec" readonly class="highlight-result">
+        <label class="lang-text"
+               data-key="avg_timesec">เวลาต่อรอบจริง (วินาที)</label>
+      <input type="text"
+             id="avgTimeSec"
+             readonly class="highlight-result">
         </div>
 
         <div class="input-group">
-            <label>เวลาต่อรอบจริง (นาที)</label>
-            <input type="text" id="avgTimeMin" readonly class="highlight-result">
+          <label class="lang-text"
+                 data-key="avg_timemin">เวลาต่อรอบจริง (นาที)</label>
+          <input type="text"
+                 id="avgTimeMin"
+                 readonly class="highlight-result">
         </div>
 
         <div class="input-group">
-            <label>ประสิทธิภาพจริง (%)</label>
-            <input type="text" id="actualEffPerc" readonly class="highlight-result">
+          <label class="lang-text"
+                 data-key="actual_eff">ประสิทธิภาพจริง (%)</label>
+          
+            <input type="text"
+                   id="actualEffPerc"
+                   readonly class="highlight-result">
         </div>
 
         <div class="input-group">
-            <label>ประสิทธิภาพจริง (ชิ้น/ชม.)</label>
-            <input type="text" id="actualPcs" readonly class="highlight-result">
+          <label class="lang-text"
+                 data-key="actual_pcs">ประสิทธิภาพจริง (ชิ้น/ชม.)</label>
+          
+            <input type="text"
+                   id="actualPcs"
+                   readonly class="highlight-result">
         </div>
 
         <hr>
         
         <div class="quality-section">
-        <h3>3. คุณภาพ (Quality Control)</h3>
-        
+        <h3 class="lang-text"
+            data-key="header3">3. คุณภาพ</h3>
         <div class="input-group">
-            <label>จำนวนที่ "ผ่าน" (ชิ้น)</label>
+          <label class="lang-text"
+                 data-key="pass_qty">จำนวนที่ "ผ่าน" (ชิ้น)</label>
             <input type="number"
                    id="passQty"
                    inputmode="numeric"
-                   placeholder="จำนวนงานดี"
+                   placeholder=""
                    oninput="calculateAll()">
         </div>
         
         <div class="input-group">
-            <label>จำนวนที่ "ไม่ผ่าน" (ชิ้น)</label>
+          <label class="lang-text"
+                 data-key="fail_qty">จำนวนที่ "ไม่ผ่าน" (ชิ้น)</label>
             <input type="number"
                    id="failQty"
                    inputmode="numeric"
-                   placeholder="จำนวนงานเสีย"
+                   placeholder=""
                    oninput="calculateAll()">
         </div>
 
         <div class="input-group">
-            <label>อัตราการผ่าน (%)</label>
+          <label class="lang-text"
+                 data-key="pass_rate">อัตราการผ่าน (%)</label>
             <input type="text" 
                    id="passRate"
                    readonly class="highlight-result">
@@ -213,52 +260,100 @@
                    id="d3"
                    readonly class="highlight-result">
         </div>
-                  <div class="input-group">
+              <div class="input-group">
             <label>วัน/ชั่วโมงที่ 4</label>
             <input type="text" 
                    id="d4"
                    readonly class="highlight-result">
         </div>
-                  <div class="input-group">
+              <div class="input-group">
             <label>วัน/ชั่วโมงที่ 5</label>
             <input type="text" 
                    id="d5"
                    readonly class="highlight-result">
         </div>
-                  <div class="input-group">
+              <div class="input-group">
             <label>วัน/ชั่วโมงที่ 6</label>
             <input type="text" 
                    id="d6"
                    readonly class="highlight-result">
         </div>
-                  <div class="input-group">
+              <div class="input-group">
             <label>วัน/ชั่วโมงที่ 7</label>
             <input type="text" 
                    id="d7"
                    readonly class="highlight-result">
         </div>
-                  <div class="input-group">
+              <div class="input-group">
             <label>วัน/ชั่วโมงที่ 2</label>
             <input type="text" 
                    id="d2"
                    readonly class="highlight-result">
         </div>
-                  <div class="input-group">
+              <div class="input-group">
             <label>วัน/ชั่วโมงที่ 8</label>
             <input type="text" 
                    id="d8"
                    readonly class="highlight-result">
         </div>
-                  <div class="input-group">
+              <div class="input-group">
             <label>วัน/ชั่วโมงที่ 9</label>
             <input type="text" 
                    id="d9"
                    readonly class="highlight-result">
         </div>
-                  <div class="input-group">
+              <div class="input-group">
             <label>วัน/ชั่วโมงที่ 10</label>
             <input type="text" 
                    id="d10"
+                   readonly class="highlight-result">
+        </div>
+              <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 11</label>
+            <input type="text" 
+                   id="d11"
+                   readonly class="highlight-result">
+        </div>
+              <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 12</label>
+            <input type="text" 
+                   id="d12"
+                   readonly class="highlight-result">
+        </div>
+              <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 13</label>
+            <input type="text" 
+                   id="d13"
+                   readonly class="highlight-result">
+        </div>
+              <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 14</label>
+            <input type="text" 
+                   id="d14"
+                   readonly class="highlight-result">
+        </div>
+              <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 15</label>
+            <input type="text" 
+                   id="d15"
+                   readonly class="highlight-result">
+        </div>
+              <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 16</label>
+            <input type="text" 
+                   id="d16"
+                   readonly class="highlight-result">
+        </div>
+              <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 17</label>
+            <input type="text" 
+                   id="d17"
+                   readonly class="highlight-result">
+        </div>
+              <div class="input-group">
+            <label>วัน/ชั่วโมงที่ 18</label>
+            <input type="text" 
+                   id="d18"
                    readonly class="highlight-result">
         </div>
     </div>
@@ -269,31 +364,87 @@
 // 1. คลังคำศัพท์ 2 ภาษา
 const translations = {
     'th': {
+        // ส่วนที่ 1: การตั้งเป้าหมาย
         'header1': '1. การตั้งเป้าหมาย',
         'sam_label': 'ค่า SAM (นาที)',
         'eff_target': 'เป้าหมายประสิทธิภาพ (%)',
+        'qty_label': 'เป้าหมายชิ้นงาน (ชิ้น/ชม.)',
+
+        // ส่วนที่ 2: บันทึกผลงานจริง
+        'header2': '2. บันทึกผลงานจริง',
         'total_min': 'เวลารวมทั้งหมด (นาที)',
         'total_sec': 'เวลารวมทั้งหมด (วินาที)',
         'total_count': 'จำนวนครั้งที่ทำได้ (รอบ)',
+        'avg_timesec': 'เวลาต่อรอบจริง (วินาที)',
+        'avg_timemin': 'เวลาต่อรอบจริง (นาที)',
+        'actual_eff': 'ประสิทธิภาพจริง (%)',
+        'actual_pcs': 'ประสิทธิภาพจริง (ชิ้น/ชม.)',
+
+        // ส่วนที่ 3: คุณภาพ
+        'header3': '3. คุณภาพ',
         'pass_qty': 'จำนวนที่ "ผ่าน" (ชิ้น)',
         'fail_qty': 'จำนวนที่ "ไม่ผ่าน" (ชิ้น)',
-
+        'pass_rate': 'อัตราการผ่าน (%)'
     },
     'en': {
         'header1': '1. Set Target',
         'sam_label': 'SAM Value (Minutes)',
         'eff_target': 'Target Efficiency (%)',
+        'qty_label': 'Target Cut Piece (pcs/hrs.)',
+
+        'header2': '2. Record Actual Results',
         'total_min': 'Total Time (Minutes)',
         'total_sec': 'Total Time (Seconds)',
-        'total_count': 'Total Cycles/Output',
+        'total_count': 'Total Cycles (Rounds)',
+        'avg_timesec': 'Actual Cycle Time (Seconds)',
+        'avg_timemin': 'Actual Cycle Time (Minutes)',
+        'actual_eff': 'Actual Efficiency (%)',
+        'actual_pcs': 'Actual Efficiency (Pieces/Hour)',
+
+        'header3': '3. Quality',
         'pass_qty': 'Passed Qty (Pcs)',
         'fail_qty': 'Failed Qty (Pcs)',
+        'pass_rate': 'Pass rate (%)'
     },
     'vn': {
         'header1': '1. Thiết lập mục tiêu',
         'sam_label': 'Giá trị SAM (Phút)',
         'eff_target': 'Hiệu suất mục tiêu (%)',
+        'qty_label': 'Số lượng sản phẩm mục tiêu mỗi giờ',
 
+        'header2': '2. Ghi lại kết quả thực tế',
+        'total_min': 'Tổng thời gian (Phút)',
+        'total_sec': 'Tổng thời gian (Giây)',
+        'total_count': 'Số lần (Vòng)',
+        'avg_timesec': 'Thời gian vòng thực tế (Giây)',
+        'avg_timemin': 'Thời gian vòng thực tế (Phút)',
+        'actual_eff': 'Hiệu suất thực tế (%)',
+        'actual_pcs': 'Hiệu suất thực tế (Sản phẩm/Giờ)',
+
+        'header3': '3. Chất lượng',
+        'pass_qty': 'Số lượng đạt tiêu chuẩn (Cái)',
+        'fail_qty': 'Số lượng không đạt tiêu chuẩn (Cái)',
+        'pass_rate': 'Tỷ lệ đậu (%)'
+    },
+    'la': {
+        'header1': '1. ການກຳນົດເປົ້າໝາຍ',
+        'sam_label': 'ຄ່າ SAM (ນາທີ)',
+        'eff_target': 'ເປົ້າໝາຍການປະຕິບັດ (%)',
+        'qty_label': 'ຈຳນວນເປົ້າໝາຍຂອງຊິ້ນສ່ວນຕໍ່ຊົ່ວໂມງ',
+
+        'header2': '2. ບັນທຶກຜົນໄດ້ຮັບຕົວຈິງ',
+        'total_min': 'ເວລາທັງໝົດ (ນາທີ)',
+        'total_sec': 'ເວລາທັງໝົດ (ວິນາທີ)',
+        'total_count': 'ຈຳນວນເທື່ອ (ຮອບ)',
+        'avg_timesec': 'ເວລາຮອບຕົວຈິງ (ວິນາທີ)',
+        'avg_timemin': 'ເວລາຮອບຕົວຈິງ (ນາທີ)',
+        'actual_eff': 'ປະສິດທິພາບຕົວຈິງ (%)',
+        'actual_pcs': 'ປະສິດທິພາບຕົວຈິງ (ຊິ້ນ/ຊົ່ວໂມງ)',
+
+        'header3': '3. ຄຸນນະພາບ',
+        'pass_qty': 'ຈຳນວນຜະລິດຕະພັນທີ່ໄດ້ມາດຕະຖານ (ຊິ້ນ)',
+        'fail_qty': 'ຈຳນວນຜະລິດຕະພັນທີ່ບໍ່ໄດ້ມາດຕະຖານ (ຊິ້ນ)',
+        'pass_rate': 'ອັດຕາການຜ່ານ (%)'
     }
 };
 
@@ -441,6 +592,7 @@ function calculateAll() {
 
 </body>
 </html>
+
 
 
 

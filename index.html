@@ -48,6 +48,33 @@
         input[readonly] { background-color: #e9ecef; color: #495057; cursor: not-allowed; border-color: #dee2e6; }
         
         .highlight-result { background-color: #E6E6FA !important; border-color: #D3D3D3 !important; font-weight: bold; color: #856404 !important; }
+      
+      /* ตัวหุ้มช่องกรอกข้อมูล */
+.input-suffix {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-suffix input {
+    width: 100%;
+    padding-right: 30px; /* เว้นที่ว่างด้านขวาไว้ให้ % */
+}
+
+/* ตัวเครื่องหมาย % */
+.suffix-symbol {
+    position: absolute;
+    right: 10px;
+    color: #666;
+    font-weight: bold;
+    pointer-events: none; /* ทำให้เมาส์คลิกทะลุไปที่ input ได้ */
+}
+
+/* ซ่อนสัญลักษณ์ % เมื่อยังไม่ได้พิมพ์อะไร (เลือกได้ว่าชอบแบบไหน) */
+.input-suffix input:placeholder-shown + .suffix-symbol {
+    display: none;
+}
+      
     </style>
 </head>
 <body>
@@ -110,14 +137,17 @@
     </div>
   
     <div class="input-group">
-        <label class="lang-text"
-               data-key="eff_target">เป้าหมายประสิทธิภาพ (%)</label>
+    <label class="lang-text" data-key="eff_target">เป้าหมายประสิทธิภาพ (%)</label>
+    <div class="input-suffix">
         <input type="number"
                id="effTargetInput"
                inputmode="numeric"
-               placeholder="Eff%"
+               placeholder="Eff"
                oninput="calculateAll()">
+        <span class="suffix-symbol">%</span>
     </div>
+</div>  
+  
     <div class="input-group">
         <label class="lang-text"
                data-key="qty_label">เป้าหมายชิ้นงาน (ชิ้น/ชม.)</label>
@@ -536,8 +566,9 @@ function calculateAll() {
     // --- ส่วนที่ 1: คำนวณเป้าหมาย (Target) ---
     if (sam > 0 && !isNaN(effTarget)) {
         let target = Math.ceil((60 / sam) * (effTarget / 100));
+        
         targetDisplay.value = Math.ceil(target);
-        targetDisplay.classList.add("highlight-result");   
+        targetDisplay.classList.add("highlight-result");
     } else {
         targetDisplay.value = "";
         targetDisplay.classList.remove("highlight-result");

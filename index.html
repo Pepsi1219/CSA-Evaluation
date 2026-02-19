@@ -121,7 +121,7 @@
     <div class="input-group">
         <label class="lang-text"
                data-key="qty_label">เป้าหมายชิ้นงาน (ชิ้น/ชม.)</label>
-        <input type="text"
+        <input type="number"
                id="targetDisplay"
                readonly>
     </div>
@@ -200,6 +200,7 @@
         <div class="quality-section">
         <h3 class="lang-text"
             data-key="header3">3. คุณภาพ</h3>
+          
         <div class="input-group">
           <label class="lang-text"
                  data-key="pass_qty">จำนวนที่ "ผ่าน" (ชิ้น)</label>
@@ -230,20 +231,22 @@
           
          <hr>
         
-        <div class="Stamina Planning">
-        <h3 id="training-plan">4. วางแผนการฝึก (Training Plan)</h3>
+        <div class="eff-section">
+          <h3 id="header4" class="lang-text"data-key="header4">4. วางแผนการฝึก</h3>
+     
         
         <div class="input-group">
-            <label>ระยะเวลาการฝึก (วัน/ชม)</label>
+            <label class="lang-text"
+                   data-key="training_duration">ระยะเวลาการฝึก (วัน/ชม)</label>
             <input type="number"
-                   id="passQty"
+                   id="duration"
                    inputmode="numeric"
                    placeholder=""
                    oninput="calculateAll()">
         </div>
 
         <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 1</label>
+            <label class="lang-text"data-key="training_duration">วัน/ชั่วโมงที่ 1</label>
             <input type="text" 
                    id="d1"
                    readonly class="highlight-result">
@@ -284,12 +287,7 @@
                    id="d7"
                    readonly class="highlight-result">
         </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 2</label>
-            <input type="text" 
-                   id="d2"
-                   readonly class="highlight-result">
-        </div>
+ 
               <div class="input-group">
             <label>วัน/ชั่วโมงที่ 8</label>
             <input type="text" 
@@ -384,7 +382,11 @@ const translations = {
         'header3': '3. คุณภาพ',
         'pass_qty': 'จำนวนที่ "ผ่าน" (ชิ้น)',
         'fail_qty': 'จำนวนที่ "ไม่ผ่าน" (ชิ้น)',
-        'pass_rate': 'อัตราการผ่าน (%)'
+        'pass_rate': 'อัตราการผ่าน (%)',
+      
+         // ส่วนที่ 4: วางแผนการฝึก
+        'header4': '4. วางแผนการฝึก',
+        'training_duration': 'ระยะเวลาการฝึก (วัน/ชม)'
     },
     'en': {
         'header1': '1. Set Target',
@@ -404,7 +406,10 @@ const translations = {
         'header3': '3. Quality',
         'pass_qty': 'Passed Qty (Pcs)',
         'fail_qty': 'Failed Qty (Pcs)',
-        'pass_rate': 'Pass rate (%)'
+        'pass_rate': 'Pass rate (%)',
+            
+        'header4': '4. Training Plan',
+        'training_duration': 'Training duration (days/hours)'
     },
     'vn': {
         'header1': '1. Thiết lập mục tiêu',
@@ -424,7 +429,10 @@ const translations = {
         'header3': '3. Chất lượng',
         'pass_qty': 'Số lượng đạt tiêu chuẩn (Cái)',
         'fail_qty': 'Số lượng không đạt tiêu chuẩn (Cái)',
-        'pass_rate': 'Tỷ lệ đậu (%)'
+        'pass_rate': 'Tỷ lệ đậu (%)',
+        
+        'header4': '4. Kế hoạch đào tạo',
+        'training_duration': 'Thời lượng đào tạo (ngày/giờ)'
     },
     'la': {
         'header1': '1. ການກຳນົດເປົ້າໝາຍ',
@@ -444,7 +452,10 @@ const translations = {
         'header3': '3. ຄຸນນະພາບ',
         'pass_qty': 'ຈຳນວນຜະລິດຕະພັນທີ່ໄດ້ມາດຕະຖານ (ຊິ້ນ)',
         'fail_qty': 'ຈຳນວນຜະລິດຕະພັນທີ່ບໍ່ໄດ້ມາດຕະຖານ (ຊິ້ນ)',
-        'pass_rate': 'ອັດຕາການຜ່ານ (%)'
+        'pass_rate': 'ອັດຕາການຜ່ານ (%)',
+        
+        'header4': '4. ແຜນການຝຶກອົບຮົມ',
+        'training_duration': 'ໄລຍະເວລາການຝຶກອົບຮົມ (ມື້/ຊົ່ວໂມງ)'
     }
 };
 
@@ -466,18 +477,10 @@ function changeLanguage(lang) {
 }
   
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
+
 function scrollToBottom() {
     // ดึง Element เป้าหมายด้วย ID
-    const target = document.getElementById('training-plan');
+    const target = document.getElementById('header4');
     
     if (target) {
         // สั่งให้เลื่อนหน้าจอไปที่ Element นั้น
@@ -508,6 +511,7 @@ function resetForm() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
   
+
 function calculateAll() {
     // 1. ดึงค่าจาก Input (เพิ่ม totalMin เข้ามา)
     const sam = parseFloat(document.getElementById('samInput').value);
@@ -587,11 +591,48 @@ function calculateAll() {
         passRate.value = "";
         passRate.classList.remove("highlight-result");
     }
-}
+  
+    // --- ส่วนที่ 4: คำนวณแผนการฝึก ---
+    const targetEff = parseFloat(document.getElementById('effTargetInput').value) || 0;
+    const actualEff = parseFloat(document.getElementById('actualEffPerc').value) || 0;
+    const duration = parseInt(document.getElementById('duration').value) || 0;
+
+    // --- ส่วนที่ 4: คำนวณแผนการฝึก ---
+    const gap = targetEff - actualEff;
+    
+    // ตรวจสอบ: ต้องมีระยะเวลาการฝึกมากกว่า 0 และมี Gap ที่ต้องพัฒนา
+    if (duration > 0 && gap > 0) {
+        const increment = gap / duration; // ส่วนต่างที่จะเพิ่มขึ้นในแต่ละขั้น
+
+        let currentTarget = actualEff;
+
+        for (let i = 1; i <= 18; i++) {
+            const displayElement = document.getElementById('d' + i);
+            if (displayElement) {
+                if (i <= duration) {
+                    // คำนวณค่าสะสม
+                    currentTarget += increment;
+                    // แสดงผลทศนิยม 2 ตำแหน่ง
+                    displayElement.value = Math.ceil(currentTarget) + " %";
+                } else {
+                    // ถ้าวันที่เกินจากระยะเวลาที่กำหนด ให้ว่างไว้ หรือแสดงค่าเป้าหมายสูงสุด
+                    displayElement.value = "-";
+                }
+            }
+        }
+    } else {
+        // หากยังไม่กรอก duration หรือข้อมูลไม่ครบ ให้เคลียร์ค่า d1-d18
+        for (let i = 1; i <= 18; i++) {
+            const el = document.getElementById('d' + i);
+            if (el) el.value = "";
+        }
+    }
+} 
 </script>
 
 </body>
 </html>
+
 
 
 

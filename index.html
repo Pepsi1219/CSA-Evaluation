@@ -21,9 +21,9 @@
 
         .container { 
             width: 100%; 
-            max-width: 500px; 
-            padding: 25px; 
-            border: 1px solid #eee;
+            max-width: 500px;
+            padding: 30px;
+            border: 5px solid #eee;
             border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.05);
         }
@@ -161,6 +161,17 @@
     <div class="actual-section">
     <h3 class="lang-text"
         data-key="header2">2. บันทึกผลงานจริง</h3>
+      
+      <div class="stopwatch-container" style="text-align: center; background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px dashed #ccc;">
+    <div id="display" style="font-size: 2rem; font-weight: bold; margin-bottom: 10px; color: #333;">00:00</div>
+    
+    <div class="stopwatch-controls">
+        <button type="button" id="startStopBtn" onclick="startStop()" style="background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">เริ่ม</button>
+        <button type="button" onclick="resetTimer()" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">รีเซ็ต</button>
+        <button type="button" onclick="recordTime()" style="background: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">💾 บันทึกเวลา</button>
+    </div>
+</div>
+      
             <div class="input-group">
             <label class="lang-text"
                    data-key="total_min">เวลารวมทั้งหมด (นาที)</label>
@@ -388,6 +399,70 @@
 </div>
 
 <script>
+let startTime; // เวลาที่เริ่มกด Start
+let elapsedTime = 0; // เวลาที่ผ่านไปทั้งหมด (หน่วยเป็นมิลลิวินาที)
+let timerInterval;
+let isRunning = false;
+
+function startStop() {
+    const btn = document.getElementById('startStopBtn');
+    if (!isRunning) {
+        // เริ่มจับเวลา
+        isRunning = true;
+        btn.innerText = "หยุด";
+        btn.style.background = "#dc3545";
+        
+        // คำนวณเวลาเริ่มต้นใหม่ โดยหักลบเวลาที่เคยหยุดไว้ (ถ้ามี)
+        startTime = Date.now() - elapsedTime;
+        
+        // รัน updateDisplay ถี่ขึ้นเพื่อให้ลื่นไหล (เช่น ทุกๆ 100ms) แต่เวลาจะไม่เพี้ยน
+        timerInterval = setInterval(updateDisplay, 1000);
+    } else {
+        // หยุด
+        isRunning = false;
+        btn.innerText = "เริ่มต่อ";
+        btn.style.background = "#28a745";
+        clearInterval(timerInterval);
+    }
+}
+
+function updateDisplay() {
+    // หาความต่างระหว่าง "เวลาตอนนี้" กับ "เวลาที่กดเริ่ม"
+    elapsedTime = Date.now() - startTime;
+    
+    // แปลง มิลลิวินาที เป็น นาที และ วินาที
+    const totalSeconds = Math.floor(elapsedTime / 1000);
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    
+    // แสดงผล
+    document.getElementById('display').innerText = 
+        `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+function resetTimer() {
+    isRunning = false;
+    clearInterval(timerInterval);
+    elapsedTime = 0;
+    document.getElementById('display').innerText = "00:00";
+    document.getElementById('startStopBtn').innerText = "เริ่ม";
+    document.getElementById('startStopBtn').style.background = "#28a745";
+}
+
+function recordTime() {
+    const totalSeconds = Math.floor(elapsedTime / 1000);
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+
+    // บันทึกลงใน Input ของคุณ
+    document.getElementById('totalMin').value = mins;
+    document.getElementById('totalTime').value = secs;
+
+    // สั่งให้ระบบคำนวณทำงานทันที
+    if (typeof calculateAll === "function") {
+        calculateAll();
+    }
+}
   
 // 1. คลังคำศัพท์ 2 ภาษา
 const translations = {

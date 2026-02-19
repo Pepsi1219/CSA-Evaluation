@@ -276,7 +276,7 @@
         </div>
 
         <div class="input-group">
-            <label class="lang-text"data-key="training_duration">วัน/ชั่วโมงที่ 1</label>
+            <label class="lang-text"data-key="d_1">วัน/ชั่วโมงที่ 1</label>
             <input type="text" 
                    id="d1"
                    readonly class="highlight-result">
@@ -543,19 +543,19 @@ function resetForm() {
   
 
 function calculateAll() {
-    // 1. ดึงค่าจาก Input (เพิ่ม totalMin เข้ามา)
-    const sam = parseFloat(document.getElementById('samInput').value);
-    const effTarget = parseFloat(document.getElementById('effTargetInput').value);
+    // --- 1. ดึงค่าจาก Input พื้นฐาน ---
+    const sam = parseFloat(document.getElementById('samInput').value) || 0;
+    const effTargetInput = parseFloat(document.getElementById('effTargetInput').value) || 0;
     
-    // ดึงค่านาทีและวินาที (ใส่ || 0 เพื่อกันค่าว่าง)
     const totalMin = parseFloat(document.getElementById('totalMin').value) || 0; 
     const totalTime = parseFloat(document.getElementById('totalTime').value) || 0;
-    const totalCount = parseFloat(document.getElementById('totalCount').value);
+    const totalCount = parseFloat(document.getElementById('totalCount').value) || 0;
     
     const passQty = parseFloat(document.getElementById('passQty').value) || 0;
     const failQty = parseFloat(document.getElementById('failQty').value) || 0;
+    const duration = parseInt(document.getElementById('duration').value) || 0;
 
-    // 2. ประกาศตัวแปรสำหรับแสดงผล
+    // --- 2. ประกาศตัวแปรสำหรับแสดงผล ---
     const targetDisplay = document.getElementById('targetDisplay');
     const avgTimeSec = document.getElementById('avgTimeSec');
     const avgTimeMin = document.getElementById('avgTimeMin');
@@ -563,11 +563,13 @@ function calculateAll() {
     const actualPcs = document.getElementById('actualPcs');
     const passRate = document.getElementById('passRate');
 
+    // ตัวแปรสำหรับส่งต่อค่าไปส่วนที่ 4
+    let currentActualEff = 0; 
+
     // --- ส่วนที่ 1: คำนวณเป้าหมาย (Target) ---
-    if (sam > 0 && !isNaN(effTarget)) {
-        let target = Math.ceil((60 / sam) * (effTarget / 100));
-        
-        targetDisplay.value = Math.ceil(target);
+    if (sam > 0 && effTargetInput > 0) {
+        let target = Math.ceil((60 / sam) * (effTargetInput / 100));
+        targetDisplay.value = target; // แสดงเฉพาะตัวเลขตามที่คุณตั้งค่าไว้
         targetDisplay.classList.add("highlight-result");
     } else {
         targetDisplay.value = "";
@@ -575,13 +577,11 @@ function calculateAll() {
     }
 
     // --- ส่วนที่ 2: คำนวณงานจริง (Actual) ---
-    // เงื่อนไข: ต้องมีจำนวนครั้ง (totalCount) และ มีเวลาอย่างใดอย่างหนึ่ง (นาที หรือ วินาที)
     if (totalCount > 0 && (totalMin > 0 || totalTime > 0)) {
-        // สูตรใหม่ที่คุณปรับ: แปลงนาทีเป็นวินาที + วินาทีที่เหลือ แล้วหารด้วยจำนวนครั้ง
-        let avgSecValue = Math.ceil((totalMin * 60) + totalTime) / totalCount;
+        let totalSeconds = (totalMin * 60) + totalTime;
+        let avgSecValue = totalSeconds / totalCount;
         let avgMinValue = avgSecValue / 60;
 
-        // แสดงผล
         avgTimeSec.value = Math.ceil(avgSecValue);
         avgTimeMin.value = avgMinValue.toFixed(2);
         
@@ -589,23 +589,18 @@ function calculateAll() {
         avgTimeMin.classList.add("highlight-result");
 
         if (sam > 0 && avgMinValue > 0) {
-            let effActual = Math.ceil((sam / avgMinValue) * 100);
+            currentActualEff = Math.ceil((sam / avgMinValue) * 100);
             let pcsActual = Math.ceil(60 / avgMinValue);
 
-           
-            actualEffPerc.value = effActual + " %";
+            actualEffPerc.value = currentActualEff + " %";
             actualPcs.value = pcsActual.toLocaleString() + " ชิ้น";
             
             actualEffPerc.classList.add("highlight-result");
             actualPcs.classList.add("highlight-result");
         }
     } else {
-        // ล้างค่าเมื่อข้อมูลไม่ครบ
-        avgTimeSec.value = "";
-        avgTimeMin.value = "";
-        actualEffPerc.value = "";
-        actualPcs.value = "";
-        
+        avgTimeSec.value = ""; avgTimeMin.value = "";
+        actualEffPerc.value = ""; actualPcs.value = "";
         avgTimeSec.classList.remove("highlight-result");
         avgTimeMin.classList.remove("highlight-result");
         actualEffPerc.classList.remove("highlight-result");
@@ -622,54 +617,49 @@ function calculateAll() {
         passRate.value = "";
         passRate.classList.remove("highlight-result");
     }
-  
-    // --- ส่วนที่ 4: คำนวณแผนการฝึก ---
-    const targetEff = parseFloat(document.getElementById('effTargetInput').value) || 0;
-    const actualEff = parseFloat(document.getElementById('actualEffPerc').value) || 0;
-    const duration = parseInt(document.getElementById('duration').value) || 0;
 
-    // --- ส่วนที่ 4: คำนวณแผนการฝึก ---
-    const gap = targetEff - actualEff;
+    // --- ส่วนที่ 4: วางแผนการฝึก (Training Plan) ---
+    // ใช้ gap ระหว่างเป้าหมาย (effTargetInput) และ ประสิทธิภาพจริง (currentActualEff)
+    const gap = effTargetInput - currentActualEff;
     
-    // ตรวจสอบ: ต้องมีระยะเวลาการฝึกมากกว่า 0 และมี Gap ที่ต้องพัฒนา
     if (duration > 0 && gap > 0) {
-        const increment = gap / duration; // ส่วนต่างที่จะเพิ่มขึ้นในแต่ละขั้น
-
-        let currentTarget = actualEff;
+        const increment = gap / duration;
+        let runningEff = currentActualEff;
 
         for (let i = 1; i <= 18; i++) {
             const displayElement = document.getElementById('d' + i);
             if (displayElement) {
                 if (i <= duration) {
-                    // คำนวณค่าสะสม
-                    currentTarget += increment;
-                    // แสดงผลทศนิยม 2 ตำแหน่ง
-                    displayElement.value = Math.ceil(currentTarget) + " %";
+                    runningEff += increment;
+                    let roundEff = Math.ceil(runningEff);
+                    
+                    // คำนวณชิ้นงานต่อชั่วโมงจาก Eff ในแต่ละวัน
+                    let pcsPlan = 0;
+                    if (sam > 0) {
+                        pcsPlan = Math.ceil((60 / sam) * (roundEff / 100));
+                    }
+
+                    // แสดงผลรูปแบบ: 52% / 69 ชิ้น/ชม.
+                    displayElement.value = roundEff + "% ➡️ " + pcsPlan;
+                    displayElement.classList.add("highlight-result");
                 } else {
-                    // ถ้าวันที่เกินจากระยะเวลาที่กำหนด ให้ว่างไว้ หรือแสดงค่าเป้าหมายสูงสุด
                     displayElement.value = "-";
+                    displayElement.classList.remove("highlight-result");
                 }
             }
         }
     } else {
-        // หากยังไม่กรอก duration หรือข้อมูลไม่ครบ ให้เคลียร์ค่า d1-d18
+        // ล้างข้อมูล d1-d18 หากข้อมูลไม่ครบ
         for (let i = 1; i <= 18; i++) {
             const el = document.getElementById('d' + i);
-            if (el) el.value = "";
+            if (el) {
+                el.value = "";
+                el.classList.remove("highlight-result");
+            }
         }
     }
-} 
+}
 </script>
 
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-

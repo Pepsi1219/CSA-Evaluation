@@ -166,9 +166,9 @@
     <div id="display" style="font-size: 2rem; font-weight: bold; margin-bottom: 10px; color: #333;">00:00</div>
     
     <div class="stopwatch-controls">
-        <button type="button" id="startStopBtn" onclick="startStop()" style="background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">เริ่ม</button>
-        <button type="button" onclick="resetTimer()" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">รีเซ็ต</button>
-        <button type="button" onclick="recordTime()" style="background: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">💾 บันทึกเวลา</button>
+        <button type="button" id="startStopBtn" onclick="startStop()" style="background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Start</button>
+        <button type="button" onclick="resetTimer()" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Reset</button>
+        <button type="button" onclick="recordTime()" style="background: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">💾 Save</button>
     </div>
 </div>
       
@@ -409,7 +409,7 @@ function startStop() {
     if (!isRunning) {
         // เริ่มจับเวลา
         isRunning = true;
-        btn.innerText = "หยุด";
+        btn.innerText = "Stop";
         btn.style.background = "#dc3545";
         
         // คำนวณเวลาเริ่มต้นใหม่ โดยหักลบเวลาที่เคยหยุดไว้ (ถ้ามี)
@@ -420,7 +420,7 @@ function startStop() {
     } else {
         // หยุด
         isRunning = false;
-        btn.innerText = "เริ่มต่อ";
+        btn.innerText = "Continue";
         btn.style.background = "#28a745";
         clearInterval(timerInterval);
     }
@@ -445,7 +445,7 @@ function resetTimer() {
     clearInterval(timerInterval);
     elapsedTime = 0;
     document.getElementById('display').innerText = "00:00";
-    document.getElementById('startStopBtn').innerText = "เริ่ม";
+    document.getElementById('startStopBtn').innerText = "Start";
     document.getElementById('startStopBtn').style.background = "#28a745";
 }
 

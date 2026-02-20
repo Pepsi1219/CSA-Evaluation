@@ -416,7 +416,7 @@ function startStop() {
         startTime = Date.now() - elapsedTime;
         
         // รัน updateDisplay ถี่ขึ้นเพื่อให้ลื่นไหล (เช่น ทุกๆ 100ms) แต่เวลาจะไม่เพี้ยน
-        timerInterval = setInterval(updateDisplay, 1000);
+        timerInterval = setInterval(updateDisplay, 10);
     } else {
         // หยุด
         isRunning = false;
@@ -427,24 +427,28 @@ function startStop() {
 }
 
 function updateDisplay() {
-    // หาความต่างระหว่าง "เวลาตอนนี้" กับ "เวลาที่กดเริ่ม"
+
     elapsedTime = Date.now() - startTime;
-    
-    // แปลง มิลลิวินาที เป็น นาที และ วินาที
+
     const totalSeconds = Math.floor(elapsedTime / 1000);
+
     const mins = Math.floor(totalSeconds / 60);
     const secs = totalSeconds % 60;
-    
-    // แสดงผล
-    document.getElementById('display').innerText = 
-        `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+    // ✅ millisecond 2 หลัก
+    const millis = Math.floor((elapsedTime % 1000) / 10);
+
+    document.getElementById('display').innerText =
+        `${mins.toString().padStart(2,'0')}:` +
+        `${secs.toString().padStart(2,'0')}:` +
+        `${millis.toString().padStart(2,'0')}`;
 }
 
 function resetTimer() {
     isRunning = false;
     clearInterval(timerInterval);
     elapsedTime = 0;
-    document.getElementById('display').innerText = "00:00";
+    document.getElementById('display').innerText = "00:00:00";
     document.getElementById('startStopBtn').innerText = "Start";
     document.getElementById('startStopBtn').style.background = "#28a745";
 }

@@ -451,6 +451,13 @@ function resetTimer() {
     document.getElementById('display').innerText = "00:00:00";
     document.getElementById('startStopBtn').innerText = "Start";
     document.getElementById('startStopBtn').style.background = "#28a745";
+        const inputs = ['totalMin', 'totalTime', 'totalCount'];
+
+    // 2. ลบค่าใน Input ทุกช่อง
+    inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+    });
 }
 
 function recordTime() {

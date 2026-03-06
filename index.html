@@ -8,239 +8,550 @@
     <title>CSA Evaluation Planning</title>
   
     <style>
-        * { box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+    /* 1. Global Reset & Apple Typography */
+    * { 
+        box-sizing: border-box; 
+        /* ใช้ Font Stack ที่ใกล้เคียง Apple มากที่สุด */
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; 
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* Smooth Transition แบบ Apple */
+    }
+
+    body {
+        /* ปรับ Gradient ให้ดูมีความลึก (Depth) มากขึ้น */
+        background: linear-gradient(135deg, #e0f7fa 0%, #fff9c4 50%, #fce4ec 100%);
+        margin: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+
+    /* สร้าง Effect ของเหลวในพื้นหลัง */
+    body::before {
+        content: "";
+        position: fixed;
+        top: -50%; left: -50%;
+        width: 200%; height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 50%);
+        z-index: -1;
+        animation: liquidMove 15s infinite alternate;
+    }
+
+    @keyframes liquidMove {
+        from { transform: translate(0, 0) rotate(0deg); }
+        to { transform: translate(10%, 10%) rotate(15deg); }
+    }
+
+    /* 2. The Liquid Glass Container */
+    .container {
+        width: 100%;
+        max-width: 500px;
+        padding: 40px;
+        /* ความใสที่พอดีเห็นสีพื้นหลังแต่ไม่อ่านยาก */
+        background: rgba(255, 255, 255, 0.45); 
+        backdrop-filter: blur(25px) saturate(180%);
+        -webkit-backdrop-filter: blur(25px) saturate(180%);
         
-        body{ 
-            background-color: #fff; 
-            margin: 8px; 
-            display: flex; 
-            justify-content: center; 
-            padding: 20px;
-            color: #333;
-      }
-
-        .container { 
-            width: 100%; 
-            max-width: 500px;
-            padding: 30px;
-            border: 5px solid #eee;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-        }
-
-        h2 { text-align: center; font-size: 20px; margin-bottom: 20px; color: #007bff; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
-        h3 { font-size: 16px; margin-top: 25px; color: #555; border-left: 4px solid #007bff; padding-left: 10px; }
-
-        .input-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; color: #666; }
-
-        input { 
-            width: 100%; 
-            padding: 12px; 
-            border: 2px solid #f0f0f0; 
-            border-radius: 8px; 
-            font-size: 16px; 
-            outline: none;
-            background-color: #fcfcfc;
-        }
-
-        input:focus { border-color: #007bff; background-color: #fff; }
-        input[readonly] { background-color: #e9ecef; color: #495057; cursor: not-allowed; border-color: #dee2e6; }
+        /* ขอบกระจกแบบสะท้อนแสง */
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        border-radius: 30px; 
         
-        .highlight-result { background-color: #E6E6FA !important; border-color: #D3D3D3 !important; font-weight: bold; color: #856404 !important; }
+        /* เงาแบบ Soft Layered Shadow */
+        box-shadow: 
+            0 10px 30px rgba(0, 0, 0, 0.04),
+            inset 0 0 15px rgba(255, 255, 255, 0.5);
+    }
+
+    /* 3. Typography Upgrade */
+    h2 { 
+        text-align: center; 
+        font-size: 24px; 
+        letter-spacing: -0.5px;
+        margin-bottom: 25px; 
+        color: #1d1d1f; /* สีเทาเข้มเกือบดำแบบ Apple */
+        border: none; /* เอาเส้นเดิมออก */
+        font-weight: 700;
+    }
+
+    h3 { 
+        font-size: 14px; 
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-top: 30px; 
+        color: #86868b; /* สี Secondary Text ของ Apple */
+        border: none; 
+        padding-left: 0;
+    }
+
+    /* 4. Glass Inputs */
+    .input-group { margin-bottom: 20px; }
+    
+    label { 
+        margin-bottom: 8px; 
+        font-weight: 500; 
+        font-size: 13px; 
+        color: #48484a; 
+    }
+
+    input { 
+        width: 100%; 
+        padding: 14px 16px; 
+        border: 1px solid rgba(0, 0, 0, 0.05); 
+        border-radius: 14px; 
+        font-size: 16px; 
+        outline: none;
+        background: rgba(255, 255, 255, 0.5);
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        color: #1d1d1f;
+    }
+
+    input:focus { 
+        border-color: #0071e3; /* Apple Blue */
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.15); /* Focus Ring แบบนวลๆ */
+    }
+
+    input[readonly] { 
+        background-color: rgba(0,0,0,0.03); 
+        color: #86868b; 
+        border-color: transparent;
+    }
+
+    /* 5. Highlight & Suffix */
+    .highlight-result { 
+        background: rgba(130, 119, 255, 0.1) !important; 
+        border: 1px solid rgba(130, 119, 255, 0.3) !important;
+        color: #5e5ce6 !important; /* SF Indigo */
+    }
+
+    .input-suffix {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .suffix-symbol {
+        position: absolute;
+        right: 15px;
+        color: #86868b;
+        font-weight: 500;
+    }
+
+    /* Hover effect ให้ Container ลอยนิดๆ */
+    .container:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+    }
       
-      /* ตัวหุ้มช่องกรอกข้อมูล */
+    /* คลาสสำหรับปุ่มสไตล์ Apple Glass */
+.btn-glass-action {
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Apple-like smoothness */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* เอฟเฟกต์ Squishy (กดแล้วยุบ) */
+.btn-glass-action:active {
+    transform: scale(0.92); /* ยุบตัวลง */
+    filter: brightness(0.9);
+    backdrop-filter: blur(5px);
+}
+
+.btn-glass-action:hover {
+    background: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+    transform: translateY(-1px);
+}
+
+/* ปุ่มภาษา (ทรงกลม/มนพิเศษ) */
+.lang-btn {
+    width: 40px;
+    height: 35px;
+    font-size: 18px;
+}
+
+/* ปุ่มฟังก์ชัน (Reset/Scroll) */
+.func-btn {
+    padding: 8px 15px;
+    font-size: 18px;
+    min-width: 45px;
+}
+
+/* ปุ่ม Reset (แดงแบบระจก) */
+.btn-danger-glass {
+    background: rgba(255, 59, 48, 0.15) !important; /* Apple Red */
+    border: 1px solid rgba(255, 59, 48, 0.3) !important;
+    color: #ff3b30;
+}
+
+.btn-danger-glass:hover {
+    background: rgba(255, 59, 48, 0.25) !important;
+}
+
+/* ปุ่ม Scroll (เขียวแบบกระจก) */
+.btn-success-glass {
+    background: rgba(52, 199, 89, 0.15) !important; /* Apple Green */
+    border: 1px solid rgba(52, 199, 89, 0.3) !important;
+}
+
+/* ปรับปรุงหัวข้อให้ดูหรูขึ้น */
+.glass-title {
+    margin: 15px 0;
+    font-size: 26px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #1d1d1f 0%, #434343 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
+    letter-spacing: -0.5px;
+}
+
+.top-nav-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+      
+      
+     /* ส่วนหัวข้อ Section */
+.section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0071e3; /* Apple Blue */
+    margin: 30px 0 15px 5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: 0.5px;
+}
+
+/* ตกแต่งจุดหน้าหัวข้อให้ดูมีมิติ */
+.section-title::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    background: #0071e3;
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(0, 113, 227, 0.5);
+}
+
+/* สไตล์ Input Group */
+.input-group {
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.input-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #86868b; /* Apple Secondary Text */
+    margin-left: 12px;
+    margin-bottom: 6px;
+    display: block;
+}
+
+/* สไตล์ Liquid Glass Input */
+.glass-input {
+    width: 100%;
+    padding: 14px 18px;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 16px;
+    font-size: 16px;
+    color: #1d1d1f;
+    outline: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* เอฟเฟกต์เมื่อคลิก (Focus) */
+.glass-input:focus {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: #0071e3;
+    box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.1), 0 8px 20px rgba(0, 0, 0, 0.05);
+    transform: scale(1.01); /* ขยายเล็กน้อยให้ดูเด้ง */
+}
+
+/* สไตล์สำหรับ Readonly (ช่องโชว์ผลลัพธ์) */
+.glass-readonly {
+    background: rgba(235, 235, 240, 0.4) !important;
+    border: 1px dashed rgba(0, 0, 0, 0.1) !important;
+    color: #1d1d1f;
+    font-weight: 700;
+    cursor: default;
+}
+
+/* ปรับปรุง % Suffix ให้ดูเนียน */
 .input-suffix {
     position: relative;
     display: flex;
     align-items: center;
 }
 
-.input-suffix input {
-    width: 100%;
-    padding-right: 30px; /* เว้นที่ว่างด้านขวาไว้ให้ % */
-}
-
-/* ตัวเครื่องหมาย % */
 .suffix-symbol {
     position: absolute;
-    right: 10px;
-    color: #666;
-    font-weight: bold;
-    pointer-events: none; /* ทำให้เมาส์คลิกทะลุไปที่ input ได้ */
+    right: 18px;
+    color: #0071e3;
+    font-weight: 700;
+    font-size: 16px;
+    pointer-events: none;
+}
+    /* Stopwatch Container สไตล์ Apple Dashboard */
+.stopwatch-glass {
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 24px;
+    padding: 25px;
+    margin-bottom: 30px;
+    text-align: center;
+    box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.2), 0 10px 20px rgba(0,0,0,0.05);
 }
 
-/* ซ่อนสัญลักษณ์ % เมื่อยังไม่ได้พิมพ์อะไร (เลือกได้ว่าชอบแบบไหน) */
-.input-suffix input:placeholder-shown + .suffix-symbol {
-    display: none;
+/* ตัวเลขนาฬิกาจับเวลา */
+#display {
+    font-family: 'SF Mono', 'Roboto Mono', monospace; /* ฟอนต์นาฬิกา */
+    font-size: 3rem;
+    font-weight: 700;
+    letter-spacing: -2px;
+    margin-bottom: 15px;
+    background: linear-gradient(180deg, #1d1d1f 0%, #434343 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* กลุ่มปุ่ม Stopwatch (Squishy) */
+.stopwatch-controls {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+.sw-btn {
+    border: none;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sw-btn:active { transform: scale(0.9); }
+
+.btn-start-active { background: #34c759; color: white; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3); }
+.btn-stop-active { background: #ff3b30; color: white; box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3); }
+.btn-reset-sw { background: rgba(0,0,0,0.05); color: #1d1d1f; }
+.btn-save-sw { background: #0071e3; color: white; box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3); }
+
+/* ปรับปรุง Highlight Result ให้ดูพรีเมียม (Apple Indigo) */
+.highlight-result-glass {
+    background: rgba(94, 92, 230, 0.08) !important; /* SF Indigo */
+    border: 1px solid rgba(94, 92, 230, 0.2) !important;
+    color: #5e5ce6 !important;
+    font-weight: 700 !important;
+    font-family: 'SF Mono', monospace;
 }
       
-    </style>
+  /* สำหรับจำนวนที่ไม่ผ่าน (เน้นสีส้ม/แดงระจก) */
+.glass-input-error:focus {
+    border-color: #ff9500; /* Apple Orange */
+    box-shadow: 0 0 0 4px rgba(255, 149, 0, 0.15);
+}
+
+/* สำหรับอัตราการผ่าน (เน้นสีเขียว Indigo สดใส) */
+.highlight-pass-rate {
+    background: rgba(52, 199, 89, 0.1) !important; /* Apple Green Alpha */
+    border: 1px solid rgba(52, 199, 89, 0.3) !important;
+    color: #248a3d !important;
+    font-weight: 800 !important;
+    font-size: 1.1rem !important;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.5);
+}
+
+/* ปรับปรุง Label ให้ดูสำคัญขึ้นสำหรับส่วน QC */
+.label-qc {
+    color: #1d1d1f;
+    font-weight: 700;
+}  
+      
+      /* จัดกลุ่มตารางวันให้เรียง 2 หรือ 3 คอลัมน์ตามความกว้างจอ */
+.training-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+    margin-top: 15px;
+}
+
+/* ปรับแต่งการ์ดแต่ละวัน */
+.day-card {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    text-align: center;
+}
+
+.day-card label {
+    font-size: 11px !important;
+    margin-left: 0 !important;
+    margin-bottom: 4px !important;
+    color: #86868b;
+    text-align: center;
+}
+
+/* ช่องผลลัพธ์ใน Grid */
+.glass-input-day {
+    padding: 8px !important;
+    font-size: 14px !important;
+    text-align: center;
+    border-radius: 10px !important;
+}
+
+/* สีพิเศษสำหรับหัวข้อแผนการฝึก */
+.training-title {
+    color: #5e5ce6 !important; /* SF Indigo */
+}
+.training-title::before {
+    background: #5e5ce6 !important;
+    box-shadow: 0 0 10px rgba(94, 92, 230, 0.5) !important;
+}
+      
+</style>
 </head>
 <body>
 
 <div class="container">
   
-<div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 8px;">
-    <button type="button"
-            onclick="changeLanguage('th')" 
-            style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center;">
-        🇹🇭
-    </button>
-    <button type="button"
-            onclick="changeLanguage('en')" 
-            style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center;">
-        🇺🇸
-    </button>
-    <button type="button"
-            onclick="changeLanguage('vn')" 
-            style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; font-size: 14px; display: flex; align-items: center;">
-        🇻🇳
-    </button>
-   <button type="button"
-           onclick="changeLanguage('la')" 
-           style="padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 8px;
-                  cursor: pointer; font-size: 14px; display: flex; align-items: center;">🇱🇦
-</button>
+<div class="top-nav-wrapper">
+    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn-glass-action lang-btn" onclick="changeLanguage('th')">🇹🇭</button>
+        <button type="button" class="btn-glass-action lang-btn" onclick="changeLanguage('en')">🇺🇸</button>
+        <button type="button" class="btn-glass-action lang-btn" onclick="changeLanguage('vn')">🇻🇳</button>
+        <button type="button" class="btn-glass-action lang-btn" onclick="changeLanguage('la')">🇱🇦</button>
+    </div>
+
+    <h2 class="glass-title">CSA Evaluation Planning</h2>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+        <button type="button" class="btn-glass-action func-btn btn-danger-glass" onclick="resetForm()" title="ล้างข้อมูล">
+            🗑️
+        </button>
+        
+        <button type="button" class="btn-glass-action func-btn btn-success-glass" onclick="scrollToBottom()" title="ไปด้านล่าง">
+            ⬇️
+        </button>
+    </div>
+</div>
+  
+    <h3 class="lang-text section-title" data-key="header1">
+    1. การตั้งเป้าหมาย
+</h3>
+
+<div class="input-group">
+    <label class="lang-text" data-key="sam_label">เวลามาตรฐาน (นาที)</label>
+    <input type="number"
+           id="samInput"
+           class="glass-input"
+           inputmode="decimal"
+           step="0.01"
+           placeholder=""
+           oninput="calculateAll()">
 </div>
 
-    <h2 style="margin: 10; font-size: 25px; color: #007bff;
-                 align-items: center">CSA Evaluation Planning</h2>
-    <div style="display: flex; gap: 10px; align-items: center;">
-    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 15px;">
-    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 15px;">
-    <button type="button"
-            onclick="resetForm()" 
-            style="padding: 6px 10px; background-color: #ff4d4d; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px;">
-        🗑️
-    </button>
-    <button type="button"
-            onclick="scrollToBottom()" 
-            style="padding: 6px 12px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px;">
-        ⬇️
-    </button>
-      </div>
-    </div>
-</div>
-  
-    <h3 class="lang-text"
-        data-key="header1">1. การตั้งเป้าหมาย</h3>
-    <div class="input-group">
-        <label class="lang-text"
-               data-key="sam_label">เวลามาตรฐาน (นาที)</label>
-        <input type="number"
-               id="samInput"
-               inputmode="decimal"
-               step="0.00001"
-               placeholder="SAM"
-               oninput="calculateAll()">
-    </div>
-  
-    <div class="input-group">
+<div class="input-group">
     <label class="lang-text" data-key="eff_target">เป้าหมายประสิทธิภาพ (%)</label>
     <div class="input-suffix">
         <input type="number"
                id="effTargetInput"
+               class="glass-input"
                inputmode="numeric"
-               placeholder="Eff"
+               placeholder=""
                oninput="calculateAll()">
         <span class="suffix-symbol">%</span>
     </div>
-</div>  
-  
-    <div class="input-group">
-        <label class="lang-text"
-               data-key="qty_label">เป้าหมายชิ้นงาน (ชิ้น/ชม.)</label>
-        <input type="number"
-               id="targetDisplay"
-               readonly>
-    </div>
+</div>
+
+<div class="input-group">
+    <label class="lang-text" data-key="qty_label">เป้าหมายชิ้นงาน (ชิ้น/ชม.)</label>
+    <input type="number"
+           id="targetDisplay"
+           class="glass-input glass-readonly"
+           placeholder=""
+           readonly>
+</div>
     
     <hr>
     
     <div class="actual-section">
-    <h3 class="lang-text"
-        data-key="header2">2. บันทึกผลงานจริง</h3>
-      
-      <div class="stopwatch-container" style="text-align: center; background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px dashed #ccc;">
-    <div id="display" style="font-size: 2rem; font-weight: bold; margin-bottom: 10px; color: #333;">00:00</div>
+    <h3 class="lang-text section-title" data-key="header2">2. บันทึกผลงานจริง</h3>
     
-    <div class="stopwatch-controls">
-        <button type="button" id="startStopBtn" onclick="startStop()" style="background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Start</button>
-        <button type="button" onclick="resetTimer()" style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Reset</button>
-        <button type="button" onclick="recordTime()" style="background: #007bff; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">💾 Save</button>
+    <div class="stopwatch-glass">
+        <div id="display">00:00</div>
+        <div class="stopwatch-controls">
+            <button type="button" id="startStopBtn" class="sw-btn btn-start-active" onclick="startStop()">Start</button>
+            <button type="button" class="sw-btn btn-reset-sw" onclick="resetTimer()">Reset</button>
+            <button type="button" class="sw-btn btn-save-sw" onclick="recordTime()">💾 Save</button>
+        </div>
+    </div>
+      
+    <div class="input-group">
+        <label class="lang-text" data-key="total_min">เวลารวมทั้งหมด (นาที)</label>
+        <input type="number" id="totalMin" class="glass-input" inputmode="numeric" oninput="calculateAll()">
+    </div>
+
+    <div class="input-group">
+        <label class="lang-text" data-key="total_sec">เวลารวมทั้งหมด (วินาที)</label>
+        <input type="number" id="totalTime" class="glass-input" inputmode="numeric" oninput="calculateAll()">
+    </div>
+  
+    <div class="input-group">
+        <label class="lang-text" data-key="total_count">จำนวนครั้งที่ทำได้ (รอบ)</label>
+        <input type="number" id="totalCount" class="glass-input" inputmode="numeric" oninput="calculateAll()">
+    </div>
+
+    <div class="input-group">
+        <label class="lang-text" data-key="avg_timesec">เวลาต่อรอบจริง (วินาที)</label>
+        <input type="text" id="avgTimeSec" readonly class="glass-input highlight-result-glass">
+    </div>
+
+    <div class="input-group">
+        <label class="lang-text" data-key="avg_timemin">เวลาต่อรอบจริง (นาที)</label>
+        <input type="text" id="avgTimeMin" readonly class="glass-input highlight-result-glass">
+    </div>
+
+    <div class="input-group">
+        <label class="lang-text" data-key="actual_eff">ประสิทธิภาพจริง (%)</label>
+        <input type="text" id="actualEffPerc" readonly class="glass-input highlight-result-glass">
+    </div>
+
+    <div class="input-group">
+        <label class="lang-text" data-key="actual_pcs">ประสิทธิภาพจริง (ชิ้น/ชม.)</label>
+        <input type="text" id="actualPcs" readonly class="glass-input highlight-result-glass">
     </div>
 </div>
-      
-            <div class="input-group">
-            <label class="lang-text"
-                   data-key="total_min">เวลารวมทั้งหมด (นาที)</label>
-            <input type="number"
-                   id="totalMin"
-                   inputmode="numeric"
-                   placeholder=""
-                   oninput="calculateAll()">
-        </div>
-
-          <div class="input-group">
-            <label class="lang-text"
-                   data-key="total_sec">เวลารวมทั้งหมด (วินาที)</label>
-            <input type="number"
-                   id="totalTime"
-                   inputmode="numeric"
-                   placeholder=""
-                   oninput="calculateAll()">
-        </div>
-      
-        <div class="input-group">
-            <label class="lang-text"
-                   data-key="total_count">จำนวนครั้งที่ทำได้ (รอบ)</label>
-            <input type="number"
-                   id="totalCount"
-                   inputmode="numeric"
-                   placeholder=""
-                   oninput="calculateAll()">
-        </div>
-
-        <div class="input-group">
-        <label class="lang-text"
-               data-key="avg_timesec">เวลาต่อรอบจริง (วินาที)</label>
-      <input type="text"
-             id="avgTimeSec"
-             readonly class="highlight-result">
-        </div>
-
-        <div class="input-group">
-          <label class="lang-text"
-                 data-key="avg_timemin">เวลาต่อรอบจริง (นาที)</label>
-          <input type="text"
-                 id="avgTimeMin"
-                 readonly class="highlight-result">
-        </div>
-
-        <div class="input-group">
-          <label class="lang-text"
-                 data-key="actual_eff">ประสิทธิภาพจริง (%)</label>
-          
-            <input type="text"
-                   id="actualEffPerc"
-                   readonly class="highlight-result">
-        </div>
-
-        <div class="input-group">
-          <label class="lang-text"
-                 data-key="actual_pcs">ประสิทธิภาพจริง (ชิ้น/ชม.)</label>
-          
-            <input type="text"
-                   id="actualPcs"
-                   readonly class="highlight-result">
-        </div>
 
         <hr>
         
-        <div class="quality-section">
-        <h3 class="lang-text"
-            data-key="header3">3. คุณภาพ</h3>
+        <div class="quality-section";">
+    <h3 class="lang-text section-title" data-key="header3">3. คุณภาพ</h3>
           
         <div class="input-group">
           <label class="lang-text"
@@ -263,139 +574,112 @@
         </div>
 
         <div class="input-group">
-          <label class="lang-text"
-                 data-key="pass_rate">อัตราการผ่าน (%)</label>
+        <label class="lang-text label-qc" data-key="pass_rate">
+            อัตราการผ่าน (%) ✨
+        </label>
+        <div class="input-suffix">
             <input type="text" 
                    id="passRate"
-                   readonly class="highlight-result">
+                   class="glass-input highlight-pass-rate"
+                   placeholder=""
+                   readonly>
+            <span class="suffix-symbol" style="color: #248a3d;">%</span>
         </div>
           
          <hr>
         
-        <div class="eff-section">
-          <h3 id="header4" class="lang-text"data-key="header4">4. วางแผนการฝึก</h3>
-     
-        
-        <div class="input-group">
-            <label class="lang-text"
-                   data-key="training_duration">ระยะเวลาการฝึก (วัน/ชม)</label>
-            <input type="number"
-                   id="duration"
-                   inputmode="numeric"
-                   placeholder=""
-                   oninput="calculateAll()">
-        </div>
+        <div class="eff-section" style="margin-top: 30px;">
+    <h3 id="header4" class="lang-text section-title training-title" data-key="header4">
+        4. วางแผนการฝึก
+    </h3>
 
-        <div class="input-group">
-            <label class="lang-text"data-key="d_1">วัน/ชั่วโมงที่ 1</label>
-            <input type="text" 
-                   id="d1"
-                   readonly class="highlight-result">
-        </div>
-        <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 2</label>
-            <input type="text" 
-                   id="d2"
-                   readonly class="highlight-result">
-        </div>
-        <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 3</label>
-            <input type="text" 
-                   id="d3"
-                   readonly class="highlight-result">
-        </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 4</label>
-            <input type="text" 
-                   id="d4"
-                   readonly class="highlight-result">
-        </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 5</label>
-            <input type="text" 
-                   id="d5"
-                   readonly class="highlight-result">
-        </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 6</label>
-            <input type="text" 
-                   id="d6"
-                   readonly class="highlight-result">
-        </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 7</label>
-            <input type="text" 
-                   id="d7"
-                   readonly class="highlight-result">
-        </div>
- 
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 8</label>
-            <input type="text" 
-                   id="d8"
-                   readonly class="highlight-result">
-        </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 9</label>
-            <input type="text" 
-                   id="d9"
-                   readonly class="highlight-result">
-        </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 10</label>
-            <input type="text" 
-                   id="d10"
-                   readonly class="highlight-result">
-        </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 11</label>
-            <input type="text" 
-                   id="d11"
-                   readonly class="highlight-result">
-        </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 12</label>
-            <input type="text" 
-                   id="d12"
-                   readonly class="highlight-result">
-        </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 13</label>
-            <input type="text" 
-                   id="d13"
-                   readonly class="highlight-result">
-        </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 14</label>
-            <input type="text" 
-                   id="d14"
-                   readonly class="highlight-result">
-        </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 15</label>
-            <input type="text" 
-                   id="d15"
-                   readonly class="highlight-result">
-        </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 16</label>
-            <input type="text" 
-                   id="d16"
-                   readonly class="highlight-result">
-        </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 17</label>
-            <input type="text" 
-                   id="d17"
-                   readonly class="highlight-result">
-        </div>
-              <div class="input-group">
-            <label>วัน/ชั่วโมงที่ 18</label>
-            <input type="text" 
-                   id="d18"
-                   readonly class="highlight-result">
-        </div>
+    <div class="input-group">
+        <label class="lang-text" data-key="training_duration">ระยะเวลาการฝึก (วัน/ชม)</label>
+        <input type="number"
+               id="duration"
+               class="glass-input"
+               inputmode="numeric"
+               placeholder=""
+               oninput="calculateAll()">
     </div>
+
+    <div class="training-grid">
+    <div class="day-card">
+        <label class="lang-text" data-key="d_1">วัน/ชม.ที่ 1</label>
+        <input type="text" id="d1" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+    <div class="day-card">
+        <label class="lang-text" data-key="d_2">วัน/ชม.ที่ 2</label>
+        <input type="text" id="d2" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+    <div class="day-card">
+        <label class="lang-text" data-key="d_3">วัน/ชม.ที่ 3</label>
+        <input type="text" id="d3" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 4</label>
+        <input type="text" id="d4" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 5</label>
+        <input type="text" id="d5" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 6</label>
+        <input type="text" id="d6" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 7</label>
+        <input type="text" id="d7" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 8</label>
+        <input type="text" id="d8" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 9</label>
+        <input type="text" id="d9" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 10</label>
+        <input type="text" id="d10" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 11</label>
+        <input type="text" id="d11" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 12</label>
+        <input type="text" id="d12" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 13</label>
+        <input type="text" id="d13" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 14</label>
+        <input type="text" id="d14" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 15</label>
+        <input type="text" id="d15" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 16</label>
+        <input type="text" id="d16" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 17</label>
+        <input type="text" id="d17" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+    <div class="day-card">
+        <label>วัน/ชม.ที่ 18</label>
+        <input type="text" id="d18" readonly class="glass-input glass-input-day highlight-result-glass">
+    </div>
+</div>
 </div>
 
 <script>
@@ -749,6 +1033,6 @@ function calculateAll() {
 </body>
  <footer style="text-align: center; padding: 20px; color: #888; font-size: 12px; font-family: sans-serif;">
     <hr style="border: 0; border-top: 1px solid #eee; margin-bottom: 10px;">
-    <p>© CSA Evaluation  | <strong>v1.0.0.0</strong></p>
+    <p>© CSA Evaluation  | v1.0.1</p>
 </footer>
 </html>

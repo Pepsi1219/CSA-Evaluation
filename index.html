@@ -434,11 +434,34 @@
     box-shadow: 0 0 10px rgba(94, 92, 230, 0.5) !important;
 }
       
+    .buddy-character {
+    position: absolute;
+    font-size: 30px;
+    z-index: 100;
+    pointer-events: none; /* กดทะลุตัวน้องได้ */
+    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); /* เอฟเฟกต์เด้งๆ (Bouncy) */
+    left: -50px; /* เริ่มต้นอยู่นอกจอหรือมุมใดมุมหนึ่ง */
+    top: 0;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
+    user-select: none;
+}
+
+/* เอฟเฟกต์สั่นเบาๆ ให้ดูมีชีวิต */
+@keyframes wiggle {
+    0%, 100% { transform: rotate(-5deg); }
+    50% { transform: rotate(5deg); }
+}
+
+.buddy-active {
+    animation: wiggle 0.3s ease-in-out infinite;
+}
+      
 </style>
 </head>
 <body>
 
 <div class="container">
+  <div id="buddy" class="buddy-character">🐱</div>
   
 <div class="top-nav-wrapper">
     <div style="display: flex; justify-content: flex-end; gap: 10px;">
@@ -683,6 +706,39 @@
 </div>
 
 <script>
+
+document.addEventListener('DOMContentLoaded', () => {
+    const buddy = document.getElementById('buddy');
+    const inputs = document.querySelectorAll('input');
+
+    inputs.forEach(input => {
+        // เมื่อ User คลิกหรือ Tab เข้าไปที่ช่อง Input
+        input.addEventListener('focus', (e) => {
+            const rect = e.target.getBoundingClientRect();
+            const containerRect = document.querySelector('.container').getBoundingClientRect();
+
+            // คำนวณตำแหน่ง (ให้น้องไปอยู่ด้านขวาของช่อง Input)
+            const targetX = rect.right - containerRect.left - 10;
+            const targetY = rect.top - containerRect.top - 25;
+
+            // สั่งให้น้องวิ่งไป
+            buddy.style.left = `${targetX}px`;
+            buddy.style.top = `${targetY}px`;
+            
+            // เพิ่มท่าทางสั่นๆ เวลาวิ่ง
+            buddy.classList.add('buddy-active');
+        });
+
+        // เมื่อเลิกกดช่องนั้น
+        input.addEventListener('blur', () => {
+            buddy.classList.remove('buddy-active');
+        });
+    });
+});                                                                                                       
+                                                                                                       
+                                                                                                       
+                                                                                                       
+                                                                                                       
 let startTime; // เวลาที่เริ่มกด Start
 let elapsedTime = 0; // เวลาที่ผ่านไปทั้งหมด (หน่วยเป็นมิลลิวินาที)
 let timerInterval;

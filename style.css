@@ -138,9 +138,9 @@
 
     .btn-glass-action:active { transform: scale(0.92); }
 
-    .lang-btn { width: 44px; height: 36px; font-size: 18px; }
+    .lang-btn { width: 40px; height: 30px; font-size: 15px; }
     .func-btn { padding: 10px 18px; font-size: 18px; }
-    .btn-danger-glass { background: #fff1f0; color: #ff3b30; }
+    .btn-danger-glass { width: 40px; height: 30px; font-size: 15px; background: #fff1f0; color: #ff3b30; }
     .btn-success-glass { background: #f2faf3; color: #34c759; }
 
     /* 7. Stopwatch - ออกแบบใหม่ให้ดู Clean */

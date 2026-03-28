@@ -221,7 +221,7 @@ function calculateAll() {
         if (duration > 0 && gap > 0 && i <= duration) {
             const dayEff = Math.ceil(currentActualEff + (gap / duration * i));
             const dayPcs = sam > 0 ? Math.ceil((60 / sam) * (dayEff / 100)) : 0;
-            el.value = `${dayEff}% ➡️ ${dayPcs}`;
+            el.value = `${dayEff}% - ${dayPcs}`;
         } else {
             el.value = "";
         }
@@ -266,11 +266,11 @@ function openFeedbackModal() {
 function closeFeedbackModal() {
   feedbackModal.style.display = 'none';
   document.body.style.overflow = '';
-  resetForm();
+  resetFormFeedback();
 }
 
 // Reset Form
-function resetForm() {
+function resetFormFeedback() {
   currentRating = 0;
   stars.forEach(star => star.classList.remove('active'));
   document.getElementById('ratingValue').value = '';

@@ -166,10 +166,6 @@ function changeLanguage(lang) {
     });
 }
 
-function scrollToBottom() {
-    document.getElementById('header4')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 function resetForm() {
     ['samInput', 'effTargetInput', 'totalMin', 'totalTime', 'totalCount', 'passQty', 'failQty', 'duration'].forEach(id => {
         const el = document.getElementById(id);
@@ -231,3 +227,94 @@ function calculateAll() {
         }
     }
 }
+
+
+// Modal Elements
+const feedbackModal = document.getElementById('feedbackModal');
+const feedbackBtn = document.getElementById('feedbackBtn');
+const closeModalBtn = document.getElementById('closeModalBtn');
+const cancelFeedbackBtn = document.getElementById('cancelFeedbackBtn');
+const submitFeedbackBtn = document.getElementById('submitFeedbackBtn');
+
+// Star Rating
+let currentRating = 0;
+const stars = document.querySelectorAll('.star');
+
+stars.forEach(star => {
+  star.addEventListener('click', () => {
+    const rating = parseInt(star.dataset.rating);
+    currentRating = rating;
+    document.getElementById('ratingValue').value = rating;
+    
+    stars.forEach((s, index) => {
+      if (index < rating) {
+        s.classList.add('active');
+      } else {
+        s.classList.remove('active');
+      }
+    });
+  });
+});
+
+// Open Modal
+function openFeedbackModal() {
+  feedbackModal.style.display = 'flex';
+  document.body.style.overflow = 'hidden'; // ป้องกัน scroll ข้างหลัง
+}
+
+// Close Modal
+function closeFeedbackModal() {
+  feedbackModal.style.display = 'none';
+  document.body.style.overflow = '';
+  resetForm();
+}
+
+// Reset Form
+function resetForm() {
+  currentRating = 0;
+  stars.forEach(star => star.classList.remove('active'));
+  document.getElementById('ratingValue').value = '';
+  document.getElementById('feedbackMessage').value = '';
+  document.getElementById('feedbackEmail').value = '';
+}
+
+// Submit Feedback
+function submitFeedback() {
+  const rating = document.getElementById('ratingValue').value;
+  const message = document.getElementById('feedbackMessage').value.trim();
+  const email = document.getElementById('feedbackEmail').value.trim();
+  
+  if (!message) {
+    alert('กรุณากรอกข้อความเสนอแนะ');
+    return;
+  }
+  
+  // แสดงข้อความส่งสำเร็จ
+  alert(`ขอบคุณสำหรับความคิดเห็น!\n\nระดับความพึงพอใจ: ${rating || 'ไม่ได้ให้คะแนน'} ดาว\nข้อความ: ${message}\n${email ? `อีเมล: ${email}` : ''}`);
+  
+  // ส่งข้อมูลไปยัง backend หรือที่เก็บข้อมูล
+  console.log('Feedback submitted:', { rating, message, email });
+  
+  // ปิด modal
+  closeFeedbackModal();
+}
+
+// Event Listeners
+feedbackBtn?.addEventListener('click', openFeedbackModal);
+closeModalBtn?.addEventListener('click', closeFeedbackModal);
+cancelFeedbackBtn?.addEventListener('click', closeFeedbackModal);
+submitFeedbackBtn?.addEventListener('click', submitFeedback);
+
+// Click outside to close
+feedbackModal?.addEventListener('click', (e) => {
+  if (e.target === feedbackModal) {
+    closeFeedbackModal();
+  }
+});
+
+// ESC key to close
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && feedbackModal?.style.display === 'flex') {
+    closeFeedbackModal();
+  }
+});

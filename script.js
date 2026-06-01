@@ -1,5 +1,5 @@
 // ============================================================
-// GOOGLE FORMS CONFIG  (Task 0.4)
+// GOOGLE FORMS CONFIG
 // ============================================================
 const GFORM = {
     url:   'https://docs.google.com/forms/u/0/d/e/1FAIpQLSeK5EJHXXDH7wk9B9Y3tkEH_YN-pIgekLlzoVRdHNCNf4UaGw/formResponse',
@@ -246,22 +246,35 @@ function swSaveToForm() {
 // ---- Export / Print ----
 function printReport() {
     gaTrack('print_report');
-    const now      = new Date();
-    const pad      = n => String(n).padStart(2, '0');
-    const dateStr  = `${pad(now.getDate())}-${pad(now.getMonth()+1)}-${now.getFullYear()}`;
-    const timeStr  = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const display  = `${dateStr} ${timeStr}`;
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const dateStr = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`;
+    const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const display = `${dateStr} ${timeStr}`;
+    
+    // ตั้งชื่อไฟล์ (ระวังการใช้อักขระพิเศษในชื่อไฟล์ OS อาจจะไม่ยอมรับ)
     const filename = `CSA Evaluation - ${dateStr} ${timeStr.replace(':', '-')}`;
 
-    // แสดงวันที่บน report
     const dateEl = document.getElementById('printDate');
     if (dateEl) dateEl.textContent = `CSA Evaluation · ${display}`;
 
-    // browser PDF renderer: ใช้ document.title เป็นชื่อไฟล์ PDF (Chrome/Edge/Firefox รองรับ)
-    const orig = document.title;
+    // 1. เก็บชื่อเดิม และตั้งชื่อใหม่
+    const originalTitle = document.title;
     document.title = filename;
+
+    // 2. สร้างฟังก์ชันทำความสะอาด (Cleanup Function)
+    const restoreTitle = () => {
+        document.title = originalTitle;
+        // ทำลาย Event ทิ้งเมื่อใช้งานเสร็จ เพื่อป้องกัน Memory Leak
+        window.removeEventListener('afterprint', restoreTitle); 
+    };
+
+    // 3. ผูก Event เข้ากับเบราว์เซอร์
+    window.addEventListener('afterprint', restoreTitle);
+    
+    // 4. สั่ง Print
     window.print();
-    document.title = orig;
 }
 
 // --- 3. Translations ---

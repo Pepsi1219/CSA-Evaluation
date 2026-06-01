@@ -1,0 +1,688 @@
+/* ============================================================
+   CSA EVALUATION CALCULATOR — Design System v1.1
+   Enterprise-grade UI · Indigo accent · Multi-script ready
+   ============================================================ */
+
+/* ---- 1. Design Tokens ------------------------------------- */
+:root {
+    /* Brand / Accent */
+    --accent-50:  #eef2ff;
+    --accent-100: #e0e7ff;
+    --accent-300: #a5b4fc;
+    --accent-500: #6366f1;
+    --accent-600: #4f46e5;
+    --accent-700: #4338ca;
+    --accent-grad: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+
+    /* Semantic */
+    --success: #16a34a;
+    --success-soft: #dcfce7;
+    --success-text: #15803d;
+    --danger: #ef4444;
+    --danger-soft: #fee2e2;
+    --warning: #f59e0b;
+
+    /* Neutrals */
+    --bg-app: #f4f5fb;
+    --surface: #ffffff;
+    --surface-2: #f6f7fb;
+    --surface-3: #eef0f6;
+    --border: #e6e8f0;
+    --border-strong: #d4d7e3;
+
+    /* Text */
+    --text-1: #14152a;
+    --text-2: #5b5f76;
+    --text-3: #9095ab;
+
+    /* Radius */
+    --r-sm: 10px;
+    --r-md: 14px;
+    --r-lg: 20px;
+    --r-xl: 28px;
+    --r-full: 999px;
+
+    /* Shadow (layered, soft) */
+    --sh-xs: 0 1px 2px rgba(20, 21, 42, 0.04);
+    --sh-sm: 0 2px 8px rgba(20, 21, 42, 0.06);
+    --sh-md: 0 8px 24px rgba(20, 21, 42, 0.08);
+    --sh-lg: 0 18px 48px rgba(20, 21, 42, 0.12);
+    --sh-accent: 0 8px 24px rgba(79, 70, 229, 0.28);
+
+    /* Spacing scale */
+    --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+    --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+
+    /* Typography */
+    --font: 'Inter', 'Noto Sans Thai', 'Noto Sans Lao', -apple-system,
+            BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'SF Mono', 'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+
+    /* Motion */
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---- 2. Reset --------------------------------------------- */
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+    margin: 0;
+    min-height: 100dvh;
+    padding: var(--sp-5);
+    font-family: var(--font);
+    color: var(--text-1);
+    background:
+        radial-gradient(1200px 600px at 100% -10%, #e7e9ff 0%, transparent 55%),
+        radial-gradient(1000px 500px at -10% 110%, #ffe9f3 0%, transparent 50%),
+        var(--bg-app);
+    background-attachment: fixed;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+/* ---- 3. App Container ------------------------------------- */
+.container {
+    width: 100%;
+    max-width: 540px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    box-shadow: var(--sh-lg);
+    padding: var(--sp-6);
+    position: relative;
+}
+
+/* ---- 4. Header -------------------------------------------- */
+.app-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-6);
+}
+
+.header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-3);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    min-width: 0;
+}
+
+.brand-mark {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border-radius: var(--r-md);
+    background: var(--accent-grad);
+    box-shadow: var(--sh-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+}
+
+.brand-text { min-width: 0; }
+
+.glass-title {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text-1);
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.brand-sub {
+    margin: 2px 0 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-3);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    flex-shrink: 0;
+}
+
+/* ---- 5. Icon Button (reset etc.) -------------------------- */
+.icon-btn {
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-2);
+    transition: transform 0.12s var(--ease-spring),
+                background 0.18s, color 0.18s, border-color 0.18s;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--text-1); }
+.icon-btn:active { transform: scale(0.9); }
+.icon-btn.danger:hover {
+    background: var(--danger-soft);
+    color: var(--danger);
+    border-color: var(--danger-soft);
+}
+.icon-btn svg { width: 18px; height: 18px; }
+
+/* ---- 6. Language Dropdown --------------------------------- */
+.lang-selector { position: relative; }
+
+.lang-trigger {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    transition: background 0.18s, border-color 0.18s, transform 0.12s var(--ease-spring);
+}
+.lang-trigger:hover { background: var(--surface-2); }
+.lang-trigger:active { transform: scale(0.96); }
+.lang-trigger .flag { font-size: 16px; line-height: 1; }
+.lang-trigger .chevron {
+    width: 14px; height: 14px;
+    color: var(--text-3);
+    transition: transform 0.2s var(--ease-out);
+}
+.lang-selector.open .lang-trigger .chevron { transform: rotate(180deg); }
+.lang-selector.open .lang-trigger {
+    border-color: var(--accent-300);
+    background: var(--accent-50);
+}
+
+.lang-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 168px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    box-shadow: var(--sh-md);
+    padding: 6px;
+    z-index: 50;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px) scale(0.98);
+    transform-origin: top right;
+    transition: opacity 0.18s var(--ease-out),
+                transform 0.18s var(--ease-out),
+                visibility 0.18s;
+}
+.lang-selector.open .lang-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+}
+
+.lang-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-1);
+    text-align: left;
+    transition: background 0.14s;
+}
+.lang-option .flag { font-size: 18px; }
+.lang-option:hover { background: var(--surface-2); }
+.lang-option.active { background: var(--accent-50); color: var(--accent-700); font-weight: 600; }
+.lang-option .check {
+    margin-left: auto;
+    width: 16px; height: 16px;
+    color: var(--accent-600);
+    opacity: 0;
+}
+.lang-option.active .check { opacity: 1; }
+
+/* ---- 7. Section Headers ----------------------------------- */
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin: var(--sp-8) 0 var(--sp-4);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-1);
+    letter-spacing: -0.01em;
+}
+.section-title:first-of-type { margin-top: 0; }
+
+.section-badge {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    border-radius: var(--r-sm);
+    background: var(--accent-50);
+    color: var(--accent-600);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.section-badge svg { width: 16px; height: 16px; }
+
+/* ---- 8. Divider ------------------------------------------- */
+hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: var(--sp-6) 0;
+}
+
+/* ---- 9. Inputs & Layout ----------------------------------- */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
+}
+.form-row-three {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-4);
+}
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-4);
+}
+.form-row .input-group,
+.form-row-three .input-group { margin-bottom: 0; }
+
+label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-2);
+    margin-left: 2px;
+    letter-spacing: -0.01em;
+}
+
+.glass-input {
+    width: 100%;
+    padding: 13px 15px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-md);
+    font-family: var(--font);
+    font-size: 16px;
+    font-weight: 500;
+    background: var(--surface-2);
+    color: var(--text-1);
+    outline: none;
+    transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+}
+.glass-input::placeholder { color: var(--text-3); }
+.glass-input:focus {
+    border-color: var(--accent-500);
+    background: var(--surface);
+    box-shadow: 0 0 0 4px var(--accent-50);
+}
+
+/* ---- 10. Result Highlights -------------------------------- */
+.highlight-result-glass {
+    background: var(--accent-50) !important;
+    color: var(--accent-700) !important;
+    border: 1.5px solid var(--accent-100) !important;
+    font-weight: 700;
+}
+.highlight-pass-rate {
+    background: var(--success-soft) !important;
+    color: var(--success-text) !important;
+    border: 1.5px solid #bbf7d0 !important;
+    font-weight: 700;
+}
+
+/* ---- 11. Stopwatch (Hero) --------------------------------- */
+.stopwatch-glass {
+    background: linear-gradient(160deg, #1e1b3a 0%, #2d2a52 100%);
+    border-radius: var(--r-lg);
+    padding: var(--sp-6);
+    margin: var(--sp-4) 0;
+    text-align: center;
+    box-shadow: var(--sh-md);
+    position: relative;
+    overflow: hidden;
+}
+.stopwatch-glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(420px 180px at 50% -20%, rgba(99,102,241,0.45), transparent 70%);
+    pointer-events: none;
+}
+#display {
+    font-family: var(--font-mono);
+    font-size: 3.2rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.02em;
+    margin-bottom: var(--sp-5);
+    position: relative;
+    font-variant-numeric: tabular-nums;
+}
+.stopwatch-controls {
+    display: flex;
+    gap: var(--sp-3);
+    justify-content: center;
+    position: relative;
+}
+.sw-btn {
+    flex: 1;
+    max-width: 130px;
+    border: none;
+    padding: 12px 18px;
+    border-radius: var(--r-md);
+    font-family: var(--font);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform 0.12s var(--ease-spring), filter 0.18s, background 0.18s;
+}
+.sw-btn:active { transform: scale(0.94); }
+.btn-start-active { background: var(--success); color: #fff; }
+.btn-start-active:hover { filter: brightness(1.08); }
+.btn-stop-active { background: var(--danger); color: #fff; }
+.btn-reset-sw {
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    backdrop-filter: blur(4px);
+}
+.btn-reset-sw:hover { background: rgba(255,255,255,0.2); }
+.btn-save-sw { background: var(--accent-600); color: #fff; }
+.btn-save-sw:hover { filter: brightness(1.1); }
+
+/* ---- 12. Training Grid ------------------------------------ */
+.training-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-2);
+    margin-top: var(--sp-4);
+}
+.day-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 10px 8px;
+    text-align: center;
+    transition: border-color 0.18s, background 0.18s;
+}
+.day-card.filled {
+    border-color: var(--accent-100);
+    background: var(--accent-50);
+}
+.day-card label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-3);
+    margin: 0 0 6px;
+    white-space: nowrap;
+}
+.day-card.filled label { color: var(--accent-600); }
+.glass-input-day {
+    padding: 6px 4px !important;
+    font-size: 13px !important;
+    font-weight: 700;
+    text-align: center;
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-3) !important;
+    box-shadow: none !important;
+}
+.day-card.filled .glass-input-day { color: var(--accent-700) !important; }
+
+/* ---- 13. Footer ------------------------------------------- */
+.app-footer {
+    width: 100%;
+    max-width: 540px;
+    text-align: center;
+    padding: var(--sp-6) var(--sp-5);
+    color: var(--text-3);
+    font-size: 12px;
+    font-family: var(--font);
+}
+.app-footer hr { margin-bottom: var(--sp-3); }
+.app-footer p { margin: 0; font-weight: 500; }
+
+/* ---- 14. Feedback Button (FAB) ---------------------------- */
+.feedback-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: 13px 20px;
+    background: var(--accent-grad);
+    border: none;
+    border-radius: var(--r-full);
+    color: #fff;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--sh-accent);
+    transition: transform 0.18s var(--ease-spring), box-shadow 0.2s;
+    z-index: 1000;
+}
+.feedback-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(79,70,229,0.4); }
+.feedback-btn:active { transform: scale(0.96); }
+.feedback-btn svg { width: 18px; height: 18px; }
+
+/* ---- 15. Modal -------------------------------------------- */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 21, 42, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-5);
+    z-index: 2000;
+    animation: fadeIn 0.25s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.feedback-modal {
+    position: relative;
+    background: var(--surface);
+    border-radius: var(--r-xl);
+    width: 100%;
+    max-width: 460px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--sh-lg);
+    animation: slideUp 0.32s var(--ease-spring);
+}
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(24px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 34px;
+    height: 34px;
+    background: var(--surface-2);
+    border: none;
+    border-radius: var(--r-full);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-2);
+    transition: background 0.18s, transform 0.12s var(--ease-spring);
+}
+.modal-close:hover { background: var(--surface-3); }
+.modal-close:active { transform: scale(0.9); }
+.modal-close svg { width: 18px; height: 18px; }
+
+.modal-header { text-align: center; padding: var(--sp-8) var(--sp-6) var(--sp-4); }
+.modal-icon {
+    width: 56px; height: 56px;
+    background: var(--accent-grad);
+    border-radius: var(--r-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto var(--sp-4);
+    color: #fff;
+    box-shadow: var(--sh-accent);
+}
+.modal-title { font-size: 20px; font-weight: 800; color: var(--text-1); margin: 0 0 6px; letter-spacing: -0.02em; }
+.modal-subtitle { font-size: 14px; color: var(--text-2); margin: 0; }
+
+.modal-body { padding: 0 var(--sp-6) var(--sp-6); }
+.rating-group, .feedback-group { margin-bottom: var(--sp-5); }
+.rating-group label, .feedback-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: var(--sp-2);
+}
+.stars { display: flex; gap: var(--sp-2); justify-content: center; }
+.star {
+    font-size: 34px;
+    cursor: pointer;
+    color: var(--surface-3);
+    transition: transform 0.15s var(--ease-spring), color 0.15s;
+}
+.star:hover, .star.active { color: var(--warning); transform: scale(1.12); }
+
+.feedback-textarea, .feedback-input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-md);
+    font-family: var(--font);
+    font-size: 15px;
+    background: var(--surface-2);
+    color: var(--text-1);
+    transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+}
+.feedback-textarea:focus, .feedback-input:focus {
+    outline: none;
+    border-color: var(--accent-500);
+    background: var(--surface);
+    box-shadow: 0 0 0 4px var(--accent-50);
+}
+.feedback-textarea { resize: vertical; min-height: 104px; }
+
+.modal-footer {
+    display: flex;
+    gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-6) var(--sp-6);
+    border-top: 1px solid var(--border);
+}
+.btn-cancel, .btn-submit {
+    flex: 1;
+    padding: 13px 20px;
+    border-radius: var(--r-full);
+    font-family: var(--font);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    transition: transform 0.12s var(--ease-spring), background 0.18s, filter 0.18s;
+}
+.btn-cancel { background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); }
+.btn-cancel:hover { background: var(--surface-3); }
+.btn-cancel:active { transform: scale(0.97); }
+.btn-submit { background: var(--accent-grad); border: none; color: #fff; box-shadow: var(--sh-accent); }
+.btn-submit:hover { filter: brightness(1.08); }
+.btn-submit:active { transform: scale(0.97); }
+.btn-submit svg { width: 18px; height: 18px; }
+.btn-submit:disabled { cursor: not-allowed; }
+
+/* ---- 16. Toast -------------------------------------------- */
+.toast-notification {
+    position: fixed;
+    bottom: 88px;
+    left: 50%;
+    transform: translateX(-50%) translateY(16px);
+    background: var(--text-1);
+    color: #fff;
+    padding: 13px 22px;
+    border-radius: var(--r-full);
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: var(--sh-lg);
+    opacity: 0;
+    transition: opacity 0.28s var(--ease-out), transform 0.28s var(--ease-out);
+    z-index: 9999;
+    pointer-events: none;
+    white-space: nowrap;
+}
+.toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---- 17. Responsive --------------------------------------- */
+@media (max-width: 560px) {
+    body { padding: var(--sp-3); }
+    .container { padding: var(--sp-5) var(--sp-4); border-radius: var(--r-lg); }
+    #display { font-size: 2.7rem; }
+    .form-row { gap: var(--sp-3); }
+    .glass-title { font-size: 17px; }
+}
+
+@media (max-width: 380px) {
+    .form-row { grid-template-columns: 1fr; }
+    .sw-btn { padding: 11px 10px; font-size: 13px; }
+    .brand-sub { display: none; }
+}
+
+/* ---- 18. Accessibility ------------------------------------ */
+:focus-visible {
+    outline: 2px solid var(--accent-500);
+    outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

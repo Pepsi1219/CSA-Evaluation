@@ -14,11 +14,6 @@ const GFORM_ENABLED = true;
 // ============================================================
 // GOOGLE ANALYTICS 4 CONFIG
 // ============================================================
-// วิธีตั้งค่า:
-//   1. ไปที่ https://analytics.google.com → สร้าง Account → Property (Web)
-//   2. Copy Measurement ID (รูปแบบ G-XXXXXXXXXX)
-//   3. วางค่าด้านล่าง แล้วเปลี่ยน GA4_ENABLED เป็น true
-// ============================================================
 const GA4_MEASUREMENT_ID = 'G-9M9C6NZJ6Y';
 const GA4_ENABLED        = true;
 
@@ -249,21 +244,44 @@ function swSaveToForm() {
 }
 
 // ---- Export / Print ----
-function printReport() {
+async function printReport() {
     gaTrack('print_report');
-    const now = new Date();
-    const pad = n => String(n).padStart(2, '0');
+    const now     = new Date();
+    const pad     = n => String(n).padStart(2, '0');
     const dateStr = `${pad(now.getDate())}-${pad(now.getMonth()+1)}-${now.getFullYear()}`;
     const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
     const display = `${dateStr} ${timeStr}`;
+    const title   = `CSA Evaluation - ${dateStr} ${timeStr.replace(':', '-')}`;
 
     // Show print date on report
     const el = document.getElementById('printDate');
     if (el) el.textContent = `CSA Evaluation · ${display}`;
 
-    // Set document title = PDF filename
+    // Mobile: Web Share API → ส่งผ่าน Line, Email ฯลฯ
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: title,
+                text:  `ผลการประเมิน CSA Evaluation\n${display}`,
+                url:   window.location.href,
+            });
+            gaTrack('share_report', { method: 'navigator_share' });
+        } catch (err) {
+            // AbortError = user cancelled — ไม่ต้องทำอะไร
+            // error อื่น → fallback ไป print
+            if (err.name !== 'AbortError') {
+                const orig = document.title;
+                document.title = title;
+                window.print();
+                document.title = orig;
+            }
+        }
+        return;
+    }
+
+    // Desktop: เปลี่ยน document.title = ชื่อไฟล์ PDF แล้ว print
     const orig = document.title;
-    document.title = `CSA Evaluation - ${dateStr} ${timeStr.replace(':', '-')}`;
+    document.title = title;
     window.print();
     document.title = orig;
 }

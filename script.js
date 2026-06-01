@@ -1,13 +1,6 @@
 // ============================================================
 // GOOGLE FORMS CONFIG  (Task 0.4)
 // ============================================================
-// ขั้นตอนการตั้งค่า:
-//   1. ไปที่ https://forms.google.com → สร้าง Form ใหม่
-//   2. เพิ่ม 3 คำถาม: Rating (Short answer), Message (Paragraph), Email (Short answer)
-//   3. เปิด Form preview → F12 → Network tab → กรอก+Submit → ดู POST request
-//   4. copy URL (ลงท้าย /formResponse) และ entry.XXXXXXX ของแต่ละช่อง
-//   5. วางค่าด้านล่าง แล้วเปลี่ยน GFORM_ENABLED เป็น true
-// ============================================================
 const GFORM = {
     url:   'https://docs.google.com/forms/u/0/d/e/1FAIpQLSeK5EJHXXDH7wk9B9Y3tkEH_YN-pIgekLlzoVRdHNCNf4UaGw/formResponse',
     entry: {
@@ -17,6 +10,17 @@ const GFORM = {
     }
 };
 const GFORM_ENABLED = true;
+
+// ============================================================
+// GOOGLE ANALYTICS 4 CONFIG
+// ============================================================
+// วิธีตั้งค่า:
+//   1. ไปที่ https://analytics.google.com → สร้าง Account → Property (Web)
+//   2. Copy Measurement ID (รูปแบบ G-XXXXXXXXXX)
+//   3. วางค่าด้านล่าง แล้วเปลี่ยน GA4_ENABLED เป็น true
+// ============================================================
+const GA4_MEASUREMENT_ID = 'G-XXXXXXXXXX'; // ← ใส่ ID จริงที่นี่
+const GA4_ENABLED        = false;           // ← เปลี่ยนเป็น true หลังใส่ ID แล้ว
 
 // ============================================================
 // CONFIG
@@ -29,6 +33,9 @@ let elapsedTime = 0;
 let timerInterval;
 let isRunning = false;
 let currentLang = 'th';
+
+// Session tracking flags (track each feature only once per session)
+const _tracked = { quality: false, training: false };
 
 // --- 2. Stopwatch Modal State ---
 const sw = {
@@ -61,6 +68,7 @@ function resetTimer() {
 
 // ---- Stopwatch Modal ----
 function openStopwatchModal() {
+    gaTrack('open_stopwatch');
     document.getElementById('swModal').style.display = 'flex';
     document.body.style.overflow = 'hidden';
     swUpdateUI();
@@ -222,6 +230,7 @@ function swShowStats() {
 }
 
 function swSaveToForm() {
+    gaTrack('save_stopwatch', { mode: sw.mode, laps: sw.laps.length });
     let totalMs, rounds;
     if (sw.mode === 'lap') {
         totalMs = sw.laps.reduce((a, b) => a + b, 0);
@@ -241,10 +250,22 @@ function swSaveToForm() {
 
 // ---- Export / Print ----
 function printReport() {
+    gaTrack('print_report');
     const now = new Date();
-    const el  = document.getElementById('printDate');
-    if (el) el.textContent = now.toLocaleDateString() + ' · ' + now.toLocaleTimeString();
+    const pad = n => String(n).padStart(2, '0');
+    const dateStr = `${pad(now.getDate())}-${pad(now.getMonth()+1)}-${now.getFullYear()}`;
+    const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const display = `${dateStr} ${timeStr}`;
+
+    // Show print date on report
+    const el = document.getElementById('printDate');
+    if (el) el.textContent = `CSA Evaluation · ${display}`;
+
+    // Set document title = PDF filename
+    const orig = document.title;
+    document.title = `CSA Evaluation - ${dateStr} ${timeStr.replace(':', '-')}`;
     window.print();
+    document.title = orig;
 }
 
 // --- 3. Translations ---
@@ -459,6 +480,7 @@ const t = key => translations[currentLang]?.[key] ?? translations.th[key] ?? key
 // --- 5. Language ---
 function changeLanguage(lang) {
     if (!translations[lang]) return;
+    gaTrack('change_language', { language: lang });
     currentLang = lang;
     document.documentElement.lang = lang;
 
@@ -547,6 +569,10 @@ function calculateAll() {
     const totalQty = passQty + failQty;
     document.getElementById('passRate').value =
         totalQty > 0 ? `${Math.ceil((passQty / totalQty) * 100)} %` : "";
+    if (!_tracked.quality && totalQty > 0) {
+        _tracked.quality = true;
+        gaTrack('use_quality_section');
+    }
 
     // 4. Training Plan — dynamic cards + learning curve chart
     const gap    = effTarget - currentActualEff;
@@ -555,6 +581,10 @@ function calculateAll() {
 
     if (tGrid) {
         if (duration > 0 && gap > 0) {
+            if (!_tracked.training) {
+                _tracked.training = true;
+                gaTrack('use_training_plan', { days: Math.min(duration, MAX_TRAINING_DAYS)|0 });
+            }
             const days      = Math.min(duration, MAX_TRAINING_DAYS);
             const chartData = [];
             let   cardsHtml = '';
@@ -813,7 +843,29 @@ document.addEventListener('keydown', e => {
     }
 });
 
-// --- 10. Async Web Fonts (non-blocking; system font shows instantly) ---
+// --- 10. Google Analytics 4 ---
+function gaTrack(eventName, params = {}) {
+    if (!GA4_ENABLED || typeof gtag === 'undefined') return;
+    gtag('event', eventName, params);
+}
+
+function initGA4() {
+    if (!GA4_ENABLED || !GA4_MEASUREMENT_ID || GA4_MEASUREMENT_ID === 'G-XXXXXXXXXX') return;
+
+    // Inject GA4 script dynamically (non-blocking)
+    const s = document.createElement('script');
+    s.async = true;
+    s.src   = `https://www.googletagmanager.com/gtag/js?id=${GA4_MEASUREMENT_ID}`;
+    document.head.appendChild(s);
+
+    // Init dataLayer
+    window.dataLayer = window.dataLayer || [];
+    window.gtag      = function(){ window.dataLayer.push(arguments); };
+    gtag('js', new Date());
+    gtag('config', GA4_MEASUREMENT_ID, { send_page_view: true });
+}
+
+// --- 11. Async Web Fonts (non-blocking; system font shows instantly) ---
 function loadWebFonts() {
     const href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800'
                + '&family=Noto+Sans+Thai:wght@400;500;600;700;800'
@@ -834,6 +886,7 @@ if ('serviceWorker' in navigator) {
     });
 }
 
+initGA4(); // Google Analytics 4
 changeLanguage('th');
 calculateAll();
 if (document.readyState === 'complete') loadWebFonts();

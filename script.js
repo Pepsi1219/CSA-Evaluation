@@ -30,56 +30,221 @@ let timerInterval;
 let isRunning = false;
 let currentLang = 'th';
 
-// --- 2. Stopwatch ---
-function startStop() {
-    const btn = document.getElementById('startStopBtn');
-    if (!isRunning) {
-        isRunning = true;
-        btn.innerText = "Stop";
-        btn.classList.add('btn-stop-active');
-        btn.classList.remove('btn-start-active');
-        startTime = Date.now() - elapsedTime;
-        timerInterval = setInterval(updateDisplay, 10);
-    } else {
-        isRunning = false;
-        btn.innerText = "Continue";
-        btn.classList.add('btn-start-active');
-        btn.classList.remove('btn-stop-active');
-        clearInterval(timerInterval);
-    }
+// --- 2. Stopwatch Modal State ---
+const sw = {
+    running:  false,
+    mode:     'lap',    // 'lap' | 'single'
+    elapsed:  0,        // total elapsed ms
+    startTs:  null,     // timestamp when last started
+    lapStart: 0,        // elapsed ms at start of current lap
+    laps:     [],       // [ms per completed lap]
+    interval: null,
+};
+
+// Format ms → MM:SS.cs  (centiseconds)
+function fmtSw(ms) {
+    const t  = Math.max(0, Math.floor(ms / 1000));
+    const m  = Math.floor(t / 60);
+    const s  = t % 60;
+    const cs = Math.floor((Math.abs(ms) % 1000) / 10);
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
 }
 
-function updateDisplay() {
-    elapsedTime = Date.now() - startTime;
-    const totalSeconds = Math.floor(elapsedTime / 1000);
-    const mins   = Math.floor(totalSeconds / 60);
-    const secs   = totalSeconds % 60;
-    const millis = Math.floor((elapsedTime % 1000) / 10);
-    document.getElementById('display').innerText =
-        `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}:${millis.toString().padStart(2,'0')}`;
-}
-
+// resetTimer: called by resetForm() — clears time input fields only
 function resetTimer() {
-    isRunning = false;
-    clearInterval(timerInterval);
-    elapsedTime = 0;
-    document.getElementById('display').innerText = "00:00:00";
-    const btn = document.getElementById('startStopBtn');
-    btn.innerText = "Start";
-    btn.classList.add('btn-start-active');
-    btn.classList.remove('btn-stop-active');
     ['totalMin', 'totalTime', 'totalCount'].forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.value = "";
+        if (el) el.value = '';
     });
     calculateAll();
 }
 
-function recordTime() {
-    const totalSeconds = Math.floor(elapsedTime / 1000);
-    document.getElementById('totalMin').value  = Math.floor(totalSeconds / 60);
-    document.getElementById('totalTime').value = totalSeconds % 60;
+// ---- Stopwatch Modal ----
+function openStopwatchModal() {
+    document.getElementById('swModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    swUpdateUI();
+}
+
+function closeStopwatchModal() {
+    if (sw.running) {
+        clearInterval(sw.interval);
+        sw.running = false;
+        sw.elapsed = Date.now() - sw.startTs;
+    }
+    document.getElementById('swModal').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function swSetMode(mode) {
+    if (sw.elapsed > 0) return; // cannot change mode after timing has started
+    sw.mode = mode;
+    document.getElementById('swTabLap').classList.toggle('active', mode === 'lap');
+    document.getElementById('swTabSingle').classList.toggle('active', mode === 'single');
+    swUpdateUI();
+}
+
+function swStartStop() {
+    if (!sw.running) {
+        sw.running = true;
+        sw.startTs = Date.now() - sw.elapsed;
+        sw.interval = setInterval(swTick, 10);
+    } else {
+        sw.running = false;
+        clearInterval(sw.interval);
+        sw.elapsed = Date.now() - sw.startTs;
+        swShowStats();
+    }
+    swUpdateUI();
+}
+
+function swLapOrReset() {
+    if (sw.running) {
+        // Record lap
+        const lapMs = sw.elapsed - sw.lapStart;
+        sw.laps.push(lapMs);
+        sw.lapStart = sw.elapsed;
+        // Show lap section on first lap
+        const lapSec = document.getElementById('swLapSection');
+        if (lapSec) lapSec.style.display = 'block';
+        swRenderLaps();
+    } else {
+        // Reset everything
+        clearInterval(sw.interval);
+        Object.assign(sw, { running:false, elapsed:0, startTs:null, lapStart:0, laps:[], interval:null });
+        const el = id => document.getElementById(id);
+        if (el('swDisplay'))    el('swDisplay').innerText    = '00:00.00';
+        if (el('swCurrentLap')) el('swCurrentLap').innerText = '';
+        if (el('swLapList'))    el('swLapList').innerHTML    = '';
+        if (el('swStatsPanel')) el('swStatsPanel').style.display = 'none';
+        if (el('swLapSection')) el('swLapSection').style.display = 'none';
+        if (el('swSavePanel'))  el('swSavePanel').style.display  = 'none';
+        swUpdateUI();
+    }
+}
+
+function swTick() {
+    sw.elapsed = Date.now() - sw.startTs;
+    const el = id => document.getElementById(id);
+    if (el('swDisplay')) el('swDisplay').innerText = fmtSw(sw.elapsed);
+    if (sw.mode === 'lap') {
+        const lapTimeEl = el('swCurrentLapTime');
+        if (lapTimeEl) lapTimeEl.innerText = fmtSw(sw.elapsed - sw.lapStart);
+    }
+}
+
+function swUpdateUI() {
+    const startBtn    = document.getElementById('swStartStopBtn');
+    const lapResetBtn = document.getElementById('swLapResetBtn');
+    if (!startBtn || !lapResetBtn) return;
+
+    if (sw.running) {
+        startBtn.textContent    = 'Stop';
+        startBtn.className      = 'sw-modal-btn sw-btn-stop';
+        lapResetBtn.disabled    = sw.mode === 'single';
+        lapResetBtn.textContent = 'Lap';
+        lapResetBtn.className   = 'sw-modal-btn sw-btn-secondary' + (sw.mode === 'single' ? ' sw-btn-disabled' : '');
+    } else if (sw.elapsed > 0) {
+        startBtn.textContent    = 'Start';
+        startBtn.className      = 'sw-modal-btn sw-btn-start';
+        lapResetBtn.disabled    = false;
+        lapResetBtn.textContent = 'Reset';
+        lapResetBtn.className   = 'sw-modal-btn sw-btn-secondary';
+    } else {
+        startBtn.textContent    = 'Start';
+        startBtn.className      = 'sw-modal-btn sw-btn-start';
+        lapResetBtn.disabled    = true;
+        lapResetBtn.textContent = 'Lap';
+        lapResetBtn.className   = 'sw-modal-btn sw-btn-secondary sw-btn-disabled';
+    }
+}
+
+function swRenderLaps() {
+    const list = document.getElementById('swLapList');
+    if (!list || !sw.laps.length) return;
+
+    const minT = Math.min(...sw.laps);
+    const maxT = Math.max(...sw.laps);
+    const minI = sw.laps.indexOf(minT);
+    const maxI = sw.laps.indexOf(maxT);
+    let   html = '';
+
+    // Current running lap (top row)
+    if (sw.running && sw.mode === 'lap') {
+        html += `
+        <div class="sw-lap-row sw-lap-current">
+            <span>Lap ${sw.laps.length + 1}</span>
+            <span id="swCurrentLapTime">${fmtSw(sw.elapsed - sw.lapStart)}</span>
+        </div>`;
+    }
+    // Completed laps — newest first
+    for (let i = sw.laps.length - 1; i >= 0; i--) {
+        const cls = sw.laps.length > 1
+            ? (i === minI ? 'sw-lap-fastest' : i === maxI ? 'sw-lap-slowest' : '')
+            : '';
+        html += `
+        <div class="sw-lap-row ${cls}">
+            <span>Lap ${i + 1}</span>
+            <span>${fmtSw(sw.laps[i])}</span>
+        </div>`;
+    }
+    list.innerHTML = html;
+}
+
+function swShowStats() {
+    const data = sw.mode === 'lap' ? sw.laps : (sw.elapsed > 0 ? [sw.elapsed] : []);
+    if (!data.length) return;
+
+    const total = data.reduce((a, b) => a + b, 0);
+    const avg   = total / data.length;
+    const min   = Math.min(...data);
+    const max   = Math.max(...data);
+    const vari  = data.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / data.length;
+    const std   = Math.sqrt(vari);
+
+    const setEl = (id, ms) => { const el = document.getElementById(id); if (el) el.innerText = fmtSw(ms); };
+    setEl('swStatAvg', avg);   setEl('swStatMin', min);
+    setEl('swStatMax', max);   setEl('swStatStd', std);
+    setEl('swStatTotal', total);
+
+    const statsPanel  = document.getElementById('swStatsPanel');
+    const lapSection  = document.getElementById('swLapSection');
+    const savePanel   = document.getElementById('swSavePanel');
+    const roundsRow   = document.getElementById('swRoundsRow');
+    if (statsPanel) statsPanel.style.display = 'block';
+    if (savePanel)  savePanel.style.display  = 'block';
+    if (roundsRow)  roundsRow.style.display  = sw.mode === 'single' ? 'flex' : 'none';
+    if (lapSection && sw.mode === 'lap' && sw.laps.length > 0)
+        lapSection.style.display = 'block';
+
+    // Re-render laps with highlights after stopping
+    if (sw.mode === 'lap' && sw.laps.length) swRenderLaps();
+}
+
+function swSaveToForm() {
+    let totalMs, rounds;
+    if (sw.mode === 'lap') {
+        totalMs = sw.laps.reduce((a, b) => a + b, 0);
+        rounds  = sw.laps.length;
+    } else {
+        totalMs = sw.elapsed;
+        rounds  = parseInt(document.getElementById('swRoundsInput')?.value) || 1;
+    }
+    const totalSec = Math.floor(totalMs / 1000);
+    const g = id => document.getElementById(id);
+    if (g('totalMin'))   g('totalMin').value   = Math.floor(totalSec / 60);
+    if (g('totalTime'))  g('totalTime').value  = totalSec % 60;
+    if (g('totalCount')) g('totalCount').value = rounds;
     calculateAll();
+    closeStopwatchModal();
+}
+
+// ---- Export / Print ----
+function printReport() {
+    const now = new Date();
+    const el  = document.getElementById('printDate');
+    if (el) el.textContent = now.toLocaleDateString() + ' · ' + now.toLocaleTimeString();
+    window.print();
 }
 
 // --- 3. Translations ---
@@ -119,6 +284,17 @@ const translations = {
         'send': 'ส่งความคิดเห็น',
         'feedback_required': 'กรุณากรอกข้อความเสนอแนะ',
         'feedback_thanks': '✅ ขอบคุณสำหรับความคิดเห็น!',
+        'sw_open': 'จับเวลา',
+        'sw_open_sub': 'แตะเพื่อเปิดนาฬิกาจับเวลา',
+        'sw_back': 'กลับ',
+        'sw_stats': 'สถิติ',
+        'sw_avg': 'เฉลี่ย',
+        'sw_fastest': 'เร็วสุด',
+        'sw_slowest': 'ช้าสุด',
+        'sw_total': 'รวม',
+        'sw_laps_title': 'รายการรอบ',
+        'sw_rounds': 'จำนวนรอบ',
+        'sw_save_form': 'บันทึกลงฟอร์ม',
     },
     'en': {
         'brand_sub': 'Performance Evaluation Tool',
@@ -155,6 +331,17 @@ const translations = {
         'send': 'Send Feedback',
         'feedback_required': 'Please enter your feedback',
         'feedback_thanks': '✅ Thank you for your feedback!',
+        'sw_open': 'Stopwatch',
+        'sw_open_sub': 'Tap to open stopwatch',
+        'sw_back': 'Back',
+        'sw_stats': 'Statistics',
+        'sw_avg': 'Average',
+        'sw_fastest': 'Fastest',
+        'sw_slowest': 'Slowest',
+        'sw_total': 'Total',
+        'sw_laps_title': 'Laps',
+        'sw_rounds': 'Rounds',
+        'sw_save_form': 'Save to Form',
     },
     'vn': {
         'brand_sub': 'Công cụ đánh giá hiệu suất',
@@ -191,6 +378,17 @@ const translations = {
         'send': 'Gửi phản hồi',
         'feedback_required': 'Vui lòng nhập phản hồi của bạn',
         'feedback_thanks': '✅ Cảm ơn phản hồi của bạn!',
+        'sw_open': 'Bấm giờ',
+        'sw_open_sub': 'Nhấn để mở đồng hồ bấm giờ',
+        'sw_back': 'Trở lại',
+        'sw_stats': 'Thống kê',
+        'sw_avg': 'Trung bình',
+        'sw_fastest': 'Nhanh nhất',
+        'sw_slowest': 'Chậm nhất',
+        'sw_total': 'Tổng',
+        'sw_laps_title': 'Danh sách vòng',
+        'sw_rounds': 'Số vòng',
+        'sw_save_form': 'Lưu vào biểu mẫu',
     },
     'la': {
         'brand_sub': 'ເຄື່ອງມືປະເມີນປະສິດທິພາບ',
@@ -227,6 +425,17 @@ const translations = {
         'send': 'ສົ່ງຄໍາຄິດເຫັນ',
         'feedback_required': 'ກະລຸນາໃສ່ຄໍາຄິດເຫັນ',
         'feedback_thanks': '✅ ຂອບໃຈສຳລັບຄໍາຄິດເຫັນ!',
+        'sw_open': 'ຈັບເວລາ',
+        'sw_open_sub': 'ແຕະເພື່ອເປີດໂມງຈັບເວລາ',
+        'sw_back': 'ກັບ',
+        'sw_stats': 'ສະຖິຕິ',
+        'sw_avg': 'ສະເລ່ຍ',
+        'sw_fastest': 'ໄວທີ່ສຸດ',
+        'sw_slowest': 'ຊ້າທີ່ສຸດ',
+        'sw_total': 'ລວມ',
+        'sw_laps_title': 'ລາຍການຮອບ',
+        'sw_rounds': 'ຈຳນວນຮອບ',
+        'sw_save_form': 'ບັນທຶກລົງຟອມ',
     }
 };
 
@@ -237,24 +446,15 @@ const LANG_META = {
     la: { flag: '🇱🇦', name: 'ລາວ' },
 };
 
-const pcsUnit = { th: 'ชิ้น', en: 'pcs', vn: 'cái', la: 'ຊິ້ນ' };
+const pcsUnit  = { th: 'ชิ้น', en: 'pcs', vn: 'cái', la: 'ຊິ້ນ' };
+const pcsPerHr = { th: 'ชิ้น/ชม.', en: 'pcs/hr', vn: 'SP/giờ', la: 'ຊິ້ນ/ຊມ' };
+
+let chartMode   = 'pcs'; // 'pcs' | 'eff'
+let _chartCache = { data: [], targetPcs: 0, effTarget: 0 };
 
 const t = key => translations[currentLang]?.[key] ?? translations.th[key] ?? key;
 
-// --- 4. Training Grid Generator ---
-function generateTrainingGrid() {
-    const grid = document.getElementById('trainingGrid');
-    if (!grid) return;
-    let html = '';
-    for (let i = 1; i <= MAX_TRAINING_DAYS; i++) {
-        html += `
-        <div class="day-card" id="dayCard${i}">
-            <label class="day-label">${t('day_unit')} ${i}</label>
-            <input type="text" id="d${i}" readonly class="glass-input glass-input-day">
-        </div>`;
-    }
-    grid.innerHTML = html;
-}
+// --- 4. Training Grid: generated dynamically inside calculateAll() ---
 
 // --- 5. Language ---
 function changeLanguage(lang) {
@@ -332,7 +532,7 @@ function calculateAll() {
         if (sam > 0) {
             currentActualEff = Math.ceil((sam / avgMin) * 100);
             document.getElementById('actualEffPerc').value = `${currentActualEff} %`;
-            document.getElementById('actualPcs').value = `${Math.ceil(60 / avgMin)} ${pcsUnit[currentLang] || 'pcs'}`;
+            document.getElementById('actualPcs').value = `${Math.ceil(60 / avgMin)} ${pcsPerHr[currentLang] || 'pcs/hr'}`;
         } else {
             document.getElementById('actualEffPerc').value = '';
             document.getElementById('actualPcs').value = '';
@@ -348,25 +548,161 @@ function calculateAll() {
     document.getElementById('passRate').value =
         totalQty > 0 ? `${Math.ceil((passQty / totalQty) * 100)} %` : "";
 
-    // 4. Training Plan
-    const gap = effTarget - currentActualEff;
-    for (let i = 1; i <= MAX_TRAINING_DAYS; i++) {
-        const el = document.getElementById(`d${i}`);
-        const card = document.getElementById(`dayCard${i}`);
-        if (!el) continue;
-        if (duration > 0 && gap > 0 && i <= duration) {
-            const dayEff = Math.ceil(currentActualEff + (gap / duration * i));
-            const dayPcs = sam > 0 ? Math.ceil((60 / sam) * (dayEff / 100)) : 0;
-            el.value = `${dayEff}% · ${dayPcs}`;
-            card?.classList.add('filled');
+    // 4. Training Plan — dynamic cards + learning curve chart
+    const gap    = effTarget - currentActualEff;
+    const tGrid  = document.getElementById('trainingGrid');
+    const tChart = document.getElementById('learningChart');
+
+    if (tGrid) {
+        if (duration > 0 && gap > 0) {
+            const days      = Math.min(duration, MAX_TRAINING_DAYS);
+            const chartData = [];
+            let   cardsHtml = '';
+
+            for (let i = 1; i <= days; i++) {
+                const dayEff = Math.ceil(currentActualEff + (gap / duration * i));
+                const dayPcs = sam > 0 ? Math.ceil((60 / sam) * (dayEff / 100)) : 0;
+                chartData.push({ day: i, eff: dayEff, pcs: dayPcs });
+                cardsHtml += `
+                <div class="day-card filled">
+                    <label class="day-label">${t('day_unit')} ${i}</label>
+                    <div class="day-card-body">
+                        <span class="day-eff">${dayEff}%</span>
+                        <span class="day-pcs">${dayPcs} ${pcsPerHr[currentLang] || 'pcs/hr'}</span>
+                    </div>
+                </div>`;
+            }
+
+            tGrid.innerHTML = cardsHtml;
+
+            _chartCache = {
+                data:       chartData,
+                targetPcs:  sam > 0 ? Math.ceil((60 / sam) * (effTarget / 100)) : 0,
+                effTarget,
+                currentEff: currentActualEff,
+                currentPcs: (sam > 0 && currentActualEff > 0)
+                    ? Math.ceil((60 / sam) * (currentActualEff / 100)) : 0,
+            };
+            renderChartFromCache();
         } else {
-            el.value = "";
-            card?.classList.remove('filled');
+            tGrid.innerHTML = '';
+            _chartCache = { data: [], targetPcs: 0, effTarget: 0 };
+            if (tChart) tChart.style.display = 'none';
         }
     }
 }
 
-// --- 7. Google Forms Integration ---
+// --- 7. Learning Curve Chart ---
+function setChartMode(mode) {
+    chartMode = mode;
+    renderChartFromCache();
+}
+
+function renderChartFromCache() {
+    const tChart = document.getElementById('learningChart');
+    if (!tChart) return;
+    if (!_chartCache.data.length) { tChart.style.display = 'none'; return; }
+
+    tChart.style.display = 'block';
+    const { data, targetPcs, effTarget, currentEff, currentPcs } = _chartCache;
+    const isPcs    = chartMode === 'pcs' && targetPcs > 0;
+    const day0Val  = isPcs ? (currentPcs || 0) : (currentEff || 0);
+    const baseVals = data.map(d => ({ day: d.day, value: isPcs ? d.pcs : d.eff }));
+    const values   = day0Val > 0
+        ? [{ day: 0, value: day0Val, isDay0: true }, ...baseVals]
+        : baseVals;
+    const target   = isPcs ? targetPcs : effTarget;
+    const unit     = isPcs ? (pcsPerHr[currentLang] || 'pcs/hr') : '%';
+    const pcsLabel = pcsPerHr[currentLang] || 'pcs/hr';
+    const hasPcs   = targetPcs > 0;
+
+    tChart.innerHTML = `
+    <div class="chart-header">
+        <div class="chart-toggle-group">
+            <button class="chart-toggle-btn ${isPcs ? 'active' : ''} ${!hasPcs ? 'disabled' : ''}"
+                    onclick="setChartMode('pcs')" ${!hasPcs ? 'disabled' : ''}>${pcsLabel}</button>
+            <button class="chart-toggle-btn ${!isPcs ? 'active' : ''}"
+                    onclick="setChartMode('eff')">Eff %</button>
+        </div>
+    </div>
+    ${renderSVGChart(values, target, unit)}`;
+}
+
+function renderSVGChart(values, target, unit) {
+    const n = values.length;
+    if (n === 0) return '';
+
+    const W = 400, H = 180;
+    const p = { t: 20, r: 36, b: 36, l: 42 };
+    const cw = W - p.l - p.r;
+    const ch = H - p.t - p.b;
+
+    const maxY = Math.max(target * 1.2, ...values.map(d => d.value), 1);
+    const x    = i => p.l + (n === 1 ? cw / 2 : (i / (n - 1)) * cw);
+    const y    = v => p.t + ch - (v / maxY) * ch;
+
+    // Y-axis grid + labels
+    const yTicks = [0, 0.25, 0.5, 0.75, 1].map(f => {
+        const v = Math.round(maxY * f), yv = y(v);
+        return `<line x1="${p.l}" y1="${yv}" x2="${p.l+cw}" y2="${yv}"
+                      stroke="var(--border)" stroke-width="1"/>
+                <text x="${p.l-5}" y="${yv+4}" font-size="10" text-anchor="end"
+                      fill="var(--text-3)" font-family="var(--font)">${v}</text>`;
+    }).join('');
+
+    // Target line
+    const ty          = y(target);
+    const targetLabel = unit === '%' ? `${target}%` : `${target} ${unit}`;
+    const targetSvg   = target > 0 ? `
+        <line x1="${p.l}" y1="${ty}" x2="${p.l+cw}" y2="${ty}"
+              stroke="var(--danger)" stroke-width="1.5" stroke-dasharray="5,3"/>
+        <text x="${p.l+cw}" y="${ty-5}" font-size="10" text-anchor="end"
+              fill="var(--danger)" font-family="var(--font)" font-weight="600">${targetLabel}</text>` : '';
+
+    // Area
+    const areaPath = [`M ${x(0)} ${p.t+ch}`,
+        ...values.map((d, i) => `L ${x(i)} ${y(d.value)}`),
+        `L ${x(n-1)} ${p.t+ch} Z`].join(' ');
+    const area = `<path d="${areaPath}" fill="var(--accent-500)" opacity="0.12"/>`;
+
+    // Line
+    const linePath = values.map((d, i) => `${i===0?'M':'L'} ${x(i)} ${y(d.value)}`).join(' ');
+    const line = `<path d="${linePath}" fill="none" stroke="var(--accent-500)"
+                       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+    // Dots (day 0 = current state, styled in warning/orange)
+    const dots = values.map((d, i) => {
+        if (d.isDay0) {
+            const lbl = unit === '%' ? `${d.value}%` : `${d.value}`;
+            return `
+                <circle cx="${x(i)}" cy="${y(d.value)}" r="5"
+                         fill="var(--warning)" stroke="var(--surface)" stroke-width="2.5"/>
+                <text x="${x(i)+6}" y="${y(d.value)+10}" font-size="9" text-anchor="start"
+                      fill="var(--warning)" font-family="var(--font)" font-weight="700">${lbl}</text>`;
+        }
+        return `<circle cx="${x(i)}" cy="${y(d.value)}" r="4"
+                         fill="var(--accent-500)" stroke="var(--surface)" stroke-width="2"/>`;
+    }).join('');
+
+    // X labels — แสดงทุกหน่วย (1, 2, 3, ...)
+    const xLabels = values.map((d, i) =>
+        `<text x="${x(i)}" y="${p.t+ch+10}" font-size="10" text-anchor="middle"
+               fill="var(--text-3)" font-family="var(--font)">${d.day}</text>`
+    ).join('');
+
+    // Axes
+    const axes = `
+        <line x1="${p.l}" y1="${p.t}" x2="${p.l}" y2="${p.t+ch}"
+              stroke="var(--border-strong)" stroke-width="1.5"/>
+        <line x1="${p.l}" y1="${p.t+ch}" x2="${p.l+cw}" y2="${p.t+ch}"
+              stroke="var(--border-strong)" stroke-width="1.5"/>`;
+
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+        ${yTicks}${area}${targetSvg}${line}${dots}${axes}${xLabels}
+    </svg>`;
+}
+
+// --- 8. Google Forms Integration ---
 async function sendToGoogleForms(rating, message, email) {
     const body = new URLSearchParams({
         [GFORM.entry.rating]:  String(rating || '-'),
@@ -490,7 +826,14 @@ function loadWebFonts() {
 }
 
 // --- 11. Init ---
-generateTrainingGrid();
+
+// Register PWA Service Worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+}
+
 changeLanguage('th');
 calculateAll();
 if (document.readyState === 'complete') loadWebFonts();

@@ -6,12 +6,18 @@
     <meta name="theme-color" content="#4f46e5">
     <title>CSA Evaluation Calculator</title>
 
-    <!-- Fonts: Inter (Latin/VN) + Noto Sans Thai + Noto Sans Lao -->
-    <!-- Loaded asynchronously in script.js so a slow network never blocks first paint -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.svg">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -64,6 +70,15 @@
                     </div>
                 </div>
 
+                <!-- Export / Print -->
+                <button type="button" class="icon-btn" onclick="printReport()" aria-label="Export" title="Export / Print">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 6 2 18 2 18 9"/>
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+                        <rect x="6" y="14" width="12" height="8"/>
+                    </svg>
+                </button>
+
                 <!-- Reset -->
                 <button type="button" class="icon-btn danger" onclick="resetForm()" aria-label="Reset" title="Reset">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -75,6 +90,9 @@
             </div>
         </div>
     </header>
+
+    <!-- Print date: hidden normally, shown on print -->
+    <div id="printDate" class="print-only print-date"></div>
 
     <!-- ============ Section 1: Target ============ -->
     <h3 class="section-title">
@@ -111,14 +129,25 @@
             <span class="lang-text" data-key="header2">บันทึกผลงานจริง</span>
         </h3>
 
-        <div class="stopwatch-glass">
-            <div id="display">00:00:00</div>
-            <div class="stopwatch-controls">
-                <button type="button" id="startStopBtn" class="sw-btn btn-start-active" onclick="startStop()">Start</button>
-                <button type="button" class="sw-btn btn-reset-sw" onclick="resetTimer()">Reset</button>
-                <button type="button" class="sw-btn btn-save-sw" onclick="recordTime()">💾 Save</button>
+        <!-- Stopwatch Launch Button -->
+        <button type="button" class="sw-launch-btn" onclick="openStopwatchModal()">
+            <div class="sw-launch-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="13" r="8"/>
+                    <path d="M12 9v4l2 2"/>
+                    <path d="M5 3 2 6"/><path d="m22 6-3-3"/>
+                </svg>
             </div>
-        </div>
+            <div class="sw-launch-text">
+                <span class="sw-launch-title lang-text" data-key="sw_open">จับเวลา</span>
+                <span class="sw-launch-sub lang-text" data-key="sw_open_sub">แตะเพื่อเปิดนาฬิกาจับเวลา</span>
+            </div>
+            <svg class="sw-launch-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"/>
+            </svg>
+        </button>
 
         <div class="form-row-three">
             <div class="input-group">
@@ -203,6 +232,7 @@
         </div>
 
         <div class="training-grid" id="trainingGrid"></div>
+        <div id="learningChart" class="learning-chart-wrap" style="display:none;"></div>
     </div>
 
 </div><!-- /.container -->
@@ -265,6 +295,95 @@
     </div>
 </div>
 
-<script src="script.js"></script>
+<!-- ============ Stopwatch Modal ============ -->
+<div id="swModal" class="sw-overlay" style="display:none;" role="dialog" aria-modal="true">
+    <div class="sw-page">
+
+        <!-- Header -->
+        <div class="sw-header">
+            <button class="sw-back-btn" onclick="closeStopwatchModal()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <path d="M15 18l-6-6 6-6"/>
+                </svg>
+                <span class="lang-text" data-key="sw_back">กลับ</span>
+            </button>
+            <div class="sw-mode-tabs">
+                <button class="sw-mode-tab active" id="swTabLap" onclick="swSetMode('lap')">Lap</button>
+                <button class="sw-mode-tab" id="swTabSingle" onclick="swSetMode('single')">Single</button>
+            </div>
+            <div class="sw-header-spacer"></div>
+        </div>
+
+        <!-- Timer Display -->
+        <div class="sw-timer-wrap">
+            <div class="sw-timer" id="swDisplay">00:00.00</div>
+            <div class="sw-current-lap" id="swCurrentLap"></div>
+        </div>
+
+        <!-- Control Buttons -->
+        <div class="sw-controls">
+            <button class="sw-modal-btn sw-btn-secondary sw-btn-disabled"
+                    id="swLapResetBtn" onclick="swLapOrReset()" disabled>Lap</button>
+            <button class="sw-modal-btn sw-btn-start"
+                    id="swStartStopBtn" onclick="swStartStop()">Start</button>
+        </div>
+
+        <!-- Statistics Panel -->
+        <div class="sw-stats-panel" id="swStatsPanel" style="display:none;">
+            <div class="sw-stats-header">
+                <span class="sw-stats-title lang-text" data-key="sw_stats">สถิติ</span>
+            </div>
+            <div class="sw-stats-grid">
+                <div class="sw-stat">
+                    <span class="lang-text" data-key="sw_avg">เฉลี่ย</span>
+                    <span id="swStatAvg">—</span>
+                </div>
+                <div class="sw-stat sw-stat-fastest">
+                    <span class="lang-text" data-key="sw_fastest">เร็วสุด</span>
+                    <span id="swStatMin">—</span>
+                </div>
+                <div class="sw-stat sw-stat-slowest">
+                    <span class="lang-text" data-key="sw_slowest">ช้าสุด</span>
+                    <span id="swStatMax">—</span>
+                </div>
+                <div class="sw-stat">
+                    <span>Std Dev</span>
+                    <span id="swStatStd">—</span>
+                </div>
+                <div class="sw-stat sw-stat-total">
+                    <span class="lang-text" data-key="sw_total">รวม</span>
+                    <span id="swStatTotal">—</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lap List -->
+        <div class="sw-lap-section" id="swLapSection" style="display:none;">
+            <div class="sw-lap-section-title lang-text" data-key="sw_laps_title">รายการรอบ</div>
+            <div class="sw-lap-list" id="swLapList"></div>
+        </div>
+
+        <!-- Save to Form (sticky bottom) -->
+        <div class="sw-save-panel" id="swSavePanel" style="display:none;">
+            <div class="sw-rounds-row" id="swRoundsRow" style="display:none;">
+                <label class="lang-text" data-key="sw_rounds">จำนวนรอบ</label>
+                <input type="number" id="swRoundsInput" class="sw-rounds-input" value="1" min="1">
+            </div>
+            <button class="sw-save-to-form-btn" onclick="swSaveToForm()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                </svg>
+                <span class="lang-text" data-key="sw_save_form">บันทึกลงฟอร์ม</span>
+            </button>
+        </div>
+
+    </div>
+</div>
+
+<script src="script.js" defer></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 
-const CACHE  = 'csa-v1.2.4';  // ← bump version on every deploy to clear old cache
+const CACHE  = 'csa-v1.2.5';  // ← bump version on every deploy to clear old cache
 const ASSETS = [
     './',
     './index.html',

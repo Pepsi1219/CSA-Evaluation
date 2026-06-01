@@ -19,8 +19,8 @@ const GFORM_ENABLED = true;
 //   2. Copy Measurement ID (รูปแบบ G-XXXXXXXXXX)
 //   3. วางค่าด้านล่าง แล้วเปลี่ยน GA4_ENABLED เป็น true
 // ============================================================
-const GA4_MEASUREMENT_ID = 'G-XXXXXXXXXX'; // ← ใส่ ID จริงที่นี่
-const GA4_ENABLED        = false;           // ← เปลี่ยนเป็น true หลังใส่ ID แล้ว
+const GA4_MEASUREMENT_ID = 'G-9M9C6NZJ6Y';
+const GA4_ENABLED        = true;
 
 // ============================================================
 // CONFIG

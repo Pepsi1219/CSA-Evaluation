@@ -1,6 +1,5 @@
-// CSA Evaluation Calculator — Service Worker v1.2.1
-// Strategy: Network-First (always fetch fresh, fallback to cache when offline)
-const CACHE  = 'csa-v1.2.1';  // ← bump version on every deploy to clear old cache
+
+const CACHE  = 'csa-v1.2.4';  // ← bump version on every deploy to clear old cache
 const ASSETS = [
     './',
     './index.html',

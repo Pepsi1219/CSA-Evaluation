@@ -244,44 +244,22 @@ function swSaveToForm() {
 }
 
 // ---- Export / Print ----
-async function printReport() {
+function printReport() {
     gaTrack('print_report');
-    const now     = new Date();
-    const pad     = n => String(n).padStart(2, '0');
-    const dateStr = `${pad(now.getDate())}-${pad(now.getMonth()+1)}-${now.getFullYear()}`;
-    const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const display = `${dateStr} ${timeStr}`;
-    const title   = `CSA Evaluation - ${dateStr} ${timeStr.replace(':', '-')}`;
+    const now      = new Date();
+    const pad      = n => String(n).padStart(2, '0');
+    const dateStr  = `${pad(now.getDate())}-${pad(now.getMonth()+1)}-${now.getFullYear()}`;
+    const timeStr  = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const display  = `${dateStr} ${timeStr}`;
+    const filename = `CSA Evaluation - ${dateStr} ${timeStr.replace(':', '-')}`;
 
-    // Show print date on report
-    const el = document.getElementById('printDate');
-    if (el) el.textContent = `CSA Evaluation · ${display}`;
+    // แสดงวันที่บน report
+    const dateEl = document.getElementById('printDate');
+    if (dateEl) dateEl.textContent = `CSA Evaluation · ${display}`;
 
-    // Mobile: Web Share API → ส่งผ่าน Line, Email ฯลฯ
-    if (navigator.share) {
-        try {
-            await navigator.share({
-                title: title,
-                text:  `ผลการประเมิน CSA Evaluation\n${display}`,
-                url:   window.location.href,
-            });
-            gaTrack('share_report', { method: 'navigator_share' });
-        } catch (err) {
-            // AbortError = user cancelled — ไม่ต้องทำอะไร
-            // error อื่น → fallback ไป print
-            if (err.name !== 'AbortError') {
-                const orig = document.title;
-                document.title = title;
-                window.print();
-                document.title = orig;
-            }
-        }
-        return;
-    }
-
-    // Desktop: เปลี่ยน document.title = ชื่อไฟล์ PDF แล้ว print
+    // browser PDF renderer: ใช้ document.title เป็นชื่อไฟล์ PDF (Chrome/Edge/Firefox รองรับ)
     const orig = document.title;
-    document.title = title;
+    document.title = filename;
     window.print();
     document.title = orig;
 }

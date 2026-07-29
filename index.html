@@ -79,6 +79,29 @@
                     </svg>
                 </button>
 
+                <!-- History -->
+                <button type="button" class="icon-btn" onclick="openHistoryModal()" aria-label="History" title="History">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="13" r="8"/>
+                        <path d="M12 9v4l2 2"/>
+                        <path d="M3 3v5h5"/><path d="M3.05 13a9 9 0 1 0 2.13-6.36L3 8"/>
+                    </svg>
+                </button>
+
+                <!-- Theme toggle -->
+                <button type="button" class="icon-btn" id="themeToggleBtn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle theme">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="themeIconMoon">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="themeIconSun" style="display:none;">
+                        <circle cx="12" cy="12" r="5"/>
+                        <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                        <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                    </svg>
+                </button>
+
                 <!-- Reset -->
                 <button type="button" class="icon-btn danger" onclick="resetForm()" aria-label="Reset" title="Reset">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -104,8 +127,18 @@
 
     <div class="form-row">
         <div class="input-group">
-            <label class="lang-text" data-key="sam_label">ค่า SAM (นาที)</label>
+            <div class="label-row">
+                <label>
+                    <span class="lang-text" data-key="sam_label_base">ค่า SAM</span>
+                    (<span class="lang-text" id="samUnitLabel" data-key="unit_min">นาที</span>)
+                </label>
+                <div class="unit-toggle-group" role="group" aria-label="SAM unit">
+                    <button type="button" class="unit-toggle-btn active" id="samUnitBtnMin" onclick="setSamUnit('min')"><span class="lang-text" data-key="unit_min">นาที</span></button>
+                    <button type="button" class="unit-toggle-btn" id="samUnitBtnSec" onclick="setSamUnit('sec')"><span class="lang-text" data-key="unit_sec">วินาที</span></button>
+                </div>
+            </div>
             <input type="number" id="samInput" class="glass-input" inputmode="decimal" step="0.01" oninput="calculateAll()">
+            <div class="sam-equiv" id="samEquiv" hidden></div>
         </div>
         <div class="input-group">
             <label class="lang-text" data-key="eff_target">เป้าหมายประสิทธิภาพ (%)</label>
@@ -113,9 +146,15 @@
         </div>
     </div>
 
-    <div class="input-group">
-        <label class="lang-text" data-key="qty_label">เป้าหมายชิ้นงาน (ชิ้น/ชม.)</label>
-        <input type="number" id="targetDisplay" readonly class="glass-input highlight-result-glass">
+    <div class="form-row">
+        <div class="input-group">
+            <label class="lang-text" data-key="qty_label">เป้าหมายชิ้นงาน (ชิ้น/ชม.)</label>
+            <input type="number" id="targetDisplay" readonly class="glass-input highlight-result-glass">
+        </div>
+        <div class="input-group">
+            <label class="lang-text" data-key="new_sam_label">ค่า SAM ใหม่ (เป้าหมาย)</label>
+            <input type="text" id="newSamDisplay" readonly class="glass-input highlight-result-glass">
+        </div>
     </div>
 
     <hr>
@@ -240,7 +279,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · v1.2.5</p>
+    <p>© CSA Evaluation · v1.3.1</p>
     <button class="feedback-btn" id="feedbackBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -291,6 +330,49 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
                 <span class="lang-text" data-key="send">ส่งความคิดเห็น</span>
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ History Modal ============ -->
+<div id="historyModal" class="modal-overlay" style="display: none;">
+    <div class="feedback-modal history-modal">
+        <button class="modal-close" id="closeHistoryBtn" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+        <div class="modal-header">
+            <div class="modal-icon" aria-hidden="true">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M3 3v5h5"/><path d="M3.05 13a9 9 0 1 0 2.13-6.36L3 8"/>
+                </svg>
+            </div>
+            <h3 class="modal-title lang-text" data-key="history_title">ประวัติการประเมิน</h3>
+            <p class="modal-subtitle lang-text" data-key="history_subtitle">บันทึกและเปรียบเทียบผลการประเมิน</p>
+        </div>
+        <div class="modal-body">
+            <!-- List view -->
+            <div id="historyListView">
+                <div class="history-save-row">
+                    <input type="text" id="historyLabelInput" class="feedback-input" placeholder="ชื่อ/ไลน์ (ไม่บังคับ)" data-key-placeholder="history_label_placeholder">
+                    <button type="button" class="btn-submit history-save-btn" id="historySaveBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        <span class="lang-text" data-key="history_save">บันทึกปัจจุบัน</span>
+                    </button>
+                </div>
+                <div class="history-list" id="historyList"></div>
+                <p class="history-empty lang-text" data-key="history_empty" id="historyEmptyMsg" style="display:none;">ยังไม่มีประวัติที่บันทึกไว้</p>
+            </div>
+            <!-- Compare view -->
+            <div id="historyCompareView" style="display:none;">
+                <div class="compare-table-wrap" id="compareTableWrap"></div>
+            </div>
+        </div>
+        <div class="modal-footer" id="historyListFooter">
+            <button class="btn-cancel" id="historyCloseBtn"><span class="lang-text" data-key="cancel">ยกเลิก</span></button>
+            <button class="btn-submit" id="historyCompareBtn" disabled><span class="lang-text" data-key="history_compare">เปรียบเทียบ</span></button>
+        </div>
+        <div class="modal-footer" id="historyCompareFooter" style="display:none;">
+            <button class="btn-cancel" id="compareBackBtn"><span class="lang-text" data-key="compare_back">กลับ</span></button>
         </div>
     </div>
 </div>
@@ -384,6 +466,7 @@
     </div>
 </div>
 
+<script src="calc.js" defer></script>
 <script src="script.js" defer></script>
 </body>
 </html>

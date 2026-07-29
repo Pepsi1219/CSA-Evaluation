@@ -22,12 +22,22 @@ const GA4_ENABLED        = true;
 // ============================================================
 const MAX_TRAINING_DAYS = 18;
 
+// ============================================================
+// PERSISTENCE (localStorage) — form auto-save + history
+// ============================================================
+const STORAGE_KEY_FORM    = 'csa_form_v1';
+const STORAGE_KEY_HISTORY = 'csa_history_v1';
+const STORAGE_KEY_THEME   = 'csa_theme';
+const FORM_FIELD_IDS = ['samInput','effTargetInput','totalMin','totalTime','totalCount','passQty','failQty','duration'];
+const HISTORY_MAX = 100;
+
 // --- 1. Global State ---
 let startTime;
 let elapsedTime = 0;
 let timerInterval;
 let isRunning = false;
 let currentLang = 'th';
+let samUnit = 'min'; // unit the user types SAM in: 'min' or 'sec'
 
 // Session tracking flags (track each feature only once per session)
 const _tracked = { quality: false, training: false };
@@ -283,6 +293,10 @@ const translations = {
         'brand_sub': 'เครื่องมือประเมินประสิทธิภาพ',
         'header1': 'การตั้งเป้าหมาย',
         'sam_label': 'ค่า SAM (นาที)',
+        'sam_label_base': 'ค่า SAM',
+        'unit_min': 'นาที',
+        'unit_sec': 'วินาที',
+        'new_sam_label': 'ค่า SAM ใหม่ (เป้าหมาย)',
         'eff_target': 'เป้าหมายประสิทธิภาพ (%)',
         'qty_label': 'เป้าหมายชิ้นงาน (ชิ้น/ชม.)',
 
@@ -325,11 +339,25 @@ const translations = {
         'sw_laps_title': 'รายการรอบ',
         'sw_rounds': 'จำนวนรอบ',
         'sw_save_form': 'บันทึกลงฟอร์ม',
+
+        'history_title': 'ประวัติการประเมิน',
+        'history_subtitle': 'บันทึกและเปรียบเทียบผลการประเมิน',
+        'history_save': 'บันทึกปัจจุบัน',
+        'history_label_placeholder': 'ชื่อ/ไลน์ (ไม่บังคับ)',
+        'history_empty': 'ยังไม่มีประวัติที่บันทึกไว้',
+        'history_compare': 'เปรียบเทียบ',
+        'history_delete_confirm': 'ลบรายการนี้ออกจากประวัติ?',
+        'compare_back': 'กลับ',
+        'compare_gap': 'ส่วนต่างจากเป้าหมาย',
     },
     'en': {
         'brand_sub': 'Performance Evaluation Tool',
         'header1': 'Set Target',
         'sam_label': 'SAM Value (Minutes)',
+        'sam_label_base': 'SAM Value',
+        'unit_min': 'Minutes',
+        'unit_sec': 'Seconds',
+        'new_sam_label': 'New SAM (Target)',
         'eff_target': 'Target Efficiency (%)',
         'qty_label': 'Target Cut Piece (pcs/hrs.)',
 
@@ -372,11 +400,25 @@ const translations = {
         'sw_laps_title': 'Laps',
         'sw_rounds': 'Rounds',
         'sw_save_form': 'Save to Form',
+
+        'history_title': 'Evaluation History',
+        'history_subtitle': 'Save and compare past evaluations',
+        'history_save': 'Save Current',
+        'history_label_placeholder': 'Name/Line (optional)',
+        'history_empty': 'No saved history yet',
+        'history_compare': 'Compare',
+        'history_delete_confirm': 'Remove this entry from history?',
+        'compare_back': 'Back',
+        'compare_gap': 'Gap to Target',
     },
     'vn': {
         'brand_sub': 'Công cụ đánh giá hiệu suất',
         'header1': 'Thiết lập mục tiêu',
         'sam_label': 'Giá trị SAM (Phút)',
+        'sam_label_base': 'Giá trị SAM',
+        'unit_min': 'Phút',
+        'unit_sec': 'Giây',
+        'new_sam_label': 'SAM mới (Mục tiêu)',
         'eff_target': 'Hiệu suất mục tiêu (%)',
         'qty_label': 'Số lượng sản phẩm mục tiêu mỗi giờ',
 
@@ -419,11 +461,25 @@ const translations = {
         'sw_laps_title': 'Danh sách vòng',
         'sw_rounds': 'Số vòng',
         'sw_save_form': 'Lưu vào biểu mẫu',
+
+        'history_title': 'Lịch sử đánh giá',
+        'history_subtitle': 'Lưu và so sánh các đánh giá trước đây',
+        'history_save': 'Lưu hiện tại',
+        'history_label_placeholder': 'Tên/Chuyền (không bắt buộc)',
+        'history_empty': 'Chưa có lịch sử được lưu',
+        'history_compare': 'So sánh',
+        'history_delete_confirm': 'Xóa mục này khỏi lịch sử?',
+        'compare_back': 'Trở lại',
+        'compare_gap': 'Chênh lệch so với mục tiêu',
     },
     'la': {
         'brand_sub': 'ເຄື່ອງມືປະເມີນປະສິດທິພາບ',
         'header1': 'ການກຳນົດເປົ້າໝາຍ',
         'sam_label': 'ຄ່າ SAM (ນາທີ)',
+        'sam_label_base': 'ຄ່າ SAM',
+        'unit_min': 'ນາທີ',
+        'unit_sec': 'ວິນາທີ',
+        'new_sam_label': 'ຄ່າ SAM ໃໝ່ (ເປົ້າໝາຍ)',
         'eff_target': 'ເປົ້າໝາຍການປະຕິບັດ (%)',
         'qty_label': 'ຈຳນວນເປົ້າໝາຍຂອງຊິ້ນສ່ວນຕໍ່ຊົ່ວໂມງ',
 
@@ -466,6 +522,16 @@ const translations = {
         'sw_laps_title': 'ລາຍການຮອບ',
         'sw_rounds': 'ຈຳນວນຮອບ',
         'sw_save_form': 'ບັນທຶກລົງຟອມ',
+
+        'history_title': 'ປະຫວັດການປະເມີນ',
+        'history_subtitle': 'ບັນທຶກ ແລະ ປຽບທຽບຜົນການປະເມີນທີ່ຜ່ານມາ',
+        'history_save': 'ບັນທຶກປັດຈຸບັນ',
+        'history_label_placeholder': 'ຊື່/ໄລນ໌ (ບໍ່ບັງຄັບ)',
+        'history_empty': 'ຍັງບໍ່ມີປະຫວັດທີ່ບັນທຶກໄວ້',
+        'history_compare': 'ປຽບທຽບ',
+        'history_delete_confirm': 'ລຶບລາຍການນີ້ອອກຈາກປະຫວັດ?',
+        'compare_back': 'ກັບ',
+        'compare_gap': 'ສ່ວນຕ່າງຈາກເປົ້າໝາຍ',
     }
 };
 
@@ -497,6 +563,12 @@ function changeLanguage(lang) {
     document.querySelectorAll('.lang-text').forEach(el => {
         const key = el.getAttribute('data-key');
         if (translations[lang][key]) el.innerText = translations[lang][key];
+    });
+
+    // placeholder attributes
+    document.querySelectorAll('[data-key-placeholder]').forEach(el => {
+        const key = el.getAttribute('data-key-placeholder');
+        if (translations[lang][key]) el.placeholder = translations[lang][key];
     });
 
     // training day labels (generated dynamically)
@@ -535,11 +607,150 @@ function resetForm() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// --- 5b. Form Auto-save / Restore ---
+function saveFormState() {
+    try {
+        const state = {};
+        FORM_FIELD_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) state[id] = el.value;
+        });
+        state.__samUnit = samUnit;
+        localStorage.setItem(STORAGE_KEY_FORM, JSON.stringify(state));
+    } catch (_) { /* private browsing / quota exceeded — skip silently */ }
+}
+
+function restoreFormState() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY_FORM);
+        if (!raw) return;
+        const state = JSON.parse(raw);
+        FORM_FIELD_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && state[id] !== undefined) el.value = state[id];
+        });
+        if (state.__samUnit === 'min' || state.__samUnit === 'sec') {
+            samUnit = state.__samUnit;
+        }
+        updateSamUnitUI();
+    } catch (_) { /* corrupt/unavailable storage — start fresh */ }
+}
+
+// --- 5c. History Storage ---
+function loadHistory() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY_HISTORY);
+        return raw ? JSON.parse(raw) : [];
+    } catch (_) { return []; }
+}
+
+function persistHistory(list) {
+    try { localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(list)); }
+    catch (_) { /* private browsing / quota exceeded — skip silently */ }
+}
+
+function saveCurrentToHistory(label) {
+    const getValue = id => parseFloat(document.getElementById(id).value) || 0;
+    const inputs = {
+        sam:        getSamMinutes(),
+        effTarget:  getValue('effTargetInput'),
+        totalMin:   getValue('totalMin'),
+        totalTime:  getValue('totalTime'),
+        totalCount: getValue('totalCount'),
+        passQty:    getValue('passQty'),
+        failQty:    getValue('failQty'),
+        duration:   getValue('duration'),
+    };
+    const avgMin = calcAvgMin(inputs.totalMin, inputs.totalTime, inputs.totalCount);
+    const computed = {
+        targetPcs:  pcsFromEff(inputs.sam, inputs.effTarget),
+        actualEff:  avgMin !== null ? calcActualEff(inputs.sam, avgMin) : null,
+        actualPcs:  avgMin !== null ? calcActualPcsPerHr(avgMin) : null,
+        passRate:   calcPassRate(inputs.passQty, inputs.failQty),
+    };
+    const entry = {
+        id:    `h_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        ts:    Date.now(),
+        label: (label || '').trim(),
+        inputs,
+        computed,
+    };
+    const list = loadHistory();
+    list.unshift(entry);
+    if (list.length > HISTORY_MAX) list.length = HISTORY_MAX;
+    persistHistory(list);
+    gaTrack('save_history', { has_label: !!entry.label });
+    return entry;
+}
+
+function deleteHistoryEntry(id) {
+    const list = loadHistory().filter(e => e.id !== id);
+    persistHistory(list);
+    gaTrack('delete_history');
+}
+
+// --- 5d. SAM Unit (min / sec) ---
+// Format a number for display: trim trailing zeros, cap at 4 decimals.
+function trimNum(n) {
+    return parseFloat(n.toFixed(4)).toString();
+}
+
+// SAM value in minutes, regardless of the unit the user is typing in.
+function getSamMinutes() {
+    const raw = parseFloat(document.getElementById('samInput').value) || 0;
+    return samUnit === 'sec' ? raw / 60 : raw;
+}
+
+// Switch the SAM input between minutes and seconds. When `convert` is true
+// (a user click) the typed value is converted so the underlying SAM is
+// unchanged; on restore we pass false to keep the already-stored value.
+function setSamUnit(unit, convert = true) {
+    if (unit !== 'min' && unit !== 'sec') return;
+    if (convert && unit !== samUnit) {
+        const el  = document.getElementById('samInput');
+        const raw = parseFloat(el.value);
+        if (!isNaN(raw)) {
+            el.value = trimNum(unit === 'sec' ? raw * 60 : raw / 60);
+        }
+    }
+    samUnit = unit;
+    updateSamUnitUI();
+    if (convert) calculateAll();
+}
+
+function updateSamUnitUI() {
+    const isSec = samUnit === 'sec';
+    document.getElementById('samUnitBtnMin')?.classList.toggle('active', !isSec);
+    document.getElementById('samUnitBtnSec')?.classList.toggle('active', isSec);
+    const lbl = document.getElementById('samUnitLabel');
+    if (lbl) {
+        const key = isSec ? 'unit_sec' : 'unit_min';
+        lbl.setAttribute('data-key', key);
+        lbl.innerText = t(key);
+    }
+    const input = document.getElementById('samInput');
+    if (input) input.step = isSec ? '1' : '0.01';
+}
+
+// In seconds mode, show the minutes equivalent under the input.
+function updateSamEquiv() {
+    const el = document.getElementById('samEquiv');
+    if (!el) return;
+    const min = getSamMinutes();
+    if (samUnit === 'sec' && min > 0) {
+        el.hidden = false;
+        el.innerText = `≈ ${trimNum(min)} ${t('unit_min')}`;
+    } else {
+        el.hidden = true;
+        el.innerText = '';
+    }
+}
+
 // --- 6. Core Calculation ---
 function calculateAll() {
     const getValue = id => parseFloat(document.getElementById(id).value) || 0;
 
-    const sam        = getValue('samInput');
+    const sam        = getSamMinutes();
     const effTarget  = getValue('effTargetInput');
     const totalMin   = getValue('totalMin');
     const totalTime  = getValue('totalTime');
@@ -550,20 +761,34 @@ function calculateAll() {
 
     // 1. Target
     const targetDisplay = document.getElementById('targetDisplay');
-    targetDisplay.value = (sam > 0 && effTarget > 0)
-        ? Math.ceil((60 / sam) * (effTarget / 100))
-        : "";
+    const targetPcsVal  = pcsFromEff(sam, effTarget);
+    targetDisplay.value = targetPcsVal > 0 ? targetPcsVal : "";
+
+    // 1b. New SAM — target cycle time to reach the target efficiency,
+    //     shown in whichever unit the SAM input is currently in.
+    const newSamDisplay = document.getElementById('newSamDisplay');
+    if (newSamDisplay) {
+        const newSamMin = newSamFromEff(sam, effTarget);
+        if (newSamMin !== null) {
+            const val = samUnit === 'sec' ? newSamMin * 60 : newSamMin;
+            newSamDisplay.value = `${trimNum(val)} ${t(samUnit === 'sec' ? 'unit_sec' : 'unit_min')}`;
+        } else {
+            newSamDisplay.value = '';
+        }
+    }
+    updateSamEquiv();
 
     // 2. Actual
     let currentActualEff = 0;
-    if (totalCount > 0 && (totalMin > 0 || totalTime > 0)) {
-        const avgMin = ((totalMin * 60) + totalTime) / totalCount / 60;
+    const avgMin = calcAvgMin(totalMin, totalTime, totalCount);
+    if (avgMin !== null) {
         document.getElementById('avgTimeSec').value = Math.ceil(avgMin * 60);
         document.getElementById('avgTimeMin').value = avgMin.toFixed(2);
-        if (sam > 0) {
-            currentActualEff = Math.ceil((sam / avgMin) * 100);
+        const eff = calcActualEff(sam, avgMin);
+        if (eff !== null) {
+            currentActualEff = eff;
             document.getElementById('actualEffPerc').value = `${currentActualEff} %`;
-            document.getElementById('actualPcs').value = `${Math.ceil(60 / avgMin)} ${pcsPerHr[currentLang] || 'pcs/hr'}`;
+            document.getElementById('actualPcs').value = `${calcActualPcsPerHr(avgMin)} ${pcsPerHr[currentLang] || 'pcs/hr'}`;
         } else {
             document.getElementById('actualEffPerc').value = '';
             document.getElementById('actualPcs').value = '';
@@ -575,9 +800,9 @@ function calculateAll() {
     }
 
     // 3. Quality
-    const totalQty = passQty + failQty;
-    document.getElementById('passRate').value =
-        totalQty > 0 ? `${Math.ceil((passQty / totalQty) * 100)} %` : "";
+    const totalQty  = passQty + failQty;
+    const passRate  = calcPassRate(passQty, failQty);
+    document.getElementById('passRate').value = passRate !== null ? `${passRate} %` : "";
     if (!_tracked.quality && totalQty > 0) {
         _tracked.quality = true;
         gaTrack('use_quality_section');
@@ -599,8 +824,7 @@ function calculateAll() {
             let   cardsHtml = '';
 
             for (let i = 1; i <= days; i++) {
-                const dayEff = Math.ceil(currentActualEff + (gap / duration * i));
-                const dayPcs = sam > 0 ? Math.ceil((60 / sam) * (dayEff / 100)) : 0;
+                const { eff: dayEff, pcs: dayPcs } = calcTrainingDay(currentActualEff, gap, duration, i, sam);
                 chartData.push({ day: i, eff: dayEff, pcs: dayPcs });
                 cardsHtml += `
                 <div class="day-card filled">
@@ -616,11 +840,10 @@ function calculateAll() {
 
             _chartCache = {
                 data:       chartData,
-                targetPcs:  sam > 0 ? Math.ceil((60 / sam) * (effTarget / 100)) : 0,
+                targetPcs:  pcsFromEff(sam, effTarget),
                 effTarget,
                 currentEff: currentActualEff,
-                currentPcs: (sam > 0 && currentActualEff > 0)
-                    ? Math.ceil((60 / sam) * (currentActualEff / 100)) : 0,
+                currentPcs: pcsFromEff(sam, currentActualEff),
             };
             renderChartFromCache();
         } else {
@@ -629,6 +852,8 @@ function calculateAll() {
             if (tChart) tChart.style.display = 'none';
         }
     }
+
+    saveFormState();
 }
 
 // --- 7. Learning Curve Chart ---
@@ -824,6 +1049,189 @@ async function submitFeedback() {
     sendLabel.innerText = originalText;
 }
 
+// --- 8b. History / Compare Modal ---
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+const historyModal        = document.getElementById('historyModal');
+const closeHistoryBtn     = document.getElementById('closeHistoryBtn');
+const historyCloseBtn     = document.getElementById('historyCloseBtn');
+const historySaveBtn      = document.getElementById('historySaveBtn');
+const historyLabelInput   = document.getElementById('historyLabelInput');
+const historyListEl       = document.getElementById('historyList');
+const historyEmptyMsg     = document.getElementById('historyEmptyMsg');
+const historyCompareBtn   = document.getElementById('historyCompareBtn');
+const historyListView     = document.getElementById('historyListView');
+const historyCompareView  = document.getElementById('historyCompareView');
+const historyListFooter   = document.getElementById('historyListFooter');
+const historyCompareFooter= document.getElementById('historyCompareFooter');
+const compareTableWrap    = document.getElementById('compareTableWrap');
+const compareBackBtn      = document.getElementById('compareBackBtn');
+
+let historySelected = new Set();
+
+function fmtHistoryTs(ts) {
+    const d = new Date(ts);
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function openHistoryModal() {
+    gaTrack('open_history');
+    renderHistoryList();
+    showHistoryListView();
+    historyModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeHistoryModal() {
+    historyModal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function showHistoryListView() {
+    historyListView.style.display    = 'block';
+    historyCompareView.style.display = 'none';
+    historyListFooter.style.display    = 'flex';
+    historyCompareFooter.style.display = 'none';
+}
+
+function showHistoryCompareView() {
+    historyListView.style.display    = 'none';
+    historyCompareView.style.display = 'block';
+    historyListFooter.style.display    = 'none';
+    historyCompareFooter.style.display = 'flex';
+}
+
+function historyRowHtml(e) {
+    const { computed } = e;
+    const title = e.label || fmtHistoryTs(e.ts);
+    const metaParts = [];
+    if (computed.actualEff !== null) metaParts.push(`${computed.actualEff}% eff`);
+    if (computed.targetPcs > 0)      metaParts.push(`${computed.targetPcs} ${pcsPerHr[currentLang] || 'pcs/hr'}`);
+    if (computed.passRate !== null)  metaParts.push(`${computed.passRate}% pass`);
+    return `
+    <div class="history-row" data-id="${e.id}">
+        <label class="history-row-check">
+            <input type="checkbox" class="history-check" value="${e.id}">
+        </label>
+        <div class="history-row-main">
+            <div class="history-row-title">${escapeHtml(title)}</div>
+            <div class="history-row-meta">${escapeHtml(metaParts.join(' · ') || '—')}</div>
+        </div>
+        <button type="button" class="history-delete-btn" data-id="${e.id}" aria-label="Delete">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+    </div>`;
+}
+
+function renderHistoryList() {
+    const list = loadHistory();
+    historyEmptyMsg.style.display = list.length ? 'none' : 'block';
+    historyListEl.innerHTML = list.map(historyRowHtml).join('');
+
+    historyListEl.querySelectorAll('.history-check').forEach(cb => {
+        cb.checked = historySelected.has(cb.value);
+        cb.addEventListener('change', () => {
+            if (cb.checked) historySelected.add(cb.value); else historySelected.delete(cb.value);
+            updateCompareButtonState();
+        });
+    });
+    historyListEl.querySelectorAll('.history-delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!confirm(t('history_delete_confirm'))) return;
+            deleteHistoryEntry(btn.dataset.id);
+            historySelected.delete(btn.dataset.id);
+            renderHistoryList();
+        });
+    });
+    updateCompareButtonState();
+}
+
+function updateCompareButtonState() {
+    if (historyCompareBtn) historyCompareBtn.disabled = historySelected.size < 2;
+}
+
+function handleHistorySave() {
+    saveCurrentToHistory(historyLabelInput.value);
+    historyLabelInput.value = '';
+    renderHistoryList();
+}
+
+function renderCompareTable() {
+    const selected = loadHistory().filter(e => historySelected.has(e.id));
+    if (selected.length < 2) return;
+
+    const rows = [
+        { key: 'sam_label',    get: e => e.inputs.sam > 0 ? e.inputs.sam : '—' },
+        { key: 'eff_target',   get: e => e.inputs.effTarget > 0 ? `${e.inputs.effTarget}%` : '—' },
+        { key: 'qty_label',    get: e => e.computed.targetPcs > 0 ? e.computed.targetPcs : '—' },
+        { key: 'actual_eff',   get: e => e.computed.actualEff !== null ? `${e.computed.actualEff}%` : '—' },
+        { key: 'actual_pcs',   get: e => e.computed.actualPcs !== null ? e.computed.actualPcs : '—' },
+        { key: 'pass_rate',    get: e => e.computed.passRate !== null ? `${e.computed.passRate}%` : '—' },
+        { key: 'compare_gap',  get: e => (e.computed.actualEff !== null && e.inputs.effTarget > 0)
+                                          ? `${e.computed.actualEff - e.inputs.effTarget}%` : '—' },
+    ];
+
+    const headerCells = selected.map(e => `<th>${escapeHtml(e.label || fmtHistoryTs(e.ts))}</th>`).join('');
+    const bodyRows = rows.map(r => `
+        <tr><th scope="row">${t(r.key)}</th>${selected.map(e => `<td>${r.get(e)}</td>`).join('')}</tr>`).join('');
+
+    compareTableWrap.innerHTML = `
+        <table class="compare-table">
+            <thead><tr><th></th>${headerCells}</tr></thead>
+            <tbody>${bodyRows}</tbody>
+        </table>`;
+}
+
+function openCompareView() {
+    if (historySelected.size < 2) return;
+    gaTrack('compare_history', { count: historySelected.size });
+    renderCompareTable();
+    showHistoryCompareView();
+}
+
+// --- 8c. Theme Toggle ---
+function getEffectiveTheme() {
+    const explicit = document.documentElement.dataset.theme;
+    if (explicit) return explicit;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function updateThemeIcon() {
+    const isDark = getEffectiveTheme() === 'dark';
+    const moon = document.getElementById('themeIconMoon');
+    const sun  = document.getElementById('themeIconSun');
+    if (moon) moon.style.display = isDark ? 'none'  : 'block';
+    if (sun)  sun.style.display  = isDark ? 'block' : 'none';
+}
+
+function applyTheme(theme) {
+    if (theme) document.documentElement.dataset.theme = theme;
+    else delete document.documentElement.dataset.theme;
+    updateThemeIcon();
+}
+
+function toggleTheme() {
+    const next = getEffectiveTheme() === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem(STORAGE_KEY_THEME, next); } catch (_) { /* skip silently */ }
+    applyTheme(next);
+    gaTrack('toggle_theme', { theme: next });
+}
+
+function initTheme() {
+    let stored = null;
+    try { stored = localStorage.getItem(STORAGE_KEY_THEME); } catch (_) { /* skip silently */ }
+    if (stored === 'light' || stored === 'dark') applyTheme(stored);
+    else updateThemeIcon();
+
+    // Keep the icon accurate if the OS theme changes while no explicit choice is set.
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (!document.documentElement.dataset.theme) updateThemeIcon();
+    });
+}
+
 // --- 9. Event Wiring ---
 feedbackBtn?.addEventListener('click', openFeedbackModal);
 closeModalBtn?.addEventListener('click', closeFeedbackModal);
@@ -832,6 +1240,15 @@ submitFeedbackBtn?.addEventListener('click', submitFeedback);
 
 feedbackModal?.addEventListener('click', e => {
     if (e.target === feedbackModal) closeFeedbackModal();
+});
+
+closeHistoryBtn?.addEventListener('click', closeHistoryModal);
+historyCloseBtn?.addEventListener('click', closeHistoryModal);
+historySaveBtn?.addEventListener('click', handleHistorySave);
+historyCompareBtn?.addEventListener('click', openCompareView);
+compareBackBtn?.addEventListener('click', showHistoryListView);
+historyModal?.addEventListener('click', e => {
+    if (e.target === historyModal) closeHistoryModal();
 });
 
 document.getElementById('langTrigger')?.addEventListener('click', e => {
@@ -848,6 +1265,7 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         if (feedbackModal?.style.display === 'flex') closeFeedbackModal();
+        if (historyModal?.style.display === 'flex') closeHistoryModal();
         closeLangMenu();
     }
 });
@@ -896,6 +1314,8 @@ if ('serviceWorker' in navigator) {
 }
 
 initGA4(); // Google Analytics 4
+initTheme();
+restoreFormState();
 changeLanguage('th');
 calculateAll();
 if (document.readyState === 'complete') loadWebFonts();

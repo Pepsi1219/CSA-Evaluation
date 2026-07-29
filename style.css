@@ -61,6 +61,79 @@
     /* Motion */
     --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* Background blobs (behind the app card) */
+    --bg-blob-1: #e7e9ff;
+    --bg-blob-2: #ffe9f3;
+    --success-border: #bbf7d0;
+}
+
+/* ---- 1b. Dark Theme Tokens ---------------------------------
+   Same token names as above, dark values. Applies automatically
+   via prefers-color-scheme, or explicitly via [data-theme]. */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --success-soft: rgba(22, 163, 74, 0.18);
+        --success-text: #4ade80;
+        --danger: #f87171;
+        --danger-soft: rgba(239, 68, 68, 0.18);
+        --warning: #fbbf24;
+
+        --bg-app: #0f1117;
+        --surface: #1a1d29;
+        --surface-2: #222739;
+        --surface-3: #2b3146;
+        --border: #313749;
+        --border-strong: #414964;
+
+        --text-1: #f1f2f8;
+        --text-2: #b8bccc;
+        --text-3: #7d8299;
+
+        --sh-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+        --sh-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+        --sh-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+        --sh-lg: 0 18px 48px rgba(0, 0, 0, 0.5);
+        --sh-accent: 0 8px 24px rgba(99, 102, 241, 0.35);
+
+        --accent-50: rgba(99, 102, 241, 0.2);
+        --accent-100: rgba(99, 102, 241, 0.32);
+
+        --bg-blob-1: rgba(99, 102, 241, 0.14);
+        --bg-blob-2: rgba(236, 72, 153, 0.08);
+        --success-border: rgba(34, 197, 94, 0.35);
+    }
+}
+:root[data-theme="dark"] {
+    --success-soft: rgba(22, 163, 74, 0.18);
+    --success-text: #4ade80;
+    --danger: #f87171;
+    --danger-soft: rgba(239, 68, 68, 0.18);
+    --warning: #fbbf24;
+
+    --bg-app: #0f1117;
+    --surface: #1a1d29;
+    --surface-2: #222739;
+    --surface-3: #2b3146;
+    --border: #313749;
+    --border-strong: #414964;
+
+    --text-1: #f1f2f8;
+    --text-2: #b8bccc;
+    --text-3: #7d8299;
+
+    --sh-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --sh-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+    --sh-md: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --sh-lg: 0 18px 48px rgba(0, 0, 0, 0.5);
+    --sh-accent: 0 8px 24px rgba(99, 102, 241, 0.35);
+
+    --accent-50: rgba(99, 102, 241, 0.2);
+    --accent-100: rgba(99, 102, 241, 0.32);
+
+    --bg-blob-1: rgba(99, 102, 241, 0.14);
+    --bg-blob-2: rgba(236, 72, 153, 0.08);
+    --success-border: rgba(34, 197, 94, 0.35);
 }
 
 /* ---- 2. Reset --------------------------------------------- */
@@ -78,8 +151,8 @@ body {
     font-family: var(--font);
     color: var(--text-1);
     background:
-        radial-gradient(1200px 600px at 100% -10%, #e7e9ff 0%, transparent 55%),
-        radial-gradient(1000px 500px at -10% 110%, #ffe9f3 0%, transparent 50%),
+        radial-gradient(1200px 600px at 100% -10%, var(--bg-blob-1) 0%, transparent 55%),
+        radial-gradient(1000px 500px at -10% 110%, var(--bg-blob-2) 0%, transparent 50%),
         var(--bg-app);
     background-attachment: fixed;
     display: flex;
@@ -337,6 +410,47 @@ label {
     letter-spacing: -0.01em;
 }
 
+/* SAM unit (min/sec) toggle */
+.label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+}
+.unit-toggle-group {
+    display: inline-flex;
+    background: var(--surface-3);
+    border-radius: var(--r-full);
+    padding: 2px;
+    gap: 2px;
+}
+.unit-toggle-btn {
+    padding: 3px 12px;
+    border: none;
+    border-radius: var(--r-full);
+    font-family: var(--font);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-2);
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+    white-space: nowrap;
+}
+.unit-toggle-btn:hover { color: var(--text-1); }
+.unit-toggle-btn.active {
+    background: var(--surface);
+    color: var(--accent-700);
+    box-shadow: var(--sh-xs);
+}
+.sam-equiv {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-3);
+    margin-left: 2px;
+}
+.sam-equiv[hidden] { display: none; }
+
 .glass-input {
     width: 100%;
     padding: 13px 15px;
@@ -367,7 +481,7 @@ label {
 .highlight-pass-rate {
     background: var(--success-soft) !important;
     color: var(--success-text) !important;
-    border: 1.5px solid #bbf7d0 !important;
+    border: 1.5px solid var(--success-border) !important;
     font-weight: 700;
 }
 
@@ -663,19 +777,108 @@ label {
 }
 .toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* ---- 17. Responsive --------------------------------------- */
+/* ---- 17. History / Compare ---------------------------------- */
+.history-modal { max-width: 560px; }
+
+.history-save-row {
+    display: flex;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-4);
+}
+.history-save-row .feedback-input { flex: 1; }
+.history-save-btn {
+    flex: 0 0 auto;
+    width: auto;
+    padding: 0 var(--sp-4);
+    white-space: nowrap;
+}
+
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    max-height: 320px;
+    overflow-y: auto;
+}
+.history-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+}
+.history-row-check input { width: 18px; height: 18px; accent-color: var(--accent-500); cursor: pointer; }
+.history-row-main { flex: 1; min-width: 0; }
+.history-row-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.history-row-meta { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.history-delete-btn {
+    flex: 0 0 auto;
+    width: 32px; height: 32px;
+    border: none;
+    border-radius: var(--r-full);
+    background: transparent;
+    color: var(--text-3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.18s, color 0.18s;
+}
+.history-delete-btn:hover { background: var(--danger-soft); color: var(--danger); }
+
+.history-empty {
+    text-align: center;
+    color: var(--text-3);
+    font-size: 14px;
+    padding: var(--sp-6) 0;
+}
+
+.compare-table-wrap { overflow-x: auto; }
+.compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.compare-table th, .compare-table td {
+    padding: 10px 12px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+.compare-table thead th {
+    color: var(--text-2);
+    font-weight: 700;
+    background: var(--surface-2);
+}
+.compare-table tbody th {
+    text-align: left;
+    color: var(--text-1);
+    font-weight: 600;
+    background: var(--surface-2);
+}
+
+/* ---- 18. Responsive --------------------------------------- */
 @media (max-width: 560px) {
     body { padding: var(--sp-3); }
     .container { padding: var(--sp-5) var(--sp-4); border-radius: var(--r-lg); }
     #display { font-size: 2.7rem; }
     .form-row { gap: var(--sp-3); }
     .glass-title { font-size: 17px; }
+    .brand-text { display: none; }
 }
 
 @media (max-width: 380px) {
     .form-row { grid-template-columns: 1fr; }
     .sw-btn { padding: 11px 10px; font-size: 13px; }
-    .brand-sub { display: none; }
 }
 
 /* ---- 18. Accessibility ------------------------------------ */
@@ -737,8 +940,8 @@ label {
     flex-direction: column;
     animation: fadeIn 0.25s ease;
     background:
-        radial-gradient(900px 400px at 100% -5%, #e7e9ff 0%, transparent 55%),
-        radial-gradient(700px 350px at -5% 105%, #ffe9f3 0%, transparent 50%),
+        radial-gradient(900px 400px at 100% -5%, var(--bg-blob-1) 0%, transparent 55%),
+        radial-gradient(700px 350px at -5% 105%, var(--bg-blob-2) 0%, transparent 50%),
         var(--bg-app);
     background-attachment: fixed;
 }

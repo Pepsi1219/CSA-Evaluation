@@ -106,6 +106,12 @@ function swStartStop() {
         sw.running = false;
         clearInterval(sw.interval);
         sw.elapsed = Date.now() - sw.startTs;
+        // In lap mode, Stop closes the in-progress lap so it counts as a
+        // round too — e.g. Start → Lap ×3 → Stop yields 4 laps, not 3.
+        if (sw.mode === 'lap' && sw.elapsed - sw.lapStart > 0) {
+            sw.laps.push(sw.elapsed - sw.lapStart);
+            sw.lapStart = sw.elapsed;
+        }
         swShowStats();
     }
     swUpdateUI();
@@ -765,7 +771,7 @@ function calculateAll() {
         const newSamMin = newSamFromEff(sam, effTarget);
         if (newSamMin !== null) {
             const val = samUnit === 'sec' ? newSamMin * 60 : newSamMin;
-            newSamDisplay.value = `${trimNum(val)} ${t(samUnit === 'sec' ? 'unit_sec' : 'unit_min')}`;
+            newSamDisplay.value = `${val.toFixed(2)} ${t(samUnit === 'sec' ? 'unit_sec' : 'unit_min')}`;
         } else {
             newSamDisplay.value = '';
         }

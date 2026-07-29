@@ -30,6 +30,8 @@ python3 -m http.server 8000
 
 **Do not open a browser preview to visually verify UI/CSS changes in this project.** The user does that verification themselves and is better positioned to judge it. After editing code, confirm correctness through reading the code, `npm test`, and static checks — don't launch `preview_start` or drive the Browser pane for this repo unless the user explicitly asks for it.
 
+**Never `git push` (or merge to `main`, or otherwise publish) unless the user explicitly tells you to in that turn.** This repo deploys to GitHub Pages (`pepsi1219.github.io`), so a push goes live immediately. Committing locally is fine when asked, but pushing/merging always requires an explicit, current instruction — a push from an earlier request does not authorize the next one.
+
 ## Architecture
 
 **Single global calculation pipeline.** Nearly every input field has `oninput="calculateAll()"`. `calculateAll()` in `script.js` reads all form fields fresh each call, computes four sections in order, and writes results back into readonly fields — there is no separate state object for form data; the DOM *is* the state:

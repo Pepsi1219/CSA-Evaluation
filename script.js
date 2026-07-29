@@ -722,12 +722,6 @@ function updateSamUnitUI() {
     const isSec = samUnit === 'sec';
     document.getElementById('samUnitBtnMin')?.classList.toggle('active', !isSec);
     document.getElementById('samUnitBtnSec')?.classList.toggle('active', isSec);
-    const lbl = document.getElementById('samUnitLabel');
-    if (lbl) {
-        const key = isSec ? 'unit_sec' : 'unit_min';
-        lbl.setAttribute('data-key', key);
-        lbl.innerText = t(key);
-    }
     const input = document.getElementById('samInput');
     if (input) input.step = isSec ? '1' : '0.01';
 }

@@ -267,27 +267,24 @@ body {
 .lang-trigger {
     display: flex;
     align-items: center;
-    gap: var(--sp-2);
-    height: 40px;
-    padding: 0 12px;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
     border: 1px solid var(--border);
     background: var(--surface);
     border-radius: var(--r-md);
     cursor: pointer;
     font-family: var(--font);
-    font-size: 13px;
-    font-weight: 600;
     color: var(--text-1);
     transition: background 0.18s, border-color 0.18s, transform 0.12s var(--ease-spring);
 }
 .lang-trigger:hover { background: var(--surface-2); }
-.lang-trigger:active { transform: scale(0.96); }
-.lang-trigger .flag { font-size: 16px; line-height: 1; }
-.lang-trigger .chevron {
-    width: 14px; height: 14px;
-    color: var(--text-3);
-    transition: transform 0.2s var(--ease-out);
-}
+.lang-trigger:active { transform: scale(0.9); }
+.lang-trigger .flag { font-size: 20px; line-height: 1; }
+/* Trigger shows the flag only — name + chevron kept for the menu, hidden here */
+.lang-trigger .lang-name,
+.lang-trigger .chevron { display: none; }
 .lang-selector.open .lang-trigger .chevron { transform: rotate(180deg); }
 .lang-selector.open .lang-trigger {
     border-color: var(--accent-300);
@@ -414,18 +411,21 @@ label {
 .label-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-2);
+    flex-wrap: wrap;
+    gap: 4px var(--sp-2);
+    min-height: 22px;
 }
+.label-row label { margin-left: 2px; }
 .unit-toggle-group {
     display: inline-flex;
+    margin-left: auto;
     background: var(--surface-3);
     border-radius: var(--r-full);
     padding: 2px;
     gap: 2px;
 }
 .unit-toggle-btn {
-    padding: 3px 12px;
+    padding: 3px 11px;
     border: none;
     border-radius: var(--r-full);
     font-family: var(--font);
@@ -874,6 +874,9 @@ label {
     .form-row { gap: var(--sp-3); }
     .glass-title { font-size: 17px; }
     .brand-text { display: none; }
+    /* SAM shares its row with the unit toggle — give it the full width
+       on phones so the label and toggle never crush each other. */
+    .form-row-sam { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 380px) {

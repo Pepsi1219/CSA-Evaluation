@@ -28,12 +28,15 @@
         <div class="header-top">
             <div class="brand">
                 <div class="brand-mark" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <rect x="4" y="2" width="16" height="20" rx="2"/>
-                        <line x1="8" y1="6" x2="16" y2="6"/>
-                        <line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="10" x2="16" y2="10"/>
-                        <line x1="8" y1="14" x2="10" y2="14"/><line x1="14" y1="14" x2="16" y2="14"/>
-                        <line x1="8" y1="18" x2="10" y2="18"/><line x1="14" y1="18" x2="16" y2="18"/>
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="5" y="2.5" width="14" height="19" rx="3" stroke-width="1.8"/>
+                        <rect x="8" y="5.5" width="8" height="3" rx="1.2" fill="currentColor" stroke="none"/>
+                        <circle cx="9"  cy="12.5" r="1" fill="currentColor" stroke="none"/>
+                        <circle cx="12" cy="12.5" r="1" fill="currentColor" stroke="none"/>
+                        <circle cx="15" cy="12.5" r="1" fill="currentColor" stroke="none"/>
+                        <circle cx="9"  cy="16.5" r="1" fill="currentColor" stroke="none"/>
+                        <circle cx="12" cy="16.5" r="1" fill="currentColor" stroke="none"/>
+                        <circle cx="15" cy="16.5" r="1" fill="currentColor" stroke="none"/>
                     </svg>
                 </div>
                 <div class="brand-text">
@@ -117,7 +120,10 @@
     <!-- Print date: hidden normally, shown on print -->
     <div id="printDate" class="print-only print-date"></div>
 
+    <div class="panels">
+
     <!-- ============ Section 1: Target ============ -->
+    <div class="panel target-section">
     <h3 class="section-title">
         <span class="section-badge" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
@@ -134,12 +140,11 @@
                     <button type="button" class="unit-toggle-btn" id="samUnitBtnSec" onclick="setSamUnit('sec')"><span class="lang-text" data-key="unit_sec">วินาที</span></button>
                 </div>
             </div>
-            <input type="number" id="samInput" class="glass-input" inputmode="decimal" step="0.01" oninput="calculateAll()">
-            <div class="sam-equiv" id="samEquiv" hidden></div>
+            <input type="text" id="samInput" class="glass-input" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" oninput="calculateAll()">
         </div>
         <div class="input-group">
             <label class="lang-text" data-key="eff_target">เป้าหมายประสิทธิภาพ (%)</label>
-            <input type="number" id="effTargetInput" class="glass-input" inputmode="numeric" oninput="calculateAll()">
+            <input type="text" id="effTargetInput" class="glass-input" inputmode="numeric" pattern="[0-9]*" oninput="calculateAll()">
         </div>
     </div>
 
@@ -150,14 +155,15 @@
         </div>
         <div class="input-group">
             <label class="lang-text" data-key="new_sam_label">ค่า SAM ใหม่ (เป้าหมาย)</label>
-            <input type="text" id="newSamDisplay" readonly class="glass-input highlight-result-glass">
+            <div id="newSamDisplay" class="glass-input highlight-result-glass result-value"></div>
         </div>
     </div>
+    </div><!-- /.panel target-section -->
 
     <hr>
 
     <!-- ============ Section 2: Actual ============ -->
-    <div class="actual-section">
+    <div class="panel actual-section">
         <h3 class="section-title">
             <span class="section-badge" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/></svg>
@@ -188,15 +194,15 @@
         <div class="form-row-three">
             <div class="input-group">
                 <label class="lang-text" data-key="total_min">เวลารวม (นาที)</label>
-                <input type="number" id="totalMin" class="glass-input" inputmode="numeric" value="0" oninput="calculateAll()">
+                <input type="text" id="totalMin" class="glass-input" inputmode="numeric" pattern="[0-9]*" value="0" oninput="calculateAll()">
             </div>
             <div class="input-group">
                 <label class="lang-text" data-key="total_sec">เวลารวม (วินาที)</label>
-                <input type="number" id="totalTime" class="glass-input" inputmode="numeric" oninput="calculateAll()">
+                <input type="text" id="totalTime" class="glass-input" inputmode="numeric" pattern="[0-9]*" oninput="calculateAll()">
             </div>
             <div class="input-group">
                 <label class="lang-text" data-key="total_count">จำนวน (รอบ)</label>
-                <input type="number" id="totalCount" class="glass-input" inputmode="numeric" value="1" oninput="calculateAll()">
+                <input type="text" id="totalCount" class="glass-input" inputmode="numeric" pattern="[0-9]*" value="1" oninput="calculateAll()">
             </div>
         </div>
 
@@ -226,7 +232,7 @@
     <hr>
 
     <!-- ============ Section 3: Quality ============ -->
-    <div class="quality-section">
+    <div class="panel quality-section">
         <h3 class="section-title">
             <span class="section-badge" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m8.5 12 2.5 2.5 4.5-4.5"/></svg>
@@ -234,27 +240,26 @@
             <span class="lang-text" data-key="header3">คุณภาพ</span>
         </h3>
 
-        <div class="form-row">
+        <div class="form-row-three">
             <div class="input-group">
                 <label class="lang-text" data-key="pass_qty">จำนวนที่ "ผ่าน" (ชิ้น)</label>
-                <input type="number" id="passQty" inputmode="numeric" class="glass-input" oninput="calculateAll()">
+                <input type="text" id="passQty" inputmode="numeric" pattern="[0-9]*" class="glass-input" oninput="calculateAll()">
             </div>
             <div class="input-group">
                 <label class="lang-text" data-key="fail_qty">จำนวนที่ "ไม่ผ่าน" (ชิ้น)</label>
-                <input type="number" id="failQty" inputmode="numeric" class="glass-input" oninput="calculateAll()">
+                <input type="text" id="failQty" inputmode="numeric" pattern="[0-9]*" class="glass-input" oninput="calculateAll()">
             </div>
-        </div>
-
-        <div class="input-group">
-            <label class="lang-text" data-key="pass_rate">อัตราการผ่าน (%)</label>
-            <input type="text" id="passRate" class="glass-input highlight-pass-rate" readonly>
+            <div class="input-group">
+                <label class="lang-text" data-key="pass_rate">อัตราการผ่าน (%)</label>
+                <input type="text" id="passRate" class="glass-input highlight-pass-rate" readonly>
+            </div>
         </div>
     </div>
 
     <hr>
 
     <!-- ============ Section 4: Training ============ -->
-    <div class="eff-section">
+    <div class="panel eff-section">
         <h3 class="section-title">
             <span class="section-badge" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
@@ -264,19 +269,21 @@
 
         <div class="input-group">
             <label class="lang-text" data-key="training_duration">ระยะเวลาการฝึก (วัน/ชม)</label>
-            <input type="number" id="duration" class="glass-input" inputmode="numeric" oninput="calculateAll()">
+            <input type="text" id="duration" class="glass-input" inputmode="numeric" pattern="[0-9]*" oninput="calculateAll()">
         </div>
 
         <div class="training-grid" id="trainingGrid"></div>
         <div id="learningChart" class="learning-chart-wrap" style="display:none;"></div>
-    </div>
+    </div><!-- /.panel eff-section -->
+
+    </div><!-- /.panels -->
 
 </div><!-- /.container -->
 
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · v1.3.3</p>
+    <p>© CSA Evaluation · v1.4.3</p>
     <button class="feedback-btn" id="feedbackBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>

@@ -98,6 +98,9 @@
 
         --accent-50: rgba(99, 102, 241, 0.2);
         --accent-100: rgba(99, 102, 241, 0.32);
+        /* Light indigo so accent-colored TEXT (result numbers, active
+           toggles, stats) stays readable on dark surfaces. */
+        --accent-700: #b7c2ff;
 
         --bg-blob-1: rgba(99, 102, 241, 0.14);
         --bg-blob-2: rgba(236, 72, 153, 0.08);
@@ -130,6 +133,9 @@
 
     --accent-50: rgba(99, 102, 241, 0.2);
     --accent-100: rgba(99, 102, 241, 0.32);
+    /* Light indigo so accent-colored TEXT (result numbers, active
+       toggles, stats) stays readable on dark surfaces. */
+    --accent-700: #b7c2ff;
 
     --bg-blob-1: rgba(99, 102, 241, 0.14);
     --bg-blob-2: rgba(236, 72, 153, 0.08);
@@ -140,9 +146,14 @@
 * {
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
+    scrollbar-width: none;               /* Firefox: no scrollbar */
 }
+*::-webkit-scrollbar { display: none; }  /* Chromium / Safari: no scrollbar */
 
-html { -webkit-text-size-adjust: 100%; }
+html {
+    -webkit-text-size-adjust: 100%;
+    -ms-overflow-style: none;            /* legacy Edge/IE */
+}
 
 body {
     margin: 0;
@@ -201,8 +212,8 @@ body {
     height: 44px;
     flex-shrink: 0;
     border-radius: var(--r-md);
-    background: var(--accent-grad);
-    box-shadow: var(--sh-accent);
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 52%, #d946ef 100%);
+    box-shadow: 0 8px 20px rgba(139, 92, 246, 0.35);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -356,6 +367,10 @@ body {
     letter-spacing: -0.01em;
 }
 .section-title:first-of-type { margin-top: 0; }
+/* Each panel now wraps one title, so :first-of-type matches them all.
+   Keep the original mobile spacing: only the very first panel's title
+   loses its top margin; the rest keep it (desktop zeroes them below). */
+.panels > .panel:not(:first-child) > .section-title { margin-top: var(--sp-8); }
 
 .section-badge {
     width: 30px;
@@ -443,13 +458,6 @@ label {
     color: var(--accent-700);
     box-shadow: var(--sh-xs);
 }
-.sam-equiv {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--text-3);
-    margin-left: 2px;
-}
-.sam-equiv[hidden] { display: none; }
 
 .glass-input {
     width: 100%;
@@ -477,6 +485,24 @@ label {
     color: var(--accent-700) !important;
     border: 1.5px solid var(--accent-100) !important;
     font-weight: 700;
+}
+/* Readonly value shown as a <div> so the unit can be dimmed next to the
+   bold number (an <input> can't style parts of its value). */
+.result-value {
+    display: flex;
+    align-items: center;
+}
+/* Reserve one text line even when empty so the box height matches the
+   sibling <input> exactly at every breakpoint (padding/border are shared
+   via .glass-input; only the empty line box was missing). */
+.result-value::before {
+    content: "\200b";
+}
+.result-value .result-unit {
+    margin-left: 5px;
+    font-size: 0.72em;
+    font-weight: 500;
+    opacity: 0.55;
 }
 .highlight-pass-rate {
     background: var(--success-soft) !important;
@@ -874,14 +900,46 @@ label {
     .form-row { gap: var(--sp-3); }
     .glass-title { font-size: 17px; }
     .brand-text { display: none; }
-    /* SAM shares its row with the unit toggle — give it the full width
-       on phones so the label and toggle never crush each other. */
-    .form-row-sam { grid-template-columns: 1fr; }
+    /* Keep SAM + efficiency side by side on phones; compact the unit
+       toggle so the label and toggle still fit the narrow column. */
+    .unit-toggle-group { padding: 2px; }
+    .unit-toggle-btn { padding: 2px 7px; font-size: 10px; }
 }
 
 @media (max-width: 380px) {
     .form-row { grid-template-columns: 1fr; }
+    /* ...except the SAM row, which the user wants kept as two columns. */
+    .form-row-sam { grid-template-columns: 1fr 1fr; }
     .sw-btn { padding: 11px 10px; font-size: 13px; }
+}
+
+/* Desktop: the card grows and its four sections flow into two balanced
+   columns (masonry), so the app fills a wide screen instead of sitting as
+   a narrow strip. Mobile/tablet keep the single-column stack untouched. */
+@media (min-width: 1024px) {
+    body { padding: var(--sp-10); }
+    .container {
+        max-width: 940px;
+        padding: var(--sp-8);
+        border-radius: var(--r-xl);
+    }
+    .panels {
+        column-count: 2;
+        column-gap: var(--sp-8);
+    }
+    .panels > hr { display: none; }        /* dividers only make sense in one column */
+    .panel {
+        break-inside: avoid;               /* never split a section across columns */
+        margin: 0 0 var(--sp-8);
+    }
+    .panels > .panel:not(:first-child) > .section-title { margin-top: 0; }
+    /* A touch more room in the controls now that space allows */
+    .glass-input { padding: 14px 16px; }
+    .section-title { font-size: 16px; }
+}
+
+@media (min-width: 1440px) {
+    .container { max-width: 1040px; }
 }
 
 /* ---- 18. Accessibility ------------------------------------ */

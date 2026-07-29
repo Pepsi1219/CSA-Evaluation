@@ -64,9 +64,12 @@ function fmtSw(ms) {
 
 // resetTimer: called by resetForm() — clears time input fields only
 function resetTimer() {
-    ['totalMin', 'totalTime', 'totalCount'].forEach(id => {
+    // Restore the initial defaults (matches the value="" attrs in index.html)
+    // rather than blanking everything out.
+    const defaults = { totalMin: '0', totalTime: '', totalCount: '1' };
+    Object.entries(defaults).forEach(([id, val]) => {
         const el = document.getElementById(id);
-        if (el) el.value = '';
+        if (el) el.value = val;
     });
     calculateAll();
 }
@@ -609,7 +612,8 @@ function resetForm() {
         const el = document.getElementById(id);
         if (el) el.value = "";
     });
-    resetTimer();
+    setSamUnit('min', false);   // back to the default unit (no value conversion)
+    resetTimer();               // restores totals + runs calculateAll()/save
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -728,22 +732,6 @@ function updateSamUnitUI() {
     const isSec = samUnit === 'sec';
     document.getElementById('samUnitBtnMin')?.classList.toggle('active', !isSec);
     document.getElementById('samUnitBtnSec')?.classList.toggle('active', isSec);
-    const input = document.getElementById('samInput');
-    if (input) input.step = isSec ? '1' : '0.01';
-}
-
-// In seconds mode, show the minutes equivalent under the input.
-function updateSamEquiv() {
-    const el = document.getElementById('samEquiv');
-    if (!el) return;
-    const min = getSamMinutes();
-    if (samUnit === 'sec' && min > 0) {
-        el.hidden = false;
-        el.innerText = `≈ ${trimNum(min)} ${t('unit_min')}`;
-    } else {
-        el.hidden = true;
-        el.innerText = '';
-    }
 }
 
 // --- 6. Core Calculation ---
@@ -769,14 +757,17 @@ function calculateAll() {
     const newSamDisplay = document.getElementById('newSamDisplay');
     if (newSamDisplay) {
         const newSamMin = newSamFromEff(sam, effTarget);
+        newSamDisplay.textContent = '';
         if (newSamMin !== null) {
-            const val = samUnit === 'sec' ? newSamMin * 60 : newSamMin;
-            newSamDisplay.value = `${val.toFixed(2)} ${t(samUnit === 'sec' ? 'unit_sec' : 'unit_min')}`;
-        } else {
-            newSamDisplay.value = '';
+            const val  = samUnit === 'sec' ? newSamMin * 60 : newSamMin;
+            const unit = t(samUnit === 'sec' ? 'unit_sec' : 'unit_min');
+            newSamDisplay.append(val.toFixed(2));
+            const unitEl = document.createElement('span');
+            unitEl.className = 'result-unit';
+            unitEl.textContent = unit;
+            newSamDisplay.append(unitEl);
         }
     }
-    updateSamEquiv();
 
     // 2. Actual
     let currentActualEff = 0;

@@ -413,6 +413,11 @@ hr {
 }
 .form-row .input-group,
 .form-row-three .input-group { margin-bottom: 0; }
+/* In multi-column rows, push each field to the bottom of its cell so the
+   inputs line up even when labels wrap to a different number of lines
+   (long VN/Lao labels). Grid already stretches the cells to equal height. */
+.form-row .input-group > .glass-input,
+.form-row-three .input-group > .glass-input { margin-top: auto; }
 
 label {
     font-size: 12px;

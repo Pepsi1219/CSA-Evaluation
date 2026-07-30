@@ -319,8 +319,8 @@ const translations = {
         'actual_pcs': 'ประสิทธิภาพจริง (ชิ้น/ชม.)',
 
         'header3': 'คุณภาพ',
-        'pass_qty': 'จำนวนที่ "ผ่าน" (ชิ้น)',
-        'fail_qty': 'จำนวนที่ "ไม่ผ่าน" (ชิ้น)',
+        'pass_qty': 'จำนวนที่ "ผ่าน"',
+        'fail_qty': 'จำนวนที่ "ไม่ผ่าน"',
         'pass_rate': 'อัตราการผ่าน (%)',
 
         'header4': 'วางแผนการฝึก',
@@ -364,8 +364,8 @@ const translations = {
         'header1': 'Set Target',
         'sam_label': 'SAM Value (Minutes)',
         'sam_label_base': 'SAM Value',
-        'unit_min': 'Minutes',
-        'unit_sec': 'Seconds',
+        'unit_min': 'Min',
+        'unit_sec': 'Sec',
         'new_sam_label': 'New SAM (Target)',
         'eff_target': 'Target Efficiency (%)',
         'qty_label': 'Target Cut Piece (pcs/hrs.)',
@@ -380,8 +380,8 @@ const translations = {
         'actual_pcs': 'Actual Efficiency (pcs/hr.)',
 
         'header3': 'Quality',
-        'pass_qty': 'Passed Qty (Pcs)',
-        'fail_qty': 'Failed Qty (Pcs)',
+        'pass_qty': 'Passed Qty',
+        'fail_qty': 'Failed Qty',
         'pass_rate': 'Pass Rate (%)',
 
         'header4': 'Training Plan',
@@ -429,11 +429,11 @@ const translations = {
         'unit_sec': 'Giây',
         'new_sam_label': 'SAM mới (Mục tiêu)',
         'eff_target': 'Hiệu suất mục tiêu (%)',
-        'qty_label': 'Số lượng sản phẩm mục tiêu mỗi giờ',
+        'qty_label': 'số giờ',
 
         'header2': 'Ghi lại kết quả thực tế',
-        'total_min': 'Tổng thời gian (Phút)',
-        'total_sec': 'Tổng thời gian (Giây)',
+        'total_min': 'Tổng thời gian',
+        'total_sec': 'Tổng thời gian',
         'total_count': 'Số lần (Vòng)',
         'avg_timesec': 'Thời gian vòng (Giây)',
         'avg_timemin': 'Thời gian vòng (Phút)',
@@ -441,8 +441,8 @@ const translations = {
         'actual_pcs': 'Hiệu suất thực tế (SP/Giờ)',
 
         'header3': 'Chất lượng',
-        'pass_qty': 'Số lượng đạt (Cái)',
-        'fail_qty': 'Số lượng không đạt (Cái)',
+        'pass_qty': 'Số lượng đạt',
+        'fail_qty': 'Số lượng không đạt',
         'pass_rate': 'Tỷ lệ đạt (%)',
 
         'header4': 'Kế hoạch đào tạo',

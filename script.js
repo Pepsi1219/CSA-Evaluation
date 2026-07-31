@@ -559,6 +559,16 @@ let _chartCache = { data: [], targetPcs: 0, effTarget: 0 };
 
 const t = key => translations[currentLang]?.[key] ?? translations.th[key] ?? key;
 
+function setResultUnit(id, value, unit) {
+    const el = document.getElementById(id);
+    el.textContent = '';
+    el.append(String(value));
+    const u = document.createElement('span');
+    u.className = 'result-unit';
+    u.textContent = unit;
+    el.append(u);
+}
+
 // --- 4. Training Grid: generated dynamically inside calculateAll() ---
 
 // --- 5. Language ---
@@ -750,7 +760,11 @@ function calculateAll() {
     // 1. Target
     const targetDisplay = document.getElementById('targetDisplay');
     const targetPcsVal  = pcsFromEff(sam, effTarget);
-    targetDisplay.value = targetPcsVal > 0 ? targetPcsVal : "";
+    if (targetPcsVal > 0) {
+        setResultUnit('targetDisplay', targetPcsVal, pcsPerHr[currentLang] || 'pcs/hr');
+    } else {
+        targetDisplay.textContent = '';
+    }
 
     // 1b. New SAM — target cycle time to reach the target efficiency,
     //     shown in whichever unit the SAM input is currently in.
@@ -760,12 +774,7 @@ function calculateAll() {
         newSamDisplay.textContent = '';
         if (newSamMin !== null) {
             const val  = samUnit === 'sec' ? newSamMin * 60 : newSamMin;
-            const unit = t(samUnit === 'sec' ? 'unit_sec' : 'unit_min');
-            newSamDisplay.append(val.toFixed(2));
-            const unitEl = document.createElement('span');
-            unitEl.className = 'result-unit';
-            unitEl.textContent = unit;
-            newSamDisplay.append(unitEl);
+            setResultUnit('newSamDisplay', val.toFixed(2), t(samUnit === 'sec' ? 'unit_sec' : 'unit_min'));
         }
     }
 
@@ -773,20 +782,21 @@ function calculateAll() {
     let currentActualEff = 0;
     const avgMin = calcAvgMin(totalMin, totalTime, totalCount);
     if (avgMin !== null) {
-        document.getElementById('avgTimeSec').value = Math.ceil(avgMin * 60);
-        document.getElementById('avgTimeMin').value = avgMin.toFixed(2);
+        setResultUnit('avgTimeSec', Math.ceil(avgMin * 60), t('unit_sec'));
+        setResultUnit('avgTimeMin', avgMin.toFixed(2), t('unit_min'));
         const eff = calcActualEff(sam, avgMin);
         if (eff !== null) {
             currentActualEff = eff;
             document.getElementById('actualEffPerc').value = `${currentActualEff} %`;
-            document.getElementById('actualPcs').value = `${calcActualPcsPerHr(avgMin)} ${pcsPerHr[currentLang] || 'pcs/hr'}`;
+            setResultUnit('actualPcs', calcActualPcsPerHr(avgMin), pcsPerHr[currentLang] || 'pcs/hr');
         } else {
             document.getElementById('actualEffPerc').value = '';
-            document.getElementById('actualPcs').value = '';
+            document.getElementById('actualPcs').textContent = '';
         }
     } else {
-        ['avgTimeSec','avgTimeMin','actualEffPerc','actualPcs'].forEach(id => {
-            document.getElementById(id).value = '';
+        document.getElementById('actualEffPerc').value = '';
+        ['avgTimeSec','avgTimeMin','actualPcs'].forEach(id => {
+            document.getElementById(id).textContent = '';
         });
     }
 

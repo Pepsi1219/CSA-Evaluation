@@ -935,18 +935,29 @@ function renderSVGChart(values, target, unit) {
     const line = `<path d="${linePath}" fill="none" stroke="var(--accent-500)"
                        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
 
-    // Dots (day 0 = current state, styled in warning/orange)
+    // Dots + hover tooltips
     const dots = values.map((d, i) => {
+        const cx = x(i), cy = y(d.value);
+        const lbl = unit === '%' ? `${d.value}%` : `${d.value} ${unit}`;
+        const anchor = cx < p.l + cw / 2 ? 'start' : 'end';
+        const tx = anchor === 'start' ? cx + 8 : cx - 8;
+        const ty = cy - 10;
         if (d.isDay0) {
-            const lbl = unit === '%' ? `${d.value}%` : `${d.value}`;
             return `
-                <circle cx="${x(i)}" cy="${y(d.value)}" r="5"
-                         fill="var(--warning)" stroke="var(--surface)" stroke-width="2.5"/>
-                <text x="${x(i)+6}" y="${y(d.value)+10}" font-size="9" text-anchor="start"
+                <circle cx="${cx}" cy="${cy}" r="5"
+                        fill="var(--warning)" stroke="var(--surface)" stroke-width="2.5"/>
+                <text x="${cx+6}" y="${cy+10}" font-size="9" text-anchor="start"
                       fill="var(--warning)" font-family="var(--font)" font-weight="700">${lbl}</text>`;
         }
-        return `<circle cx="${x(i)}" cy="${y(d.value)}" r="4"
-                         fill="var(--accent-500)" stroke="var(--surface)" stroke-width="2"/>`;
+        return `<g class="chart-dot-group">
+            <circle cx="${cx}" cy="${cy}" r="4"
+                    fill="var(--accent-500)" stroke="var(--surface)" stroke-width="2"
+                    class="chart-dot"/>
+            <circle cx="${cx}" cy="${cy}" r="16" fill="transparent" class="chart-hit"/>
+            <text x="${tx}" y="${ty}" font-size="9.5" text-anchor="${anchor}"
+                  fill="var(--text-1)" font-family="var(--font)" font-weight="600"
+                  class="chart-tip">${lbl}</text>
+        </g>`;
     }).join('');
 
     // X labels — แสดงทุกหน่วย (1, 2, 3, ...)

@@ -1388,3 +1388,6 @@ label {
     opacity: 0.35;
     cursor: not-allowed;
 }
+.chart-dot-group .chart-tip { opacity: 0; transition: opacity .15s; pointer-events: none; }
+.chart-dot-group:hover .chart-tip { opacity: 1; }
+.chart-dot-group:hover .chart-dot { r: 6; }

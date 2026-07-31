@@ -161,22 +161,22 @@ function swUpdateUI() {
     if (!startBtn || !lapResetBtn) return;
 
     if (sw.running) {
-        startBtn.textContent    = 'Stop';
+        startBtn.textContent    = t('sw_stop');
         startBtn.className      = 'sw-modal-btn sw-btn-stop';
         lapResetBtn.disabled    = sw.mode === 'single';
-        lapResetBtn.textContent = 'Lap';
+        lapResetBtn.textContent = t('sw_lap');
         lapResetBtn.className   = 'sw-modal-btn sw-btn-secondary' + (sw.mode === 'single' ? ' sw-btn-disabled' : '');
     } else if (sw.elapsed > 0) {
-        startBtn.textContent    = 'Start';
+        startBtn.textContent    = t('sw_start');
         startBtn.className      = 'sw-modal-btn sw-btn-start';
         lapResetBtn.disabled    = false;
-        lapResetBtn.textContent = 'Reset';
+        lapResetBtn.textContent = t('sw_reset');
         lapResetBtn.className   = 'sw-modal-btn sw-btn-secondary';
     } else {
-        startBtn.textContent    = 'Start';
+        startBtn.textContent    = t('sw_start');
         startBtn.className      = 'sw-modal-btn sw-btn-start';
         lapResetBtn.disabled    = true;
-        lapResetBtn.textContent = 'Lap';
+        lapResetBtn.textContent = t('sw_lap');
         lapResetBtn.className   = 'sw-modal-btn sw-btn-secondary sw-btn-disabled';
     }
 }
@@ -348,6 +348,10 @@ const translations = {
         'sw_laps_title': 'รายการรอบ',
         'sw_rounds': 'จำนวนรอบ',
         'sw_save_form': 'บันทึกลงฟอร์ม',
+        'sw_start': 'เริ่ม',
+        'sw_stop': 'หยุด',
+        'sw_lap': 'รอบ',
+        'sw_reset': 'รีเซ็ต',
 
         'history_title': 'ประวัติการประเมิน',
         'history_subtitle': 'บันทึกและเปรียบเทียบผลการประเมิน',
@@ -409,6 +413,10 @@ const translations = {
         'sw_laps_title': 'Laps',
         'sw_rounds': 'Rounds',
         'sw_save_form': 'Save to Form',
+        'sw_start': 'Start',
+        'sw_stop': 'Stop',
+        'sw_lap': 'Lap',
+        'sw_reset': 'Reset',
 
         'history_title': 'Evaluation History',
         'history_subtitle': 'Save and compare past evaluations',
@@ -470,6 +478,10 @@ const translations = {
         'sw_laps_title': 'Danh sách vòng',
         'sw_rounds': 'Số vòng',
         'sw_save_form': 'Lưu vào biểu mẫu',
+        'sw_start': 'Bắt đầu',
+        'sw_stop': 'Dừng',
+        'sw_lap': 'Vòng',
+        'sw_reset': 'Đặt lại',
 
         'history_title': 'Lịch sử đánh giá',
         'history_subtitle': 'Lưu và so sánh các đánh giá trước đây',
@@ -531,6 +543,10 @@ const translations = {
         'sw_laps_title': 'ລາຍການຮອບ',
         'sw_rounds': 'ຈຳນວນຮອບ',
         'sw_save_form': 'ບັນທຶກລົງຟອມ',
+        'sw_start': 'ເລີ່ມ',
+        'sw_stop': 'ຢຸດ',
+        'sw_lap': 'ຮອບ',
+        'sw_reset': 'ຣີເຊັດ',
 
         'history_title': 'ປະຫວັດການປະເມີນ',
         'history_subtitle': 'ບັນທຶກ ແລະ ປຽບທຽບຜົນການປະເມີນທີ່ຜ່ານມາ',
@@ -604,6 +620,7 @@ function changeLanguage(lang) {
 
     closeLangMenu();
     calculateAll(); // refresh pcs unit
+    swUpdateUI();
 }
 
 function toggleLangMenu() {

@@ -1183,6 +1183,20 @@ label {
 .sw-stat.sw-stat-total span:first-child { color: var(--accent-700); font-weight: 600; }
 .sw-stat.sw-stat-total span:last-child  { font-size: 17px; color: var(--accent-700); }
 
+/* Tappable stats + inline explanations */
+.sw-stat-tappable { cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background 0.15s; }
+.sw-stat-tappable:hover { background: var(--surface-2); }
+.sw-stat-tappable.sw-open { border-bottom: none; }
+.sw-stat-desc {
+    display: none;
+    padding: 10px 18px 14px;
+    font-size: 13px; line-height: 1.55;
+    color: var(--text-2);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+}
+.sw-stat-desc.sw-show { display: block; }
+
 /* ── Lap Section ── */
 .sw-lap-section { margin-bottom: calc(var(--sp-6) + 80px); }
 .sw-lap-section-title {

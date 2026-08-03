@@ -283,7 +283,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · v1.4.5</p>
+    <p>© CSA Evaluation · v1.4.6</p>
     <button class="feedback-btn" id="feedbackBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -411,6 +411,8 @@
         <div class="sw-controls">
             <button class="sw-modal-btn sw-btn-secondary sw-btn-disabled"
                     id="swLapResetBtn" onclick="swLapOrReset()" disabled>รอบ</button>
+            <button class="sw-modal-btn sw-btn-secondary sw-btn-disabled"
+                    id="swPauseBtn" onclick="swPauseResume()" disabled>พัก</button>
             <button class="sw-modal-btn sw-btn-start"
                     id="swStartStopBtn" onclick="swStartStop()">เริ่ม</button>
         </div>
@@ -421,22 +423,30 @@
                 <span class="sw-stats-title lang-text" data-key="sw_stats">สถิติ</span>
             </div>
             <div class="sw-stats-grid">
-                <div class="sw-stat">
+                <div class="sw-stat sw-stat-tappable" onclick="swToggleStatInfo('avg')">
                     <span class="lang-text" data-key="sw_avg">เฉลี่ย</span>
                     <span id="swStatAvg">—</span>
                 </div>
-                <div class="sw-stat sw-stat-fastest">
+                <div class="sw-stat-desc lang-text" id="swInfo_avg" data-key="sw_info_avg">เวลาเฉลี่ยต่อรอบ = เวลารวมทุกรอบ ÷ จำนวนรอบ</div>
+
+                <div class="sw-stat sw-stat-fastest sw-stat-tappable" onclick="swToggleStatInfo('min')">
                     <span class="lang-text" data-key="sw_fastest">เร็วสุด</span>
                     <span id="swStatMin">—</span>
                 </div>
-                <div class="sw-stat sw-stat-slowest">
+                <div class="sw-stat-desc lang-text" id="swInfo_min" data-key="sw_info_min">รอบที่ทำเวลาได้น้อยที่สุด (เร็วที่สุด)</div>
+
+                <div class="sw-stat sw-stat-slowest sw-stat-tappable" onclick="swToggleStatInfo('max')">
                     <span class="lang-text" data-key="sw_slowest">ช้าสุด</span>
                     <span id="swStatMax">—</span>
                 </div>
-                <div class="sw-stat">
+                <div class="sw-stat-desc lang-text" id="swInfo_max" data-key="sw_info_max">รอบที่ใช้เวลามากที่สุด (ช้าที่สุด)</div>
+
+                <div class="sw-stat sw-stat-tappable" onclick="swToggleStatInfo('std')">
                     <span>Std Dev</span>
                     <span id="swStatStd">—</span>
                 </div>
+                <div class="sw-stat-desc lang-text" id="swInfo_std" data-key="sw_info_std">ส่วนเบี่ยงเบนมาตรฐาน บอกว่าเวลาแต่ละรอบกระจายห่างจากค่าเฉลี่ยแค่ไหน ยิ่งน้อยยิ่งสม่ำเสมอ = รากที่สองของค่าเฉลี่ยของ (เวลารอบ − ค่าเฉลี่ย)²</div>
+
                 <div class="sw-stat sw-stat-total">
                     <span class="lang-text" data-key="sw_total">รวม</span>
                     <span id="swStatTotal">—</span>

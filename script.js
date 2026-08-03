@@ -45,6 +45,7 @@ const _tracked = { quality: false, training: false };
 // --- 2. Stopwatch Modal State ---
 const sw = {
     running:  false,
+    paused:   false,    // true when frozen via Pause (not yet finalized)
     mode:     'lap',    // 'lap' | 'single'
     elapsed:  0,        // total elapsed ms
     startTs:  null,     // timestamp when last started
@@ -101,14 +102,20 @@ function swSetMode(mode) {
 }
 
 function swStartStop() {
-    if (!sw.running) {
+    if (!sw.running && !sw.paused) {
+        // Start (or resume after a finalized Stop)
         sw.running = true;
         sw.startTs = Date.now() - sw.elapsed;
         sw.interval = setInterval(swTick, 10);
     } else {
+        // Stop / finalize. If we got here from Pause, the clock is already
+        // frozen; otherwise freeze it now.
+        if (sw.running) {
+            clearInterval(sw.interval);
+            sw.elapsed = Date.now() - sw.startTs;
+        }
         sw.running = false;
-        clearInterval(sw.interval);
-        sw.elapsed = Date.now() - sw.startTs;
+        sw.paused  = false;
         // In lap mode, Stop closes the in-progress lap so it counts as a
         // round too — e.g. Start → Lap ×3 → Stop yields 4 laps, not 3.
         if (sw.mode === 'lap' && sw.elapsed - sw.lapStart > 0) {
@@ -116,6 +123,26 @@ function swStartStop() {
             sw.lapStart = sw.elapsed;
         }
         swShowStats();
+    }
+    swUpdateUI();
+}
+
+// Pause freezes the clock without ending the current lap or showing results;
+// Resume continues the same lap from where it left off.
+function swPauseResume() {
+    if (sw.running) {
+        // Pause
+        clearInterval(sw.interval);
+        sw.elapsed = Date.now() - sw.startTs;
+        sw.running = false;
+        sw.paused  = true;
+        swRenderLaps();   // freeze the running-lap row at its paused value
+    } else if (sw.paused) {
+        // Resume — same lap, no split
+        sw.running = true;
+        sw.paused  = false;
+        sw.startTs = Date.now() - sw.elapsed;
+        sw.interval = setInterval(swTick, 10);
     }
     swUpdateUI();
 }
@@ -133,7 +160,7 @@ function swLapOrReset() {
     } else {
         // Reset everything
         clearInterval(sw.interval);
-        Object.assign(sw, { running:false, elapsed:0, startTs:null, lapStart:0, laps:[], interval:null });
+        Object.assign(sw, { running:false, paused:false, elapsed:0, startTs:null, lapStart:0, laps:[], interval:null });
         const el = id => document.getElementById(id);
         if (el('swDisplay'))    el('swDisplay').innerText    = '00:00.00';
         if (el('swCurrentLap')) el('swCurrentLap').innerText = '';
@@ -157,27 +184,50 @@ function swTick() {
 
 function swUpdateUI() {
     const startBtn    = document.getElementById('swStartStopBtn');
+    const pauseBtn    = document.getElementById('swPauseBtn');
     const lapResetBtn = document.getElementById('swLapResetBtn');
-    if (!startBtn || !lapResetBtn) return;
+    if (!startBtn || !pauseBtn || !lapResetBtn) return;
 
     if (sw.running) {
+        // Timing — right = Stop, middle = Pause, left = Lap
         startBtn.textContent    = t('sw_stop');
-        startBtn.className      = 'sw-modal-btn sw-btn-stop';
+        startBtn.className       = 'sw-modal-btn sw-btn-stop';
+        pauseBtn.disabled       = false;
+        pauseBtn.textContent    = t('sw_pause');
+        pauseBtn.className       = 'sw-modal-btn sw-btn-secondary';
         lapResetBtn.disabled    = sw.mode === 'single';
         lapResetBtn.textContent = t('sw_lap');
-        lapResetBtn.className   = 'sw-modal-btn sw-btn-secondary' + (sw.mode === 'single' ? ' sw-btn-disabled' : '');
-    } else if (sw.elapsed > 0) {
-        startBtn.textContent    = t('sw_start');
-        startBtn.className      = 'sw-modal-btn sw-btn-start';
-        lapResetBtn.disabled    = false;
-        lapResetBtn.textContent = t('sw_reset');
-        lapResetBtn.className   = 'sw-modal-btn sw-btn-secondary';
-    } else {
-        startBtn.textContent    = t('sw_start');
-        startBtn.className      = 'sw-modal-btn sw-btn-start';
+        lapResetBtn.className    = 'sw-modal-btn sw-btn-secondary' + (sw.mode === 'single' ? ' sw-btn-disabled' : '');
+    } else if (sw.paused) {
+        // Frozen mid-run — right = Stop (finalize), middle = Resume, left = Lap (off)
+        startBtn.textContent    = t('sw_stop');
+        startBtn.className       = 'sw-modal-btn sw-btn-stop';
+        pauseBtn.disabled       = false;
+        pauseBtn.textContent    = t('sw_resume');
+        pauseBtn.className       = 'sw-modal-btn sw-btn-start';
         lapResetBtn.disabled    = true;
         lapResetBtn.textContent = t('sw_lap');
-        lapResetBtn.className   = 'sw-modal-btn sw-btn-secondary sw-btn-disabled';
+        lapResetBtn.className    = 'sw-modal-btn sw-btn-secondary sw-btn-disabled';
+    } else if (sw.elapsed > 0) {
+        // Finalized — right = Start (resume), middle = Pause (off), left = Reset
+        startBtn.textContent    = t('sw_start');
+        startBtn.className       = 'sw-modal-btn sw-btn-start';
+        pauseBtn.disabled       = true;
+        pauseBtn.textContent    = t('sw_pause');
+        pauseBtn.className       = 'sw-modal-btn sw-btn-secondary sw-btn-disabled';
+        lapResetBtn.disabled    = false;
+        lapResetBtn.textContent = t('sw_reset');
+        lapResetBtn.className    = 'sw-modal-btn sw-btn-secondary';
+    } else {
+        // Idle
+        startBtn.textContent    = t('sw_start');
+        startBtn.className       = 'sw-modal-btn sw-btn-start';
+        pauseBtn.disabled       = true;
+        pauseBtn.textContent    = t('sw_pause');
+        pauseBtn.className       = 'sw-modal-btn sw-btn-secondary sw-btn-disabled';
+        lapResetBtn.disabled    = true;
+        lapResetBtn.textContent = t('sw_lap');
+        lapResetBtn.className    = 'sw-modal-btn sw-btn-secondary sw-btn-disabled';
     }
 }
 
@@ -191,8 +241,8 @@ function swRenderLaps() {
     const maxI = sw.laps.indexOf(maxT);
     let   html = '';
 
-    // Current running lap (top row)
-    if (sw.running && sw.mode === 'lap') {
+    // Current lap (top row) — shown while running or frozen while paused
+    if ((sw.running || sw.paused) && sw.mode === 'lap') {
         html += `
         <div class="sw-lap-row sw-lap-current">
             <span>Lap ${sw.laps.length + 1}</span>
@@ -216,6 +266,10 @@ function swRenderLaps() {
 function swShowStats() {
     const data = sw.mode === 'lap' ? sw.laps : (sw.elapsed > 0 ? [sw.elapsed] : []);
     if (!data.length) return;
+
+    // Start with all stat explanations collapsed
+    document.querySelectorAll('.sw-stat-desc').forEach(d => d.classList.remove('sw-show'));
+    document.querySelectorAll('.sw-stat-tappable').forEach(r => r.classList.remove('sw-open'));
 
     const total = data.reduce((a, b) => a + b, 0);
     const avg   = total / data.length;
@@ -241,6 +295,26 @@ function swShowStats() {
 
     // Re-render laps with highlights after stopping
     if (sw.mode === 'lap' && sw.laps.length) swRenderLaps();
+}
+
+// Close any open stat explanation (used by ESC, re-toggle, and fresh stats)
+function swCloseStatInfo() {
+    document.querySelectorAll('.sw-stat-desc.sw-show').forEach(d => d.classList.remove('sw-show'));
+    document.querySelectorAll('.sw-stat-tappable.sw-open').forEach(r => r.classList.remove('sw-open'));
+}
+
+// Toggle the explanation panel under a tapped stat (accordion: one open at a time)
+function swToggleStatInfo(key) {
+    const desc = document.getElementById('swInfo_' + key);
+    if (!desc) return;
+    const willOpen = !desc.classList.contains('sw-show');
+    swCloseStatInfo();
+    if (willOpen) {
+        desc.classList.add('sw-show');
+        const row = desc.previousElementSibling;
+        if (row) row.classList.add('sw-open');
+        gaTrack('view_stat_info', { stat: key });
+    }
 }
 
 function swSaveToForm() {
@@ -350,8 +424,14 @@ const translations = {
         'sw_save_form': 'บันทึกลงฟอร์ม',
         'sw_start': 'เริ่ม',
         'sw_stop': 'หยุด',
+        'sw_pause': 'พัก',
+        'sw_resume': 'ต่อ',
         'sw_lap': 'รอบ',
         'sw_reset': 'รีเซ็ต',
+        'sw_info_avg': 'เวลาเฉลี่ยต่อรอบ = เวลารวมทุกรอบ ÷ จำนวนรอบ',
+        'sw_info_min': 'รอบที่ทำเวลาได้น้อยที่สุด (เร็วที่สุด)',
+        'sw_info_max': 'รอบที่ใช้เวลามากที่สุด (ช้าที่สุด)',
+        'sw_info_std': 'ส่วนเบี่ยงเบนมาตรฐาน บอกว่าเวลาแต่ละรอบกระจายห่างจากค่าเฉลี่ยแค่ไหน ยิ่งน้อยยิ่งสม่ำเสมอ = รากที่สองของค่าเฉลี่ยของ (เวลารอบ − ค่าเฉลี่ย)²',
 
         'history_title': 'ประวัติการประเมิน',
         'history_subtitle': 'บันทึกและเปรียบเทียบผลการประเมิน',
@@ -415,8 +495,14 @@ const translations = {
         'sw_save_form': 'Save to Form',
         'sw_start': 'Start',
         'sw_stop': 'Stop',
+        'sw_pause': 'Pause',
+        'sw_resume': 'Resume',
         'sw_lap': 'Lap',
         'sw_reset': 'Reset',
+        'sw_info_avg': 'Average time per round = total time of all rounds ÷ number of rounds',
+        'sw_info_min': 'The round with the shortest time (fastest)',
+        'sw_info_max': 'The round with the longest time (slowest)',
+        'sw_info_std': 'Standard deviation — how much each round varies from the average; lower means more consistent. = square root of the mean of (round time − average)²',
 
         'history_title': 'Evaluation History',
         'history_subtitle': 'Save and compare past evaluations',
@@ -480,8 +566,14 @@ const translations = {
         'sw_save_form': 'Lưu vào biểu mẫu',
         'sw_start': 'Bắt đầu',
         'sw_stop': 'Dừng',
+        'sw_pause': 'Tạm dừng',
+        'sw_resume': 'Tiếp tục',
         'sw_lap': 'Vòng',
         'sw_reset': 'Đặt lại',
+        'sw_info_avg': 'Thời gian trung bình mỗi vòng = tổng thời gian các vòng ÷ số vòng',
+        'sw_info_min': 'Vòng có thời gian ngắn nhất (nhanh nhất)',
+        'sw_info_max': 'Vòng có thời gian dài nhất (chậm nhất)',
+        'sw_info_std': 'Độ lệch chuẩn — cho biết thời gian mỗi vòng dao động quanh giá trị trung bình bao nhiêu; càng nhỏ càng ổn định. = căn bậc hai của trung bình (thời gian vòng − trung bình)²',
 
         'history_title': 'Lịch sử đánh giá',
         'history_subtitle': 'Lưu và so sánh các đánh giá trước đây',
@@ -545,8 +637,14 @@ const translations = {
         'sw_save_form': 'ບັນທຶກລົງຟອມ',
         'sw_start': 'ເລີ່ມ',
         'sw_stop': 'ຢຸດ',
+        'sw_pause': 'ພັກ',
+        'sw_resume': 'ຕໍ່',
         'sw_lap': 'ຮອບ',
         'sw_reset': 'ຣີເຊັດ',
+        'sw_info_avg': 'ເວລາເສລ່ຍຕໍ່ຮອບ = ເວລາລວມທຸກຮອບ ÷ ຈຳນວນຮອບ',
+        'sw_info_min': 'ຮອບທີ່ໃຊ້ເວລາໜ້ອຍທີ່ສຸດ (ໄວທີ່ສຸດ)',
+        'sw_info_max': 'ຮອບທີ່ໃຊ້ເວລາຫຼາຍທີ່ສຸດ (ຊ້າທີ່ສຸດ)',
+        'sw_info_std': 'ສ່ວນບ່ຽງເບນມາດຕະຖານ ບອກວ່າເວລາແຕ່ລະຮອບກະຈາຍຫ່າງຈາກຄ່າເສລ່ຍເທົ່າໃດ ຍິ່ງໜ້ອຍຍິ່ງສະໝ່ຳສະເໝີ = ຮາກທີ່ສອງຂອງຄ່າເສລ່ຍຂອງ (ເວລາຮອບ − ຄ່າເສລ່ຍ)²',
 
         'history_title': 'ປະຫວັດການປະເມີນ',
         'history_subtitle': 'ບັນທຶກ ແລະ ປຽບທຽບຜົນການປະເມີນທີ່ຜ່ານມາ',
@@ -1295,6 +1393,14 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         if (feedbackModal?.style.display === 'flex') closeFeedbackModal();
         if (historyModal?.style.display === 'flex') closeHistoryModal();
+        const swModal = document.getElementById('swModal');
+        if (swModal?.style.display === 'flex') {
+            const hasOpenInfo = document.querySelector('.sw-stat-desc.sw-show');
+            if (hasOpenInfo) swCloseStatInfo();
+            else closeStopwatchModal();
+        } else {
+            swCloseStatInfo();
+        }
         closeLangMenu();
     }
 });

@@ -63,6 +63,19 @@ function fmtSw(ms) {
     return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
 }
 
+// Format ms → seconds with 2 decimals (for mean / general stats)
+function fmtSec2(ms) {
+    return (Math.abs(ms) / 1000).toFixed(2);
+}
+// Format ms → seconds with 4 decimals (for SD — needs finer precision)
+function fmtSec4(ms) {
+    return (Math.abs(ms) / 1000).toFixed(4);
+}
+// Snap raw ms to the display resolution (10 ms = 2-decimal seconds).
+// Storing laps at this resolution guarantees stats calculated from stored
+// values match what the user sees on screen and would hand-calc.
+function snapLapMs(ms) { return Math.round(ms / 10) * 10; }
+
 // resetTimer: called by resetForm() — clears time input fields only
 function resetTimer() {
     // Restore the initial defaults (matches the value="" attrs in index.html)
@@ -119,7 +132,7 @@ function swStartStop() {
         // In lap mode, Stop closes the in-progress lap so it counts as a
         // round too — e.g. Start → Lap ×3 → Stop yields 4 laps, not 3.
         if (sw.mode === 'lap' && sw.elapsed - sw.lapStart > 0) {
-            sw.laps.push(sw.elapsed - sw.lapStart);
+            sw.laps.push(snapLapMs(sw.elapsed - sw.lapStart));
             sw.lapStart = sw.elapsed;
         }
         swShowStats();
@@ -149,8 +162,8 @@ function swPauseResume() {
 
 function swLapOrReset() {
     if (sw.running) {
-        // Record lap
-        const lapMs = sw.elapsed - sw.lapStart;
+        // Record lap — snap to 10 ms so stored value == displayed value
+        const lapMs = snapLapMs(sw.elapsed - sw.lapStart);
         sw.laps.push(lapMs);
         sw.lapStart = sw.elapsed;
         // Show lap section on first lap
@@ -165,9 +178,10 @@ function swLapOrReset() {
         if (el('swDisplay'))    el('swDisplay').innerText    = '00:00.00';
         if (el('swCurrentLap')) el('swCurrentLap').innerText = '';
         if (el('swLapList'))    el('swLapList').innerHTML    = '';
-        if (el('swStatsPanel')) el('swStatsPanel').style.display = 'none';
-        if (el('swLapSection')) el('swLapSection').style.display = 'none';
-        if (el('swSavePanel'))  el('swSavePanel').style.display  = 'none';
+        if (el('swStatsPanel'))  el('swStatsPanel').style.display  = 'none';
+        if (el('swLapSection'))  el('swLapSection').style.display  = 'none';
+        if (el('swSavePanel'))   el('swSavePanel').style.display   = 'none';
+        if (el('swContinueBtn')) el('swContinueBtn').style.display = 'none';
         swUpdateUI();
     }
 }
@@ -275,13 +289,18 @@ function swShowStats() {
     const avg   = total / data.length;
     const min   = Math.min(...data);
     const max   = Math.max(...data);
-    const vari  = data.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / data.length;
+    // Sample SD (n-1, Bessel's correction) — matches Time Study convention
+    // and the t-distribution used in the sample-size calc below.
+    const denom = data.length > 1 ? data.length - 1 : 1;
+    const vari  = data.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / denom;
     const std   = Math.sqrt(vari);
 
     const setEl = (id, ms) => { const el = document.getElementById(id); if (el) el.innerText = fmtSw(ms); };
     setEl('swStatAvg', avg);   setEl('swStatMin', min);
-    setEl('swStatMax', max);   setEl('swStatStd', std);
-    setEl('swStatTotal', total);
+    setEl('swStatMax', max);   setEl('swStatTotal', total);
+    // Std Dev is a spread, not a clock time — display in seconds (statistical convention)
+    const stdEl = document.getElementById('swStatStd');
+    if (stdEl) stdEl.innerHTML = `${fmtSec4(std)}<span class="sw-stat-unit"> s</span>`;
 
     const statsPanel  = document.getElementById('swStatsPanel');
     const lapSection  = document.getElementById('swLapSection');
@@ -292,6 +311,9 @@ function swShowStats() {
     if (roundsRow)  roundsRow.style.display  = sw.mode === 'single' ? 'flex' : 'none';
     if (lapSection && sw.mode === 'lap' && sw.laps.length > 0)
         lapSection.style.display = 'block';
+
+    // Time Study — recompute the "required N" row (only meaningful in lap mode with 2+ laps)
+    tsRecalculate();
 
     // Re-render laps with highlights after stopping
     if (sw.mode === 'lap' && sw.laps.length) swRenderLaps();
@@ -334,6 +356,203 @@ function swSaveToForm() {
     if (g('totalCount')) g('totalCount').value = rounds;
     calculateAll();
     closeStopwatchModal();
+}
+
+// ---- Time Study (Statistical Sample Size) ----
+// Two-tailed critical values from Student's t-distribution.
+// Rows: [df, t@90%, t@95%, t@99%]. df>30 falls back to the last row.
+const T_TABLE = [
+    [1, 6.3138, 12.7062, 63.6567],
+    [2, 2.9200,  4.3027,  9.9248],
+    [3, 2.3534,  3.1824,  5.8409],
+    [4, 2.1318,  2.7764,  4.6041],
+    [5, 2.0150,  2.5706,  4.0321],
+    [6, 1.9432,  2.4469,  3.7074],
+    [7, 1.8946,  2.3646,  3.4995],
+    [8, 1.8595,  2.3060,  3.3554],
+    [9, 1.8331,  2.2622,  3.2498],
+    [10, 1.8125, 2.2281, 3.1693],
+    [11, 1.7959, 2.2010, 3.1058],
+    [12, 1.7823, 2.1788, 3.0545],
+    [13, 1.7709, 2.1604, 3.0123],
+    [14, 1.7613, 2.1448, 2.9768],
+    [15, 1.7531, 2.1314, 2.9467],
+    [16, 1.7459, 2.1199, 2.9208],
+    [17, 1.7396, 2.1098, 2.8982],
+    [18, 1.7341, 2.1009, 2.8784],
+    [19, 1.7291, 2.0930, 2.8609],
+    [20, 1.7247, 2.0860, 2.8453],
+    [21, 1.7207, 2.0796, 2.8314],
+    [22, 1.7171, 2.0739, 2.8188],
+    [23, 1.7139, 2.0687, 2.8073],
+    [24, 1.7109, 2.0639, 2.7969],
+    [25, 1.7081, 2.0595, 2.7874],
+    [26, 1.7056, 2.0555, 2.7787],
+    [27, 1.7033, 2.0518, 2.7707],
+    [28, 1.7011, 2.0484, 2.7633],
+    [29, 1.6991, 2.0452, 2.7564],
+    [30, 1.6973, 2.0423, 2.7500],
+];
+
+const _ts = { confidence: 95, error: 5 };
+
+function tsTValue(df, confidence) {
+    if (df < 1) return null;
+    const capped = Math.min(df, 30);
+    const row = T_TABLE.find(r => r[0] === capped);
+    const idx = confidence === 90 ? 1 : (confidence === 99 ? 3 : 2);
+    return row ? row[idx] : null;
+}
+
+function tsSetConfidence(c) {
+    _ts.confidence = c;
+    document.querySelectorAll('.sw-ts-pill').forEach(p => {
+        p.classList.toggle('active', parseInt(p.dataset.conf) === c);
+    });
+    tsRecalculate();
+    gaTrack('ts_change_confidence', { confidence: c });
+}
+
+function tsRecalculate() {
+    const errorInput = document.getElementById('tsErrorInput');
+    let e = parseFloat(errorInput?.value);
+    if (!isFinite(e) || e <= 0) e = 5;
+    if (e > 50) e = 50;
+    _ts.error = e;
+
+    const reqnRow    = document.querySelector('.sw-stat.sw-stat-reqn');
+    const reqnVal    = document.getElementById('swStatReqN');
+    const reqnInfo   = document.getElementById('swInfo_reqn');
+    const contBtn    = document.getElementById('swContinueBtn');
+    if (!reqnVal || !reqnInfo) return;
+
+    // Clear any prior verdict classes on the row
+    if (reqnRow) reqnRow.classList.remove('sw-reqn-ok', 'sw-reqn-warn', 'sw-reqn-na');
+    if (contBtn) contBtn.style.display = 'none';
+
+    // Only lap mode with 2+ laps has a distribution to work with
+    const data = sw.mode === 'lap' ? sw.laps : [];
+    const n = data.length;
+
+    if (n < 2) {
+        if (reqnRow) reqnRow.classList.add('sw-reqn-na');
+        reqnVal.innerHTML  = '<span class="sw-reqn-na-text lang-text" data-key="ts_na">—</span>';
+        reqnInfo.innerHTML = `<span class="lang-text" data-key="ts_need_pilot">${t('ts_need_pilot')}</span>`;
+        return;
+    }
+
+    const mean = data.reduce((a, b) => a + b, 0) / n;
+    const variance = data.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / (n - 1);
+    const sd = Math.sqrt(variance);
+
+    const df = n - 1;
+    const tVal = tsTValue(df, _ts.confidence);
+    const eRatio = _ts.error / 100;
+
+    // N = ( (t * s) / (e * mean) )²
+    const N_raw = mean > 0 ? Math.pow((tVal * sd) / (eRatio * mean), 2) : 0;
+    const N = Math.ceil(N_raw);
+
+    const isSufficient = n >= N;
+    const needMore = Math.max(0, N - n);
+
+    // Row value — just the number, matching other rows' style
+    if (reqnRow) reqnRow.classList.add(isSufficient ? 'sw-reqn-ok' : 'sw-reqn-warn');
+    reqnVal.innerHTML = `<span class="sw-reqn-num">${N}</span>`;
+
+    // Continue-timing CTA only when insufficient
+    if (contBtn && !isSufficient) {
+        contBtn.style.display = 'flex';
+        const label = t('ts_continue_btn').replace('{more}', needMore);
+        const labelEl = document.getElementById('swContinueBtnLabel');
+        if (labelEl) labelEl.textContent = label;
+    }
+
+    // Expanded explanation (revealed on tap of the row)
+    const dfNote = df > 30 ? ` <span class="sw-ts-note">(${t('ts_capped_df')})</span>` : '';
+    const eStr = eRatio.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+    const summaryLine = isSufficient
+        ? t('ts_have_ok').replace('{n}', n)
+        : t('ts_have_short').replace('{n}', n).replace('{more}', needMore);
+
+    // Pretty math notation: N = ((t·s) / (e·x̄))²
+    const formulaHTML = `
+        <div class="mformula" aria-label="N equals open-paren t times s over e times x-bar close-paren squared">
+            <span class="mvar">N</span>
+            <span class="meq">=</span>
+            <span class="mparen">(</span>
+            <span class="mfrac">
+                <span class="mnum"><i>t</i> · <i>s</i></span>
+                <span class="mden"><i>e</i> · <i>x̄</i></span>
+            </span>
+            <span class="mparen">)</span>
+            <span class="msup">2</span>
+        </div>`;
+
+    reqnInfo.innerHTML = `
+        <div class="sw-reqn-headline">
+            ${t('ts_msg_prefix')
+                .replace('{conf}', _ts.confidence)
+                .replace('{N_raw}', N_raw.toFixed(2))
+                .replace('{N}', N)}
+        </div>
+        <div class="sw-reqn-summary">${summaryLine}</div>
+        <div class="sw-ts-metrics">
+            <div class="sw-ts-metric"><span>n</span><span>${n}</span></div>
+            <div class="sw-ts-metric"><span>df</span><span>${df}${dfNote}</span></div>
+            <div class="sw-ts-metric"><span>t</span><span>${tVal.toFixed(4)}</span></div>
+            <div class="sw-ts-metric"><span>x̄</span><span>${fmtSec2(mean)} s</span></div>
+            <div class="sw-ts-metric"><span>s</span><span>${fmtSec4(sd)} s</span></div>
+            <div class="sw-ts-metric"><span>e</span><span>${eStr} <span class="sw-ts-note">(${_ts.error}%)</span></span></div>
+            <div class="sw-ts-metric sw-ts-metric-hero">
+                <span>N</span>
+                <span>${N_raw.toFixed(2)} → <strong>${N}</strong></span>
+            </div>
+        </div>
+        ${formulaHTML}`;
+}
+
+// Resume the stopwatch after Stop → preserves existing laps + elapsed time.
+// Users hit this when the Time Study calc says they need more cycles.
+function swContinueTiming() {
+    gaTrack('sw_continue_timing', { laps_so_far: sw.laps.length });
+    // Hide summary + save panels while timer runs again
+    const el = id => document.getElementById(id);
+    if (el('swStatsPanel'))    el('swStatsPanel').style.display    = 'none';
+    if (el('swSavePanel'))     el('swSavePanel').style.display     = 'none';
+    if (el('swContinueBtn'))   el('swContinueBtn').style.display   = 'none';
+    swCloseStatInfo();
+    // Resume timer — swStartStop() picks up from sw.elapsed, appending to sw.laps
+    if (!sw.running && !sw.paused) swStartStop();
+}
+
+function openTsConfigModal() {
+    gaTrack('open_ts_config');
+    renderTTable();
+    const m = document.getElementById('tsConfigModal');
+    if (m) m.style.display = 'flex';
+}
+
+function closeTsConfigModal() {
+    const m = document.getElementById('tsConfigModal');
+    if (m) m.style.display = 'none';
+}
+
+function renderTTable() {
+    const tbody = document.getElementById('tTableBody');
+    if (!tbody) return;
+    const activeDf = sw.mode === 'lap' && sw.laps.length >= 2 ? Math.min(sw.laps.length - 1, 30) : null;
+    const activeCol = _ts.confidence === 90 ? 1 : (_ts.confidence === 99 ? 3 : 2);
+    tbody.innerHTML = T_TABLE.map(row => {
+        const [df, t90, t95, t99] = row;
+        const isActive = df === activeDf;
+        return `<tr class="${isActive ? 'sw-ts-row-active' : ''}">
+            <td>${df}</td><td>${df + 1}</td>
+            <td class="${activeCol === 1 ? 'sw-ts-col-active' : ''}">${t90}</td>
+            <td class="${activeCol === 2 ? 'sw-ts-col-active' : ''}">${t95}</td>
+            <td class="${activeCol === 3 ? 'sw-ts-col-active' : ''}">${t99}</td>
+        </tr>`;
+    }).join('');
 }
 
 // ---- Export / Print ----
@@ -415,10 +634,14 @@ const translations = {
         'sw_open_sub': 'แตะเพื่อเปิดนาฬิกาจับเวลา',
         'sw_back': 'กลับ',
         'sw_stats': 'สถิติ',
-        'sw_avg': 'เฉลี่ย',
-        'sw_fastest': 'เร็วสุด',
-        'sw_slowest': 'ช้าสุด',
-        'sw_total': 'รวม',
+        'sw_summary': 'สรุปผล',
+        'sw_avg': 'ค่าเฉลี่ย',
+        'sw_fastest': 'เวลาเร็วสุด',
+        'sw_slowest': 'เวลาช้าสุด',
+        'sw_total': 'เวลารวม',
+        'sw_std': 'ส่วนเบี่ยงเบนมาตรฐาน (s)',
+        'sw_required_n': 'จำนวนรอบที่ควรจับเวลา',
+        'sw_info_total': 'ผลรวมเวลาทุกรอบที่จับได้',
         'sw_laps_title': 'รายการรอบ',
         'sw_rounds': 'จำนวนรอบ',
         'sw_save_form': 'บันทึกลงฟอร์ม',
@@ -431,7 +654,7 @@ const translations = {
         'sw_info_avg': 'เวลาเฉลี่ยต่อรอบ = เวลารวมทุกรอบ ÷ จำนวนรอบ',
         'sw_info_min': 'รอบที่ทำเวลาได้น้อยที่สุด (เร็วที่สุด)',
         'sw_info_max': 'รอบที่ใช้เวลามากที่สุด (ช้าที่สุด)',
-        'sw_info_std': 'ส่วนเบี่ยงเบนมาตรฐาน บอกว่าเวลาแต่ละรอบกระจายห่างจากค่าเฉลี่ยแค่ไหน ยิ่งน้อยยิ่งสม่ำเสมอ = รากที่สองของค่าเฉลี่ยของ (เวลารอบ − ค่าเฉลี่ย)²',
+        'sw_info_std': 'ส่วนเบี่ยงเบนมาตรฐาน (Sample SD) บอกว่าเวลาแต่ละรอบกระจายห่างจากค่าเฉลี่ยแค่ไหน ยิ่งน้อยยิ่งสม่ำเสมอ = √( Σ(เวลารอบ − ค่าเฉลี่ย)² ÷ (n−1) ) — ใช้ n−1 ตามหลัก Bessel เพื่อให้คู่กับตาราง t ใน Time Study',
 
         'history_title': 'ประวัติการประเมิน',
         'history_subtitle': 'บันทึกและเปรียบเทียบผลการประเมิน',
@@ -442,6 +665,22 @@ const translations = {
         'history_delete_confirm': 'ลบรายการนี้ออกจากประวัติ?',
         'compare_back': 'กลับ',
         'compare_gap': 'ส่วนต่างจากเป้าหมาย',
+
+        'ts_config_title': 'ตั้งค่า Time Study',
+        'ts_confidence': 'ระดับความเชื่อมั่น',
+        'ts_confidence_help': 'ยิ่งสูง → ต้องการรอบมากขึ้นเพื่อให้มั่นใจว่าค่าเฉลี่ยที่วัดได้ถูกต้อง (มาตรฐานอุตสาหกรรมใช้ 95%)',
+        'ts_error': 'ค่าคลาดเคลื่อนที่ยอมรับได้ (±%)',
+        'ts_error_help': 'ยอมให้ค่าเฉลี่ยเพี้ยนได้กี่ % จากค่าจริง (มาตรฐานอุตสาหกรรมใช้ 5%)',
+        'ts_need_pilot': 'ต้องจับเวลาอย่างน้อย 2 รอบ (โหมด Lap) จึงจะคำนวณจำนวนรอบที่ควรจับได้',
+        'ts_capped_df': 'ใช้ df = 30',
+        'ts_msg_prefix': 'ที่ความเชื่อมั่น {conf}% ต้องจับเวลาอย่างน้อย {N_raw} รอบ (ปัดขึ้นเป็น {N} รอบ)',
+        'ts_have_ok': 'คุณจับเวลา {n} รอบแล้ว — เพียงพอทางสถิติ สามารถใช้ค่าเฉลี่ยไปคำนวณ AMV ได้เลย',
+        'ts_have_short': 'คุณจับเวลา {n} รอบ — ต้องจับเพิ่มอีก {more} รอบเพื่อให้ข้อมูลน่าเชื่อถือ',
+        'ts_na': 'ต้องมี ≥ 2 รอบ',
+        'ts_continue_btn': 'จับเวลาต่ออีก {more} รอบ',
+        'ts_ttable_title': 'ตาราง T-Distribution',
+        'ts_ttable_n': 'จำนวนรอบ (n)',
+        'ts_ttable_note': 'แถวไฮไลต์คือ df ปัจจุบันของคุณ · คอลัมน์ไฮไลต์คือระดับความเชื่อมั่นที่เลือก (แบบสองหาง)',
     },
     'en': {
         'brand_sub': 'Performance Evaluation Tool',
@@ -486,10 +725,14 @@ const translations = {
         'sw_open_sub': 'Tap to open stopwatch',
         'sw_back': 'Back',
         'sw_stats': 'Statistics',
+        'sw_summary': 'Summary',
         'sw_avg': 'Average',
-        'sw_fastest': 'Fastest',
-        'sw_slowest': 'Slowest',
-        'sw_total': 'Total',
+        'sw_fastest': 'Fastest Time',
+        'sw_slowest': 'Slowest Time',
+        'sw_total': 'Total Time',
+        'sw_std': 'Standard Deviation (s)',
+        'sw_required_n': 'Recommended cycles to time',
+        'sw_info_total': 'Sum of all recorded round times',
         'sw_laps_title': 'Laps',
         'sw_rounds': 'Rounds',
         'sw_save_form': 'Save to Form',
@@ -502,7 +745,7 @@ const translations = {
         'sw_info_avg': 'Average time per round = total time of all rounds ÷ number of rounds',
         'sw_info_min': 'The round with the shortest time (fastest)',
         'sw_info_max': 'The round with the longest time (slowest)',
-        'sw_info_std': 'Standard deviation — how much each round varies from the average; lower means more consistent. = square root of the mean of (round time − average)²',
+        'sw_info_std': 'Standard deviation (Sample SD) — how much each round varies from the average; lower means more consistent. = √( Σ(round time − average)² ÷ (n−1) ) — uses n−1 (Bessel\'s correction) so it pairs correctly with the t-table in Time Study',
 
         'history_title': 'Evaluation History',
         'history_subtitle': 'Save and compare past evaluations',
@@ -513,6 +756,22 @@ const translations = {
         'history_delete_confirm': 'Remove this entry from history?',
         'compare_back': 'Back',
         'compare_gap': 'Gap to Target',
+
+        'ts_config_title': 'Time Study Settings',
+        'ts_confidence': 'Confidence Level',
+        'ts_confidence_help': 'Higher → needs more cycles to be sure the measured mean is correct (industry standard: 95%)',
+        'ts_error': 'Acceptable Error (±%)',
+        'ts_error_help': 'How many % the mean can deviate from the true value (industry standard: 5%)',
+        'ts_need_pilot': 'Need at least 2 pilot cycles (Lap mode) to compute the recommended sample size',
+        'ts_capped_df': 'using df = 30',
+        'ts_msg_prefix': 'At {conf}% confidence, need at least {N_raw} cycles (rounded up to {N})',
+        'ts_have_ok': 'You have {n} cycles — statistically sufficient, the mean is safe to use for AMV',
+        'ts_have_short': 'You have {n} cycles — record {more} more to be statistically reliable',
+        'ts_na': 'need ≥ 2 laps',
+        'ts_continue_btn': 'Continue timing {more} more cycle(s)',
+        'ts_ttable_title': 'T-Distribution Table',
+        'ts_ttable_n': 'Cycles (n)',
+        'ts_ttable_note': 'Highlighted row = your current df · highlighted column = selected confidence level (two-tailed)',
     },
     'vn': {
         'brand_sub': 'Công cụ đánh giá hiệu suất',
@@ -557,10 +816,14 @@ const translations = {
         'sw_open_sub': 'Nhấn để mở đồng hồ bấm giờ',
         'sw_back': 'Trở lại',
         'sw_stats': 'Thống kê',
-        'sw_avg': 'Trung bình',
-        'sw_fastest': 'Nhanh nhất',
-        'sw_slowest': 'Chậm nhất',
-        'sw_total': 'Tổng',
+        'sw_summary': 'Tóm tắt',
+        'sw_avg': 'Giá trị trung bình',
+        'sw_fastest': 'Thời gian nhanh nhất',
+        'sw_slowest': 'Thời gian chậm nhất',
+        'sw_total': 'Tổng thời gian',
+        'sw_std': 'Độ lệch chuẩn (s)',
+        'sw_required_n': 'Số vòng nên bấm',
+        'sw_info_total': 'Tổng thời gian của tất cả các vòng đã bấm',
         'sw_laps_title': 'Danh sách vòng',
         'sw_rounds': 'Số vòng',
         'sw_save_form': 'Lưu vào biểu mẫu',
@@ -573,7 +836,7 @@ const translations = {
         'sw_info_avg': 'Thời gian trung bình mỗi vòng = tổng thời gian các vòng ÷ số vòng',
         'sw_info_min': 'Vòng có thời gian ngắn nhất (nhanh nhất)',
         'sw_info_max': 'Vòng có thời gian dài nhất (chậm nhất)',
-        'sw_info_std': 'Độ lệch chuẩn — cho biết thời gian mỗi vòng dao động quanh giá trị trung bình bao nhiêu; càng nhỏ càng ổn định. = căn bậc hai của trung bình (thời gian vòng − trung bình)²',
+        'sw_info_std': 'Độ lệch chuẩn (Sample SD) — cho biết thời gian mỗi vòng dao động quanh giá trị trung bình bao nhiêu; càng nhỏ càng ổn định. = √( Σ(thời gian vòng − trung bình)² ÷ (n−1) ) — dùng n−1 (hiệu chỉnh Bessel) để khớp với bảng t trong Time Study',
 
         'history_title': 'Lịch sử đánh giá',
         'history_subtitle': 'Lưu và so sánh các đánh giá trước đây',
@@ -584,6 +847,22 @@ const translations = {
         'history_delete_confirm': 'Xóa mục này khỏi lịch sử?',
         'compare_back': 'Trở lại',
         'compare_gap': 'Chênh lệch so với mục tiêu',
+
+        'ts_config_title': 'Cài đặt Time Study',
+        'ts_confidence': 'Mức độ tin cậy',
+        'ts_confidence_help': 'Càng cao → cần nhiều vòng hơn để đảm bảo giá trị trung bình chính xác (chuẩn công nghiệp: 95%)',
+        'ts_error': 'Sai số cho phép (±%)',
+        'ts_error_help': 'Giá trị trung bình được phép lệch bao nhiêu % so với giá trị thực (chuẩn công nghiệp: 5%)',
+        'ts_need_pilot': 'Cần ít nhất 2 vòng thử (chế độ Lap) để tính số vòng khuyến nghị',
+        'ts_capped_df': 'dùng df = 30',
+        'ts_msg_prefix': 'Ở mức tin cậy {conf}%, cần ít nhất {N_raw} vòng (làm tròn lên {N} vòng)',
+        'ts_have_ok': 'Bạn đã bấm {n} vòng — đủ về mặt thống kê, có thể dùng giá trị trung bình để tính AMV',
+        'ts_have_short': 'Bạn đã bấm {n} vòng — cần bấm thêm {more} vòng để đảm bảo tin cậy',
+        'ts_na': 'cần ≥ 2 vòng',
+        'ts_continue_btn': 'Bấm tiếp {more} vòng nữa',
+        'ts_ttable_title': 'Bảng T-Distribution',
+        'ts_ttable_n': 'Số vòng (n)',
+        'ts_ttable_note': 'Hàng được đánh dấu = df hiện tại · cột được đánh dấu = mức tin cậy đã chọn (hai đuôi)',
     },
     'la': {
         'brand_sub': 'ເຄື່ອງມືປະເມີນປະສິດທິພາບ',
@@ -628,10 +907,14 @@ const translations = {
         'sw_open_sub': 'ແຕະເພື່ອເປີດໂມງຈັບເວລາ',
         'sw_back': 'ກັບ',
         'sw_stats': 'ສະຖິຕິ',
-        'sw_avg': 'ສະເລ່ຍ',
-        'sw_fastest': 'ໄວທີ່ສຸດ',
-        'sw_slowest': 'ຊ້າທີ່ສຸດ',
-        'sw_total': 'ລວມ',
+        'sw_summary': 'ສະຫຼຸບຜົນ',
+        'sw_avg': 'ຄ່າສະເລ່ຍ',
+        'sw_fastest': 'ເວລາໄວທີ່ສຸດ',
+        'sw_slowest': 'ເວລາຊ້າທີ່ສຸດ',
+        'sw_total': 'ເວລາລວມ',
+        'sw_std': 'ສ່ວນບ່ຽງເບນມາດຕະຖານ (s)',
+        'sw_required_n': 'ຈຳນວນຮອບທີ່ຄວນຈັບເວລາ',
+        'sw_info_total': 'ຜົນລວມເວລາທຸກຮອບທີ່ຈັບໄດ້',
         'sw_laps_title': 'ລາຍການຮອບ',
         'sw_rounds': 'ຈຳນວນຮອບ',
         'sw_save_form': 'ບັນທຶກລົງຟອມ',
@@ -644,7 +927,7 @@ const translations = {
         'sw_info_avg': 'ເວລາເສລ່ຍຕໍ່ຮອບ = ເວລາລວມທຸກຮອບ ÷ ຈຳນວນຮອບ',
         'sw_info_min': 'ຮອບທີ່ໃຊ້ເວລາໜ້ອຍທີ່ສຸດ (ໄວທີ່ສຸດ)',
         'sw_info_max': 'ຮອບທີ່ໃຊ້ເວລາຫຼາຍທີ່ສຸດ (ຊ້າທີ່ສຸດ)',
-        'sw_info_std': 'ສ່ວນບ່ຽງເບນມາດຕະຖານ ບອກວ່າເວລາແຕ່ລະຮອບກະຈາຍຫ່າງຈາກຄ່າເສລ່ຍເທົ່າໃດ ຍິ່ງໜ້ອຍຍິ່ງສະໝ່ຳສະເໝີ = ຮາກທີ່ສອງຂອງຄ່າເສລ່ຍຂອງ (ເວລາຮອບ − ຄ່າເສລ່ຍ)²',
+        'sw_info_std': 'ສ່ວນບ່ຽງເບນມາດຕະຖານ (Sample SD) ບອກວ່າເວລາແຕ່ລະຮອບກະຈາຍຫ່າງຈາກຄ່າເສລ່ຍເທົ່າໃດ ຍິ່ງໜ້ອຍຍິ່ງສະໝ່ຳສະເໝີ = √( Σ(ເວລາຮອບ − ຄ່າເສລ່ຍ)² ÷ (n−1) ) — ໃຊ້ n−1 (Bessel) ເພື່ອໃຫ້ຄູ່ກັບຕາຕະລາງ t ໃນ Time Study',
 
         'history_title': 'ປະຫວັດການປະເມີນ',
         'history_subtitle': 'ບັນທຶກ ແລະ ປຽບທຽບຜົນການປະເມີນທີ່ຜ່ານມາ',
@@ -655,6 +938,22 @@ const translations = {
         'history_delete_confirm': 'ລຶບລາຍການນີ້ອອກຈາກປະຫວັດ?',
         'compare_back': 'ກັບ',
         'compare_gap': 'ສ່ວນຕ່າງຈາກເປົ້າໝາຍ',
+
+        'ts_config_title': 'ຕັ້ງຄ່າ Time Study',
+        'ts_confidence': 'ລະດັບຄວາມເຊື່ອໝັ້ນ',
+        'ts_confidence_help': 'ຍິ່ງສູງ → ຕ້ອງການຮອບຫຼາຍຂຶ້ນເພື່ອຮັບປະກັນຄ່າສະເລ່ຍທີ່ວັດໄດ້ຖືກຕ້ອງ (ມາດຕະຖານອຸດສາຫະກຳ: 95%)',
+        'ts_error': 'ຄ່າຄາດເຄື່ອນທີ່ຍອມຮັບໄດ້ (±%)',
+        'ts_error_help': 'ອະນຸຍາດໃຫ້ຄ່າສະເລ່ຍຄາດເຄື່ອນໄດ້ກີ່ % ຈາກຄ່າຈິງ (ມາດຕະຖານອຸດສາຫະກຳ: 5%)',
+        'ts_need_pilot': 'ຕ້ອງຈັບເວລາຢ່າງໜ້ອຍ 2 ຮອບ (ໂໝດ Lap) ຈຶ່ງຈະຄຳນວນຈຳນວນຮອບທີ່ຄວນຈັບໄດ້',
+        'ts_capped_df': 'ໃຊ້ df = 30',
+        'ts_msg_prefix': 'ທີ່ຄວາມເຊື່ອໝັ້ນ {conf}% ຕ້ອງຈັບເວລາຢ່າງໜ້ອຍ {N_raw} ຮອບ (ປັດຂຶ້ນເປັນ {N} ຮອບ)',
+        'ts_have_ok': 'ທ່ານຈັບເວລາ {n} ຮອບແລ້ວ — ພຽງພໍທາງສະຖິຕິ ສາມາດໃຊ້ຄ່າສະເລ່ຍໄປຄຳນວນ AMV ໄດ້ເລີຍ',
+        'ts_have_short': 'ທ່ານຈັບເວລາ {n} ຮອບ — ຕ້ອງຈັບເພີ່ມອີກ {more} ຮອບເພື່ອໃຫ້ຂໍ້ມູນໜ້າເຊື່ອຖື',
+        'ts_na': 'ຕ້ອງມີ ≥ 2 ຮອບ',
+        'ts_continue_btn': 'ຈັບເວລາຕໍ່ອີກ {more} ຮອບ',
+        'ts_ttable_title': 'ຕາຕະລາງ T-Distribution',
+        'ts_ttable_n': 'ຈຳນວນຮອບ (n)',
+        'ts_ttable_note': 'ແຖວທີ່ໄຮໄລ້ຄື df ປັດຈຸບັນ · ຄໍລຳທີ່ໄຮໄລ້ຄືລະດັບຄວາມເຊື່ອໝັ້ນທີ່ເລືອກ (ສອງຫາງ)',
     }
 };
 
@@ -719,6 +1018,9 @@ function changeLanguage(lang) {
     closeLangMenu();
     calculateAll(); // refresh pcs unit
     swUpdateUI();
+    // Re-render Time Study readouts (their text is built from t() at render time)
+    if (document.getElementById('swStatsPanel')?.style.display === 'block') tsRecalculate();
+    if (document.getElementById('tsConfigModal')?.style.display === 'flex') renderTTable();
 }
 
 function toggleLangMenu() {
@@ -1393,6 +1695,8 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         if (feedbackModal?.style.display === 'flex') closeFeedbackModal();
         if (historyModal?.style.display === 'flex') closeHistoryModal();
+        const tsConfigModal = document.getElementById('tsConfigModal');
+        if (tsConfigModal?.style.display === 'flex') { closeTsConfigModal(); closeLangMenu(); return; }
         const swModal = document.getElementById('swModal');
         if (swModal?.style.display === 'flex') {
             const hasOpenInfo = document.querySelector('.sw-stat-desc.sw-show');

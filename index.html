@@ -283,7 +283,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · v1.4.6</p>
+    <p>© CSA Evaluation · v1.6.3</p>
     <button class="feedback-btn" id="feedbackBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -398,7 +398,13 @@
                 <button class="sw-mode-tab active" id="swTabLap" onclick="swSetMode('lap')">Lap</button>
                 <button class="sw-mode-tab" id="swTabSingle" onclick="swSetMode('single')">Single</button>
             </div>
-            <div class="sw-header-spacer"></div>
+            <button class="sw-config-btn" onclick="openTsConfigModal()" title="Config" aria-label="Config">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+            </button>
         </div>
 
         <!-- Timer Display -->
@@ -417,40 +423,47 @@
                     id="swStartStopBtn" onclick="swStartStop()">เริ่ม</button>
         </div>
 
-        <!-- Statistics Panel -->
+        <!-- Summary Panel -->
         <div class="sw-stats-panel" id="swStatsPanel" style="display:none;">
             <div class="sw-stats-header">
-                <span class="sw-stats-title lang-text" data-key="sw_stats">สถิติ</span>
+                <span class="sw-stats-title lang-text" data-key="sw_summary">สรุปผล</span>
             </div>
             <div class="sw-stats-grid">
                 <div class="sw-stat sw-stat-tappable" onclick="swToggleStatInfo('avg')">
-                    <span class="lang-text" data-key="sw_avg">เฉลี่ย</span>
+                    <span class="lang-text" data-key="sw_avg">ค่าเฉลี่ย</span>
                     <span id="swStatAvg">—</span>
                 </div>
                 <div class="sw-stat-desc lang-text" id="swInfo_avg" data-key="sw_info_avg">เวลาเฉลี่ยต่อรอบ = เวลารวมทุกรอบ ÷ จำนวนรอบ</div>
 
                 <div class="sw-stat sw-stat-fastest sw-stat-tappable" onclick="swToggleStatInfo('min')">
-                    <span class="lang-text" data-key="sw_fastest">เร็วสุด</span>
+                    <span class="lang-text" data-key="sw_fastest">เวลาเร็วสุด</span>
                     <span id="swStatMin">—</span>
                 </div>
                 <div class="sw-stat-desc lang-text" id="swInfo_min" data-key="sw_info_min">รอบที่ทำเวลาได้น้อยที่สุด (เร็วที่สุด)</div>
 
                 <div class="sw-stat sw-stat-slowest sw-stat-tappable" onclick="swToggleStatInfo('max')">
-                    <span class="lang-text" data-key="sw_slowest">ช้าสุด</span>
+                    <span class="lang-text" data-key="sw_slowest">เวลาช้าสุด</span>
                     <span id="swStatMax">—</span>
                 </div>
                 <div class="sw-stat-desc lang-text" id="swInfo_max" data-key="sw_info_max">รอบที่ใช้เวลามากที่สุด (ช้าที่สุด)</div>
 
-                <div class="sw-stat sw-stat-tappable" onclick="swToggleStatInfo('std')">
-                    <span>Std Dev</span>
-                    <span id="swStatStd">—</span>
-                </div>
-                <div class="sw-stat-desc lang-text" id="swInfo_std" data-key="sw_info_std">ส่วนเบี่ยงเบนมาตรฐาน บอกว่าเวลาแต่ละรอบกระจายห่างจากค่าเฉลี่ยแค่ไหน ยิ่งน้อยยิ่งสม่ำเสมอ = รากที่สองของค่าเฉลี่ยของ (เวลารอบ − ค่าเฉลี่ย)²</div>
-
-                <div class="sw-stat sw-stat-total">
-                    <span class="lang-text" data-key="sw_total">รวม</span>
+                <div class="sw-stat sw-stat-tappable" onclick="swToggleStatInfo('total')">
+                    <span class="lang-text" data-key="sw_total">เวลารวม</span>
                     <span id="swStatTotal">—</span>
                 </div>
+                <div class="sw-stat-desc lang-text" id="swInfo_total" data-key="sw_info_total">ผลรวมเวลาทุกรอบที่จับได้</div>
+
+                <div class="sw-stat sw-stat-tappable" onclick="swToggleStatInfo('std')">
+                    <span class="lang-text" data-key="sw_std">ส่วนเบี่ยงเบนมาตรฐาน (s)</span>
+                    <span id="swStatStd">—</span>
+                </div>
+                <div class="sw-stat-desc lang-text" id="swInfo_std" data-key="sw_info_std">ส่วนเบี่ยงเบนมาตรฐาน...</div>
+
+                <div class="sw-stat sw-stat-reqn sw-stat-tappable" onclick="swToggleStatInfo('reqn')">
+                    <span class="lang-text" data-key="sw_required_n">จำนวนรอบที่ควรจับเวลา</span>
+                    <span id="swStatReqN">—</span>
+                </div>
+                <div class="sw-stat-desc" id="swInfo_reqn"></div>
             </div>
         </div>
 
@@ -462,6 +475,12 @@
 
         <!-- Save to Form (sticky bottom) -->
         <div class="sw-save-panel" id="swSavePanel" style="display:none;">
+            <button class="sw-continue-btn" id="swContinueBtn" style="display:none;" onclick="swContinueTiming()">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true">
+                    <polygon points="6,4 20,12 6,20"/>
+                </svg>
+                <span id="swContinueBtnLabel">จับเวลาเพิ่มอีก 20 รอบ</span>
+            </button>
             <div class="sw-rounds-row" id="swRoundsRow" style="display:none;">
                 <label class="lang-text" data-key="sw_rounds">จำนวนรอบ</label>
                 <input type="number" id="swRoundsInput" class="sw-rounds-input" value="1" min="1">
@@ -477,6 +496,69 @@
             </button>
         </div>
 
+    </div>
+</div>
+
+<!-- ============ Time Study Config Modal ============ -->
+<div id="tsConfigModal" class="sw-overlay" style="display:none;" role="dialog" aria-modal="true">
+    <div class="sw-page">
+        <div class="sw-header">
+            <button class="sw-back-btn" onclick="closeTsConfigModal()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <path d="M15 18l-6-6 6-6"/>
+                </svg>
+                <span class="lang-text" data-key="sw_back">กลับ</span>
+            </button>
+            <div class="sw-mode-tabs">
+                <span class="sw-tt-title lang-text" data-key="ts_config_title">ตั้งค่า Time Study</span>
+            </div>
+            <div class="sw-header-spacer"></div>
+        </div>
+
+        <div class="sw-config-body">
+            <!-- Confidence level -->
+            <div class="sw-config-section">
+                <div class="sw-config-label lang-text" data-key="ts_confidence">ระดับความเชื่อมั่น</div>
+                <div class="sw-ts-pills sw-ts-pills-lg">
+                    <button type="button" class="sw-ts-pill" data-conf="90" onclick="tsSetConfidence(90)">90%</button>
+                    <button type="button" class="sw-ts-pill active" data-conf="95" onclick="tsSetConfidence(95)">95%</button>
+                    <button type="button" class="sw-ts-pill" data-conf="99" onclick="tsSetConfidence(99)">99%</button>
+                </div>
+                <p class="sw-config-help lang-text" data-key="ts_confidence_help">ยิ่งสูง → ต้องการรอบมากขึ้นเพื่อให้มั่นใจว่าค่าเฉลี่ยที่วัดได้ถูกต้อง (มาตรฐานอุตสาหกรรมใช้ 95%)</p>
+            </div>
+
+            <!-- Acceptable error -->
+            <div class="sw-config-section">
+                <div class="sw-config-label lang-text" data-key="ts_error">ค่าคลาดเคลื่อนที่ยอมรับได้ (±%)</div>
+                <div class="sw-config-input-row">
+                    <input type="number" id="tsErrorInput" class="sw-ts-error-input sw-ts-error-input-lg"
+                           value="5" min="0.5" max="50" step="0.5" oninput="tsRecalculate()">
+                    <span class="sw-config-input-suffix">%</span>
+                </div>
+                <p class="sw-config-help lang-text" data-key="ts_error_help">ยอมให้ค่าเฉลี่ยเพี้ยนได้กี่ % จากค่าจริง (มาตรฐานอุตสาหกรรมใช้ 5%)</p>
+            </div>
+
+            <!-- T-Distribution Table -->
+            <div class="sw-config-section">
+                <div class="sw-config-label lang-text" data-key="ts_ttable_title">ตาราง T-Distribution</div>
+                <p class="sw-config-help lang-text" data-key="ts_ttable_note">แถวไฮไลต์คือ df ปัจจุบันของคุณ · คอลัมน์ไฮไลต์คือระดับความเชื่อมั่นที่เลือก (แบบสองหาง)</p>
+                <div class="sw-tt-wrap">
+                    <table class="sw-tt-table">
+                        <thead>
+                            <tr>
+                                <th>df</th>
+                                <th><span class="lang-text" data-key="ts_ttable_n">รอบ (n)</span></th>
+                                <th>90%</th>
+                                <th>95%</th>
+                                <th>99%</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 

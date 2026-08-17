@@ -512,18 +512,18 @@ function tsRecalculate() {
         ${formulaHTML}`;
 }
 
-// Resume the stopwatch after Stop → preserves existing laps + elapsed time.
-// Users hit this when the Time Study calc says they need more cycles.
+// Prepare stopwatch for more laps after Stop → preserves existing laps
+// and elapsed time. Does NOT auto-start — the user presses Start themselves
+// so they're ready when the clock begins.
 function swContinueTiming() {
     gaTrack('sw_continue_timing', { laps_so_far: sw.laps.length });
-    // Hide summary + save panels while timer runs again
+    // Hide summary + save panels; keep controls visible so Start is reachable
     const el = id => document.getElementById(id);
     if (el('swStatsPanel'))    el('swStatsPanel').style.display    = 'none';
     if (el('swSavePanel'))     el('swSavePanel').style.display     = 'none';
     if (el('swContinueBtn'))   el('swContinueBtn').style.display   = 'none';
     swCloseStatInfo();
-    // Resume timer — swStartStop() picks up from sw.elapsed, appending to sw.laps
-    if (!sw.running && !sw.paused) swStartStop();
+    swUpdateUI();  // ensure Start button is in the correct resumable state
 }
 
 function openTsConfigModal() {

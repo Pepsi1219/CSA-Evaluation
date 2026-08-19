@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#4f46e5">
     <title>CSA Evaluation Calculator</title>
 
@@ -40,79 +40,77 @@
                     </svg>
                 </div>
                 <div class="brand-text">
-                    <h1 class="glass-title">CSA Calculator</h1>
+                    <h1 class="glass-title">Industrial Engineering Calculator</h1>
                     <p class="brand-sub lang-text" data-key="brand_sub">เครื่องมือประเมินประสิทธิภาพ</p>
                 </div>
             </div>
 
             <div class="header-actions">
-                <!-- Language dropdown -->
-                <div class="lang-selector" id="langSelector">
-                    <button type="button" class="lang-trigger" id="langTrigger" aria-haspopup="true" aria-expanded="false">
-                        <span class="flag" id="currentFlag">🇹🇭</span>
-                        <span class="lang-name" id="currentLangName">ไทย</span>
-                        <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <!-- All header actions collapse into one overflow menu to save space -->
+                <div class="actions-menu" id="actionsMenu">
+                    <button type="button" class="actions-trigger" id="actionsTrigger" aria-haspopup="true" aria-expanded="false" aria-label="Menu">
+                        <span class="flag actions-current-flag" id="currentFlag" aria-hidden="true"></span>
+                        <svg class="actions-dots" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/>
+                            <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>
+                            <circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/>
+                        </svg>
                     </button>
-                    <div class="lang-menu" role="menu">
-                        <button type="button" class="lang-option active" data-lang="th" role="menuitem">
-                            <span class="flag">🇹🇭</span><span>ไทย</span>
-                            <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+
+                    <div class="actions-dropdown" role="menu">
+                        <!-- Language — 4 flags in a row -->
+                        <div class="actions-section-label lang-text" data-key="menu_language">ภาษา</div>
+                        <div class="actions-lang-row">
+                            <button type="button" class="lang-option active" data-lang="th" role="menuitemradio" aria-label="ไทย">
+                                <span class="flag"><svg viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect fill="#A51931" width="60" height="6.7"/><rect fill="#F4F5F8" y="6.7" width="60" height="6.6"/><rect fill="#2D2A4A" y="13.3" width="60" height="13.4"/><rect fill="#F4F5F8" y="26.7" width="60" height="6.6"/><rect fill="#A51931" y="33.3" width="60" height="6.7"/></svg></span>
+                                <span class="lang-code">TH</span>
+                            </button>
+                            <button type="button" class="lang-option" data-lang="en" role="menuitemradio" aria-label="English">
+                                <span class="flag"><svg viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect fill="#B22234" width="60" height="40"/><g fill="#fff"><rect y="3.08" width="60" height="3.08"/><rect y="9.23" width="60" height="3.08"/><rect y="15.38" width="60" height="3.08"/><rect y="21.54" width="60" height="3.08"/><rect y="27.69" width="60" height="3.08"/><rect y="33.85" width="60" height="3.08"/></g><rect fill="#3C3B6E" width="24" height="21.54"/></svg></span>
+                                <span class="lang-code">EN</span>
+                            </button>
+                            <button type="button" class="lang-option" data-lang="vn" role="menuitemradio" aria-label="Tiếng Việt">
+                                <span class="flag"><svg viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect fill="#DA251D" width="60" height="40"/><polygon fill="#FF0" points="30,10 33.53,20.85 44.94,20.85 35.71,27.55 39.24,38.4 30,31.7 20.76,38.4 24.29,27.55 15.06,20.85 26.47,20.85"/></svg></span>
+                                <span class="lang-code">VN</span>
+                            </button>
+                            <button type="button" class="lang-option" data-lang="la" role="menuitemradio" aria-label="ລາວ">
+                                <span class="flag"><svg viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect fill="#CE1126" width="60" height="40"/><rect fill="#002868" y="10" width="60" height="20"/><circle fill="#fff" cx="30" cy="20" r="6.7"/></svg></span>
+                                <span class="lang-code">LA</span>
+                            </button>
+                        </div>
+
+                        <hr class="actions-divider">
+
+                        <button type="button" class="actions-item" role="menuitem" onclick="exportCSV(); closeActionsMenu();">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>
+                            <span class="lang-text" data-key="menu_csv">ดาวน์โหลด CSV</span>
                         </button>
-                        <button type="button" class="lang-option" data-lang="en" role="menuitem">
-                            <span class="flag">🇺🇸</span><span>English</span>
-                            <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        <button type="button" class="actions-item" role="menuitem" onclick="printReport(); closeActionsMenu();">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                            <span class="lang-text" data-key="menu_pdf">บันทึกเป็น PDF</span>
                         </button>
-                        <button type="button" class="lang-option" data-lang="vn" role="menuitem">
-                            <span class="flag">🇻🇳</span><span>Tiếng Việt</span>
-                            <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        <button type="button" class="actions-item" role="menuitem" onclick="openHistoryModal(); closeActionsMenu();">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M3 3v5h5"/><path d="M3.05 13a9 9 0 1 0 2.13-6.36L3 8"/></svg>
+                            <span class="lang-text" data-key="menu_history">ประวัติการประเมิน</span>
                         </button>
-                        <button type="button" class="lang-option" data-lang="la" role="menuitem">
-                            <span class="flag">🇱🇦</span><span>ລາວ</span>
-                            <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        <button type="button" class="actions-item" role="menuitem" id="installMenuItem" onclick="pwaInstall(); closeActionsMenu();" style="display:none;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            <span class="lang-text" data-key="menu_install">ติดตั้งแอป</span>
+                        </button>
+                        <button type="button" class="actions-item" role="menuitem" id="themeToggleBtn" onclick="toggleTheme()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="themeIconMoon"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="themeIconSun" style="display:none;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                            <span class="lang-text" data-key="menu_theme">สลับธีมมืด/สว่าง</span>
+                        </button>
+
+                        <hr class="actions-divider">
+
+                        <button type="button" class="actions-item danger" role="menuitem" onclick="resetForm(); closeActionsMenu();">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                            <span class="lang-text" data-key="menu_reset">ล้างข้อมูลทั้งหมด</span>
                         </button>
                     </div>
                 </div>
-
-                <!-- Export / Print -->
-                <button type="button" class="icon-btn" onclick="printReport()" aria-label="Export" title="Export / Print">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="6 9 6 2 18 2 18 9"/>
-                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-                        <rect x="6" y="14" width="12" height="8"/>
-                    </svg>
-                </button>
-
-                <!-- History -->
-                <button type="button" class="icon-btn" onclick="openHistoryModal()" aria-label="History" title="History">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="13" r="8"/>
-                        <path d="M12 9v4l2 2"/>
-                        <path d="M3 3v5h5"/><path d="M3.05 13a9 9 0 1 0 2.13-6.36L3 8"/>
-                    </svg>
-                </button>
-
-                <!-- Theme toggle -->
-                <button type="button" class="icon-btn" id="themeToggleBtn" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle theme">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="themeIconMoon">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                    </svg>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="themeIconSun" style="display:none;">
-                        <circle cx="12" cy="12" r="5"/>
-                        <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                        <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                    </svg>
-                </button>
-
-                <!-- Reset -->
-                <button type="button" class="icon-btn danger" onclick="resetForm()" aria-label="Reset" title="Reset">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="3 6 5 6 21 6"/>
-                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                        <line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
-                    </svg>
-                </button>
             </div>
         </div>
     </header>
@@ -126,7 +124,15 @@
     <div class="panel target-section">
     <h3 class="section-title">
         <span class="section-badge" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+            <!-- Target: crosshair reticle with center dot — reads as "aim / plan" -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="8.5"/>
+                <line x1="12" y1="2.5" x2="12" y2="5.5"/>
+                <line x1="12" y1="18.5" x2="12" y2="21.5"/>
+                <line x1="2.5" y1="12" x2="5.5" y2="12"/>
+                <line x1="18.5" y1="12" x2="21.5" y2="12"/>
+                <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
+            </svg>
         </span>
         <span class="lang-text" data-key="header1">การตั้งเป้าหมาย</span>
     </h3>
@@ -150,11 +156,17 @@
 
     <div class="form-row">
         <div class="input-group">
-            <label class="lang-text" data-key="qty_label">เป้าหมายชิ้นงาน (ชิ้น/ชม.)</label>
+            <label class="fx-label" data-fx="target_pcs">
+                <span class="lang-text" data-key="qty_label">เป้าหมายชิ้นงาน (ชิ้น/ชม.)</span>
+                <svg class="fx-info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="8" r="0.6" fill="currentColor" stroke="none"/></svg>
+            </label>
             <div id="targetDisplay" class="glass-input highlight-result-glass result-value"></div>
         </div>
         <div class="input-group">
-            <label class="lang-text" data-key="new_sam_label">ค่า SAM ใหม่ (เป้าหมาย)</label>
+            <label class="fx-label" data-fx="new_sam">
+                <span class="lang-text" data-key="new_sam_label">ค่า SAM ใหม่ (เป้าหมาย)</span>
+                <svg class="fx-info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="8" r="0.6" fill="currentColor" stroke="none"/></svg>
+            </label>
             <div id="newSamDisplay" class="glass-input highlight-result-glass result-value"></div>
         </div>
     </div>
@@ -166,7 +178,16 @@
     <div class="panel actual-section">
         <h3 class="section-title">
             <span class="section-badge" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/></svg>
+                <!-- Stopwatch with crown + tick marks — reads as "measured / recorded" -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="14" r="7.5"/>
+                    <path d="M12 10.5 v4 l2.5 1.75"/>
+                    <line x1="10" y1="2.5" x2="14" y2="2.5"/>
+                    <line x1="12" y1="2.5" x2="12" y2="5.5"/>
+                    <line x1="12" y1="6.5" x2="12" y2="7.5" opacity="0.5"/>
+                    <line x1="17.5" y1="8.5" x2="18.5" y2="7.5" opacity="0.5"/>
+                    <line x1="6.5" y1="8.5" x2="5.5" y2="7.5" opacity="0.5"/>
+                </svg>
             </span>
             <span class="lang-text" data-key="header2">บันทึกผลงานจริง</span>
         </h3>
@@ -208,22 +229,34 @@
 
         <div class="form-row">
             <div class="input-group">
-                <label class="lang-text" data-key="avg_timesec">เวลาต่อรอบ (วินาที)</label>
+                <label class="fx-label" data-fx="avg_sec">
+                    <span class="lang-text" data-key="avg_timesec">เวลาต่อรอบ (วินาที)</span>
+                    <svg class="fx-info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="8" r="0.6" fill="currentColor" stroke="none"/></svg>
+                </label>
                 <div id="avgTimeSec" class="glass-input highlight-result-glass result-value"></div>
             </div>
             <div class="input-group">
-                <label class="lang-text" data-key="avg_timemin">เวลาต่อรอบ (นาที)</label>
+                <label class="fx-label" data-fx="avg_min">
+                    <span class="lang-text" data-key="avg_timemin">เวลาต่อรอบ (นาที)</span>
+                    <svg class="fx-info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="8" r="0.6" fill="currentColor" stroke="none"/></svg>
+                </label>
                 <div id="avgTimeMin" class="glass-input highlight-result-glass result-value"></div>
             </div>
         </div>
 
         <div class="form-row">
             <div class="input-group">
-                <label class="lang-text" data-key="actual_eff">ประสิทธิภาพจริง (%)</label>
+                <label class="fx-label" data-fx="actual_eff">
+                    <span class="lang-text" data-key="actual_eff">ประสิทธิภาพจริง (%)</span>
+                    <svg class="fx-info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="8" r="0.6" fill="currentColor" stroke="none"/></svg>
+                </label>
                 <input type="text" id="actualEffPerc" readonly class="glass-input highlight-result-glass">
             </div>
             <div class="input-group">
-                <label class="lang-text" data-key="actual_pcs">ประสิทธิภาพจริง (ชิ้น/ชม.)</label>
+                <label class="fx-label" data-fx="actual_pcs">
+                    <span class="lang-text" data-key="actual_pcs">ประสิทธิภาพจริง (ชิ้น/ชม.)</span>
+                    <svg class="fx-info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="8" r="0.6" fill="currentColor" stroke="none"/></svg>
+                </label>
                 <div id="actualPcs" class="glass-input highlight-result-glass result-value"></div>
             </div>
         </div>
@@ -235,7 +268,11 @@
     <div class="panel quality-section">
         <h3 class="section-title">
             <span class="section-badge" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m8.5 12 2.5 2.5 4.5-4.5"/></svg>
+                <!-- Shield with confident tick — reads as "quality passed" -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 3 4.5 5.75 v6.25 c0 4.75 3.25 7.75 7.5 8.5 4.25 -0.75 7.5 -3.75 7.5 -8.5 V5.75 L12 3 z"/>
+                    <path d="M8.25 12 11 14.75 15.75 9.75"/>
+                </svg>
             </span>
             <span class="lang-text" data-key="header3">คุณภาพ</span>
         </h3>
@@ -250,7 +287,10 @@
                 <input type="text" id="failQty" inputmode="numeric" pattern="[0-9]*" class="glass-input" oninput="calculateAll()">
             </div>
             <div class="input-group">
-                <label class="lang-text" data-key="pass_rate">อัตราการผ่าน (%)</label>
+                <label class="fx-label" data-fx="pass_rate">
+                    <span class="lang-text" data-key="pass_rate">อัตราการผ่าน (%)</span>
+                    <svg class="fx-info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="8" r="0.6" fill="currentColor" stroke="none"/></svg>
+                </label>
                 <input type="text" id="passRate" class="glass-input highlight-pass-rate" readonly>
             </div>
         </div>
@@ -262,7 +302,12 @@
     <div class="panel eff-section">
         <h3 class="section-title">
             <span class="section-badge" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                <!-- Staircase climbing to a filled summit dot — reads as "learning curve" -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 20 3 16 8 16 8 12 13 12 13 8 18 8 18 4"/>
+                    <line x1="3" y1="20.5" x2="21" y2="20.5"/>
+                    <circle cx="18" cy="4" r="1.75" fill="currentColor" stroke="none"/>
+                </svg>
             </span>
             <span class="lang-text" data-key="header4">วางแผนการฝึก</span>
         </h3>
@@ -283,7 +328,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · v1.6.4</p>
+    <p>© CSA Evaluation · v1.13.0</p>
     <button class="feedback-btn" id="feedbackBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -377,6 +422,46 @@
         </div>
         <div class="modal-footer" id="historyCompareFooter" style="display:none;">
             <button class="btn-cancel" id="compareBackBtn"><span class="lang-text" data-key="compare_back">กลับ</span></button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ Formula Modal ============ -->
+<div id="formulaModal" class="modal-overlay" style="display: none;">
+    <div class="feedback-modal formula-modal">
+        <button class="modal-close" id="closeFormulaBtn" aria-label="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+        <div class="modal-header">
+            <div class="modal-icon" aria-hidden="true">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="8" r="0.8" fill="currentColor" stroke="none"/>
+                </svg>
+            </div>
+            <h3 class="modal-title" id="formulaTitle">—</h3>
+            <p class="modal-subtitle lang-text" data-key="fx_modal_subtitle">วิธีการคำนวณของช่องนี้</p>
+        </div>
+        <div class="modal-body">
+            <div class="fx-block">
+                <div class="fx-block-label lang-text" data-key="fx_formula_label">สูตร</div>
+                <div class="fx-formula" id="formulaExpr">—</div>
+            </div>
+            <div class="fx-block">
+                <div class="fx-block-label lang-text" data-key="fx_desc_label">คำอธิบาย</div>
+                <p class="fx-desc" id="formulaDesc">—</p>
+            </div>
+            <div class="fx-block" id="formulaSubBlock">
+                <div class="fx-block-label lang-text" data-key="fx_your_values_label">ค่าที่คุณป้อน</div>
+                <div class="fx-formula fx-formula-sub" id="formulaSubstituted">—</div>
+                <div class="fx-result-row">
+                    <span class="fx-result-label lang-text" data-key="fx_result_label">ผลลัพธ์</span>
+                    <span class="fx-result-value" id="formulaResult">—</span>
+                </div>
+            </div>
+            <p class="fx-empty lang-text" data-key="fx_no_data" id="formulaEmpty" style="display:none;">ยังไม่มีข้อมูลป้อน · กรอกค่าก่อนเพื่อดูตัวอย่างการคำนวณ</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-submit" id="closeFormulaOkBtn"><span class="lang-text" data-key="close">ปิด</span></button>
         </div>
     </div>
 </div>
@@ -562,7 +647,69 @@
     </div>
 </div>
 
+<!-- ============ Onboarding Tour (first launch) ============ -->
+<div id="onboardingOverlay" class="onboard-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="onboardTitle">
+    <div class="onboard-card">
+        <div class="onboard-progress" aria-hidden="true">
+            <span class="onboard-dot active"></span>
+            <span class="onboard-dot"></span>
+            <span class="onboard-dot"></span>
+        </div>
+
+        <div class="onboard-screen" data-step="0">
+            <div class="onboard-icon">
+                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="24" cy="24" r="17"/>
+                    <line x1="24" y1="5" x2="24" y2="11"/><line x1="24" y1="37" x2="24" y2="43"/>
+                    <line x1="5" y1="24" x2="11" y2="24"/><line x1="37" y1="24" x2="43" y2="24"/>
+                    <circle cx="24" cy="24" r="4" fill="currentColor" stroke="none"/>
+                </svg>
+            </div>
+            <h2 class="onboard-title" id="onboardTitle"><span class="lang-text" data-key="ob_1_title">ประเมินไลน์การผลิต</span></h2>
+            <p class="onboard-desc lang-text" data-key="ob_1_desc">คำนวณเป้าหมาย ผลงานจริง คุณภาพ และวางแผนฝึกอบรมในแอปเดียว</p>
+        </div>
+
+        <div class="onboard-screen" data-step="1" hidden>
+            <div class="onboard-icon">
+                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="24" cy="28" r="15"/>
+                    <path d="M24 21 v7 l5 3.5"/>
+                    <line x1="20" y1="5" x2="28" y2="5"/><line x1="24" y1="5" x2="24" y2="11"/>
+                </svg>
+            </div>
+            <h2 class="onboard-title lang-text" data-key="ob_2_title">จับเวลาแบบ Time Study</h2>
+            <p class="onboard-desc lang-text" data-key="ob_2_desc">แตะ "จับเวลา" เพื่อวัดรอบการทำงาน แอปคำนวณด้วยสถิติว่าคุณต้องจับกี่รอบเพื่อให้ข้อมูลน่าเชื่อถือ</p>
+        </div>
+
+        <div class="onboard-screen" data-step="2" hidden>
+            <div class="onboard-icon">
+                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="24" cy="24" r="17"/>
+                    <path d="M24 15 v9 l6 4"/>
+                    <path d="M7 8 v9 h9"/>
+                </svg>
+            </div>
+            <h2 class="onboard-title lang-text" data-key="ob_3_title">บันทึกและเปรียบเทียบ</h2>
+            <p class="onboard-desc lang-text" data-key="ob_3_desc">เก็บผลประเมินไว้เปรียบเทียบข้ามกะหรือข้ามไลน์ · เปลี่ยนภาษาได้ 4 ภาษา (ไทย / EN / VN / LA)</p>
+        </div>
+
+        <div class="onboard-actions">
+            <button type="button" class="onboard-skip lang-text" data-key="ob_skip" onclick="finishOnboarding()">ข้าม</button>
+            <button type="button" class="onboard-next" id="onboardNextBtn" onclick="onboardNext()">
+                <span class="lang-text" data-key="ob_next">ถัดไป</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                    <polyline points="9 18 15 12 9 6"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
 <script src="calc.js" defer></script>
+<script src="timeutil.js" defer></script>
+<script src="translations.js" defer></script>
+<script src="chart.js" defer></script>
+<script src="history.js" defer></script>
 <script src="script.js" defer></script>
 </body>
 </html>

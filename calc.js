@@ -8,7 +8,7 @@
 // Returns 0 when inputs can't produce a valid result (sam<=0 or eff<=0).
 function pcsFromEff(sam, effPercent) {
     if (!(sam > 0) || !(effPercent > 0)) return 0;
-    return Math.ceil((60 / sam) * (effPercent / 100));
+    return Math.round((60 / sam) * (effPercent / 100));
 }
 
 // Average cycle time in minutes from recorded total time + rep count.
@@ -21,7 +21,7 @@ function calcAvgMin(totalMin, totalSec, totalCount) {
 // Actual efficiency % from SAM and measured average cycle time (minutes).
 function calcActualEff(sam, avgMin) {
     if (!(sam > 0) || !(avgMin > 0)) return null;
-    return Math.ceil((sam / avgMin) * 100);
+    return Math.round((sam / avgMin) * 100);
 }
 
 // Target cycle time (minutes/piece) needed to hit a target efficiency %,
@@ -35,19 +35,21 @@ function newSamFromEff(sam, effPercent) {
 // Actual output in pieces/hour from measured average cycle time (minutes).
 function calcActualPcsPerHr(avgMin) {
     if (!(avgMin > 0)) return null;
-    return Math.ceil(60 / avgMin);
+    return Math.round(60 / avgMin);
 }
 
 // Pass rate % from pass/fail quantities. Null when there's no quantity yet.
 function calcPassRate(passQty, failQty) {
     const totalQty = passQty + failQty;
     if (!(totalQty > 0)) return null;
-    return Math.ceil((passQty / totalQty) * 100);
+    // Floor deliberately — never overstate yield in a QMS-facing report:
+    // 999/1000 = 99.9% must not round up to 100%.
+    return Math.floor((passQty / totalQty) * 100);
 }
 
 // One day/hour of the training (learning-curve) plan.
 function calcTrainingDay(currentEff, gap, duration, day, sam) {
-    const eff = Math.ceil(currentEff + (gap / duration * day));
+    const eff = Math.round(currentEff + (gap / duration * day));
     const pcs = pcsFromEff(sam, eff);
     return { day, eff, pcs };
 }

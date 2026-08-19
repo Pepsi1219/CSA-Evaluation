@@ -26,16 +26,11 @@ const MAX_TRAINING_DAYS = 18;
 // PERSISTENCE (localStorage) — form auto-save + history
 // ============================================================
 const STORAGE_KEY_FORM    = 'csa_form_v1';
-const STORAGE_KEY_HISTORY = 'csa_history_v1';
+// STORAGE_KEY_HISTORY + HISTORY_MAX moved to history.js (their consumers live there)
 const STORAGE_KEY_THEME   = 'csa_theme';
 const FORM_FIELD_IDS = ['samInput','effTargetInput','totalMin','totalTime','totalCount','passQty','failQty','duration'];
-const HISTORY_MAX = 100;
 
 // --- 1. Global State ---
-let startTime;
-let elapsedTime = 0;
-let timerInterval;
-let isRunning = false;
 let currentLang = 'th';
 let samUnit = 'min'; // unit the user types SAM in: 'min' or 'sec'
 
@@ -54,27 +49,31 @@ const sw = {
     interval: null,
 };
 
-// Format ms → MM:SS.cs  (centiseconds)
-function fmtSw(ms) {
-    const t  = Math.max(0, Math.floor(ms / 1000));
-    const m  = Math.floor(t / 60);
-    const s  = t % 60;
-    const cs = Math.floor((Math.abs(ms) % 1000) / 10);
-    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(cs).padStart(2,'0')}`;
-}
+// fmtSw / fmtSec2 / fmtSec4 / snapLapMs are defined in timeutil.js (loaded
+// before this file in index.html) so they can be unit-tested from Node.
 
-// Format ms → seconds with 2 decimals (for mean / general stats)
-function fmtSec2(ms) {
-    return (Math.abs(ms) / 1000).toFixed(2);
+// ---- Ambient status ----
+// Semantic thresholds for driving the ok/warn/bad tint on result fields.
+// The thresholds match how a garment-line supervisor would grade the shift.
+function statusForEfficiency(actualEff, targetEff) {
+    if (!(targetEff > 0) || !Number.isFinite(actualEff)) return null;
+    const ratio = actualEff / targetEff;
+    if (ratio >= 0.90) return 'ok';
+    if (ratio >= 0.75) return 'warn';
+    return 'bad';
 }
-// Format ms → seconds with 4 decimals (for SD — needs finer precision)
-function fmtSec4(ms) {
-    return (Math.abs(ms) / 1000).toFixed(4);
+function statusForPassRate(rate) {
+    if (!Number.isFinite(rate)) return null;
+    if (rate >= 95) return 'ok';
+    if (rate >= 85) return 'warn';
+    return 'bad';
 }
-// Snap raw ms to the display resolution (10 ms = 2-decimal seconds).
-// Storing laps at this resolution guarantees stats calculated from stored
-// values match what the user sees on screen and would hand-calc.
-function snapLapMs(ms) { return Math.round(ms / 10) * 10; }
+function setStatus(elId, status) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (status) el.dataset.status = status;
+    else        delete el.dataset.status;
+}
 
 // resetTimer: called by resetForm() — clears time input fields only
 function resetTimer() {
@@ -94,16 +93,47 @@ function openStopwatchModal() {
     document.getElementById('swModal').style.display = 'flex';
     document.body.style.overflow = 'hidden';
     swUpdateUI();
+    swSetupKeyboardWatch();
 }
 
 function closeStopwatchModal() {
     if (sw.running) {
-        clearInterval(sw.interval);
+        // Freeze the clock and mark as paused (not finalized). On reopen the
+        // user resumes the same lap instead of silently losing the in-progress time.
+        swCancelTick();
+        sw.elapsed = performance.now() - sw.startTs;
         sw.running = false;
-        sw.elapsed = Date.now() - sw.startTs;
+        sw.paused  = true;
+        swUpdateUI();
     }
     document.getElementById('swModal').style.display = 'none';
     document.body.style.overflow = '';
+    swTeardownKeyboardWatch();
+}
+
+// iOS Safari doesn't resize the layout viewport when the on-screen keyboard
+// opens over a fixed overlay, so sticky bottom controls sit *under* the
+// keyboard. Translate the save panel + continue button up by the height the
+// visualViewport lost. No-op on browsers without visualViewport API.
+function swSetupKeyboardWatch() {
+    if (!window.visualViewport) return;
+    const handler = () => {
+        const vv = window.visualViewport;
+        const lift = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+        const savePanel = document.getElementById('swSavePanel');
+        if (savePanel) savePanel.style.transform = lift > 0 ? `translateY(-${lift}px)` : '';
+    };
+    window.visualViewport.addEventListener('resize', handler);
+    window.visualViewport.addEventListener('scroll', handler);
+    sw._kbHandler = handler;
+}
+function swTeardownKeyboardWatch() {
+    if (!window.visualViewport || !sw._kbHandler) return;
+    window.visualViewport.removeEventListener('resize', sw._kbHandler);
+    window.visualViewport.removeEventListener('scroll', sw._kbHandler);
+    const savePanel = document.getElementById('swSavePanel');
+    if (savePanel) savePanel.style.transform = '';
+    sw._kbHandler = null;
 }
 
 function swSetMode(mode) {
@@ -116,16 +146,17 @@ function swSetMode(mode) {
 
 function swStartStop() {
     if (!sw.running && !sw.paused) {
-        // Start (or resume after a finalized Stop)
+        // Start (or resume after a finalized Stop) — use monotonic time so
+        // NTP corrections mid-lap can't jump the clock.
         sw.running = true;
-        sw.startTs = Date.now() - sw.elapsed;
-        sw.interval = setInterval(swTick, 10);
+        sw.startTs = performance.now() - sw.elapsed;
+        swScheduleTick();
     } else {
         // Stop / finalize. If we got here from Pause, the clock is already
         // frozen; otherwise freeze it now.
         if (sw.running) {
-            clearInterval(sw.interval);
-            sw.elapsed = Date.now() - sw.startTs;
+            swCancelTick();
+            sw.elapsed = performance.now() - sw.startTs;
         }
         sw.running = false;
         sw.paused  = false;
@@ -145,8 +176,8 @@ function swStartStop() {
 function swPauseResume() {
     if (sw.running) {
         // Pause
-        clearInterval(sw.interval);
-        sw.elapsed = Date.now() - sw.startTs;
+        swCancelTick();
+        sw.elapsed = performance.now() - sw.startTs;
         sw.running = false;
         sw.paused  = true;
         swRenderLaps();   // freeze the running-lap row at its paused value
@@ -154,8 +185,8 @@ function swPauseResume() {
         // Resume — same lap, no split
         sw.running = true;
         sw.paused  = false;
-        sw.startTs = Date.now() - sw.elapsed;
-        sw.interval = setInterval(swTick, 10);
+        sw.startTs = performance.now() - sw.elapsed;
+        swScheduleTick();
     }
     swUpdateUI();
 }
@@ -172,7 +203,7 @@ function swLapOrReset() {
         swRenderLaps();
     } else {
         // Reset everything
-        clearInterval(sw.interval);
+        swCancelTick();
         Object.assign(sw, { running:false, paused:false, elapsed:0, startTs:null, lapStart:0, laps:[], interval:null });
         const el = id => document.getElementById(id);
         if (el('swDisplay'))    el('swDisplay').innerText    = '00:00.00';
@@ -186,14 +217,48 @@ function swLapOrReset() {
     }
 }
 
-function swTick() {
-    sw.elapsed = Date.now() - sw.startTs;
-    const el = id => document.getElementById(id);
-    if (el('swDisplay')) el('swDisplay').innerText = fmtSw(sw.elapsed);
-    if (sw.mode === 'lap') {
-        const lapTimeEl = el('swCurrentLapTime');
-        if (lapTimeEl) lapTimeEl.innerText = fmtSw(sw.elapsed - sw.lapStart);
+// rAF-driven ticker — ~30fps refresh (every 2nd frame at 60Hz displays),
+// cached element refs, and monotonic time. Replaces the previous 100fps
+// setInterval that was measurable battery drain on low-end Android.
+let _swRafId = null;
+let _swRafLast = 0;
+let _swDispEl = null, _swLapTimeEl = null;
+
+function swScheduleTick() {
+    swCancelTick();
+    _swDispEl    = null;   // resolved lazily below — the current-lap row
+    _swLapTimeEl = null;   // in particular gets re-created by swRenderLaps()
+    _swRafLast = 0;
+    _swRafId = requestAnimationFrame(_swRafLoop);
+}
+function swCancelTick() {
+    if (_swRafId !== null) cancelAnimationFrame(_swRafId);
+    if (sw.interval)       clearInterval(sw.interval);  // legacy safety
+    _swRafId = null;
+    sw.interval = null;
+}
+function _swRafLoop(ts) {
+    // Throttle to ~30fps — 2-decimal centisecond display doesn't need more.
+    if (ts - _swRafLast >= 33) {
+        _swRafLast = ts;
+        sw.elapsed = performance.now() - sw.startTs;
+        // Re-resolve elements when the cached ref is missing or detached.
+        // The current-lap row (`swCurrentLapTime`) is recreated by
+        // swRenderLaps() on every Lap press, so a stale cache would freeze
+        // the running-lap counter — which is exactly the bug this fixes.
+        if (!_swDispEl || !_swDispEl.isConnected) {
+            _swDispEl = document.getElementById('swDisplay');
+        }
+        if (_swDispEl) _swDispEl.textContent = fmtSw(sw.elapsed);
+        if (sw.mode === 'lap') {
+            if (!_swLapTimeEl || !_swLapTimeEl.isConnected) {
+                _swLapTimeEl = document.getElementById('swCurrentLapTime');
+            }
+            if (_swLapTimeEl) _swLapTimeEl.textContent = fmtSw(sw.elapsed - sw.lapStart);
+        }
     }
+    if (sw.running) _swRafId = requestAnimationFrame(_swRafLoop);
+    else _swRafId = null;
 }
 
 function swUpdateUI() {
@@ -359,50 +424,10 @@ function swSaveToForm() {
 }
 
 // ---- Time Study (Statistical Sample Size) ----
-// Two-tailed critical values from Student's t-distribution.
-// Rows: [df, t@90%, t@95%, t@99%]. df>30 falls back to the last row.
-const T_TABLE = [
-    [1, 6.3138, 12.7062, 63.6567],
-    [2, 2.9200,  4.3027,  9.9248],
-    [3, 2.3534,  3.1824,  5.8409],
-    [4, 2.1318,  2.7764,  4.6041],
-    [5, 2.0150,  2.5706,  4.0321],
-    [6, 1.9432,  2.4469,  3.7074],
-    [7, 1.8946,  2.3646,  3.4995],
-    [8, 1.8595,  2.3060,  3.3554],
-    [9, 1.8331,  2.2622,  3.2498],
-    [10, 1.8125, 2.2281, 3.1693],
-    [11, 1.7959, 2.2010, 3.1058],
-    [12, 1.7823, 2.1788, 3.0545],
-    [13, 1.7709, 2.1604, 3.0123],
-    [14, 1.7613, 2.1448, 2.9768],
-    [15, 1.7531, 2.1314, 2.9467],
-    [16, 1.7459, 2.1199, 2.9208],
-    [17, 1.7396, 2.1098, 2.8982],
-    [18, 1.7341, 2.1009, 2.8784],
-    [19, 1.7291, 2.0930, 2.8609],
-    [20, 1.7247, 2.0860, 2.8453],
-    [21, 1.7207, 2.0796, 2.8314],
-    [22, 1.7171, 2.0739, 2.8188],
-    [23, 1.7139, 2.0687, 2.8073],
-    [24, 1.7109, 2.0639, 2.7969],
-    [25, 1.7081, 2.0595, 2.7874],
-    [26, 1.7056, 2.0555, 2.7787],
-    [27, 1.7033, 2.0518, 2.7707],
-    [28, 1.7011, 2.0484, 2.7633],
-    [29, 1.6991, 2.0452, 2.7564],
-    [30, 1.6973, 2.0423, 2.7500],
-];
-
+// T_TABLE, tsTValue, and computeSampleSize live in timeutil.js so they can
+// be unit-tested from Node without a DOM. The runtime state here is only
+// the current user-chosen confidence + acceptable-error inputs.
 const _ts = { confidence: 95, error: 5 };
-
-function tsTValue(df, confidence) {
-    if (df < 1) return null;
-    const capped = Math.min(df, 30);
-    const row = T_TABLE.find(r => r[0] === capped);
-    const idx = confidence === 90 ? 1 : (confidence === 99 ? 3 : 2);
-    return row ? row[idx] : null;
-}
 
 function tsSetConfidence(c) {
     _ts.confidence = c;
@@ -589,386 +614,96 @@ function printReport() {
     window.print();
 }
 
+// Export current evaluation as bilingual CSV (TH + EN column headers).
+// Opens in Excel with Thai characters intact (UTF-8 BOM is prepended by csvBuild).
+function exportCSV() {
+    gaTrack('export_csv');
+
+    const g   = id => document.getElementById(id);
+    const val = id => (g(id)?.value ?? g(id)?.textContent ?? '').trim();
+    const num = id => {
+        // Strip trailing unit text (e.g. "89 %", "7 ชิ้น/ชม.") — keep the number.
+        const raw = val(id);
+        const m = raw.match(/^-?[0-9]+(?:[.,][0-9]+)?/);
+        return m ? m[0] : raw;
+    };
+
+    const now  = new Date();
+    const pad  = n => String(n).padStart(2, '0');
+    const ts   = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} `
+               + `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const fileTs = ts.replace(/[: ]/g, '-');
+
+    // Rows — [Field (TH), Field (EN), Value, Unit]
+    const rows = [
+        ['ฟิลด์', 'Field', 'ค่า / Value', 'หน่วย / Unit'],
+        ['วันที่-เวลา', 'Timestamp', ts, ''],
+        ['เวอร์ชันแอป', 'App version', 'v1.13.0', ''],
+        [],
+        ['— ตั้งเป้าหมาย', '— Set Target', '', ''],
+        ['ค่า SAM', 'SAM Value', val('samInput'), samUnit === 'sec' ? 'วินาที / sec' : 'นาที / min'],
+        ['เป้าหมายประสิทธิภาพ', 'Target Efficiency', val('effTargetInput'), '%'],
+        ['เป้าหมายชิ้นงาน', 'Target Output', num('targetDisplay'), 'ชิ้น/ชม. / pcs/hr'],
+        ['ค่า SAM ใหม่ (เป้าหมาย)', 'New SAM (Target)', num('newSamDisplay'), samUnit === 'sec' ? 'วินาที / sec' : 'นาที / min'],
+        [],
+        ['— บันทึกผลงานจริง', '— Record Actual Results', '', ''],
+        ['เวลารวม (นาที)', 'Total Time (Min)', val('totalMin'), 'นาที / min'],
+        ['เวลารวม (วินาที)', 'Total Time (Sec)', val('totalTime'), 'วินาที / sec'],
+        ['จำนวน (รอบ)', 'Count (Rounds)', val('totalCount'), 'รอบ / rounds'],
+        ['เวลาต่อรอบ (วินาที)', 'Cycle Time (Sec)', num('avgTimeSec'), 'วินาที / sec'],
+        ['เวลาต่อรอบ (นาที)', 'Cycle Time (Min)', num('avgTimeMin'), 'นาที / min'],
+        ['ประสิทธิภาพจริง', 'Actual Efficiency', num('actualEffPerc'), '%'],
+        ['ประสิทธิภาพจริง (ชิ้น/ชม.)', 'Actual Output', num('actualPcs'), 'ชิ้น/ชม. / pcs/hr'],
+        [],
+        ['— คุณภาพ', '— Quality', '', ''],
+        ['จำนวนที่ผ่าน', 'Passed Qty', val('passQty'), 'ชิ้น / pcs'],
+        ['จำนวนที่ไม่ผ่าน', 'Failed Qty', val('failQty'), 'ชิ้น / pcs'],
+        ['อัตราการผ่าน', 'Pass Rate', num('passRate'), '%'],
+        [],
+        ['— วางแผนการฝึก', '— Training Plan', '', ''],
+        ['ระยะเวลาการฝึก', 'Training Duration', val('duration'), 'วัน-ชม. / days-hrs'],
+    ];
+
+    const csv  = csvBuild(rows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `CSA-Evaluation-${fileTs}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Revoke on the next tick — the browser has already started the download.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    showToast(currentLang === 'th' ? '📄 ดาวน์โหลด CSV แล้ว' : '📄 CSV downloaded');
+}
+
 // --- 3. Translations ---
-const translations = {
-    'th': {
-        'brand_sub': 'เครื่องมือประเมินประสิทธิภาพ',
-        'header1': 'การตั้งเป้าหมาย',
-        'sam_label': 'ค่า SAM (นาที)',
-        'sam_label_base': 'ค่า SAM',
-        'unit_min': 'นาที',
-        'unit_sec': 'วินาที',
-        'new_sam_label': 'ค่า SAM ใหม่ (เป้าหมาย)',
-        'eff_target': 'เป้าหมายประสิทธิภาพ (%)',
-        'qty_label': 'เป้าหมายชิ้นงาน (ชิ้น/ชม.)',
+// The `translations` object lives in translations.js (loaded before this
+// file in index.html) so it can be lookup / fallback tested from Node
+// and so this file stays focused on behaviour, not data.
 
-        'header2': 'บันทึกผลงานจริง',
-        'total_min': 'เวลารวม (นาที)',
-        'total_sec': 'เวลารวม (วินาที)',
-        'total_count': 'จำนวน (รอบ)',
-        'avg_timesec': 'เวลาต่อรอบ (วินาที)',
-        'avg_timemin': 'เวลาต่อรอบ (นาที)',
-        'actual_eff': 'ประสิทธิภาพจริง (%)',
-        'actual_pcs': 'ประสิทธิภาพจริง (ชิ้น/ชม.)',
-
-        'header3': 'คุณภาพ',
-        'pass_qty': 'จำนวนที่ "ผ่าน"',
-        'fail_qty': 'จำนวนที่ "ไม่ผ่าน"',
-        'pass_rate': 'อัตราการผ่าน (%)',
-
-        'header4': 'วางแผนการฝึก',
-        'training_duration': 'ระยะเวลาการฝึก (วัน/ชม)',
-        'day_unit': 'วัน/ชม.ที่',
-
-        'feedback_btn': 'Feedback',
-        'feedback_title': 'ส่งความคิดเห็น',
-        'feedback_subtitle': 'เรายินดีรับฟังความคิดเห็นของคุณ',
-        'feedback_rating': 'ระดับความพึงพอใจ',
-        'feedback_message': 'ข้อความเสนอแนะ',
-        'feedback_contact': 'ข้อมูลติดต่อกลับ (ไม่บังคับ)',
-        'cancel': 'ยกเลิก',
-        'send': 'ส่งความคิดเห็น',
-        'feedback_required': 'กรุณากรอกข้อความเสนอแนะ',
-        'feedback_thanks': '✅ ขอบคุณสำหรับความคิดเห็น!',
-        'sw_open': 'จับเวลา',
-        'sw_open_sub': 'แตะเพื่อเปิดนาฬิกาจับเวลา',
-        'sw_back': 'กลับ',
-        'sw_stats': 'สถิติ',
-        'sw_summary': 'สรุปผล',
-        'sw_avg': 'ค่าเฉลี่ย',
-        'sw_fastest': 'เวลาเร็วสุด',
-        'sw_slowest': 'เวลาช้าสุด',
-        'sw_total': 'เวลารวม',
-        'sw_std': 'ส่วนเบี่ยงเบนมาตรฐาน (s)',
-        'sw_required_n': 'จำนวนรอบที่ควรจับเวลา',
-        'sw_info_total': 'ผลรวมเวลาทุกรอบที่จับได้',
-        'sw_laps_title': 'รายการรอบ',
-        'sw_rounds': 'จำนวนรอบ',
-        'sw_save_form': 'บันทึกลงฟอร์ม',
-        'sw_start': 'เริ่ม',
-        'sw_stop': 'หยุด',
-        'sw_pause': 'พัก',
-        'sw_resume': 'ต่อ',
-        'sw_lap': 'รอบ',
-        'sw_reset': 'รีเซ็ต',
-        'sw_info_avg': 'เวลาเฉลี่ยต่อรอบ = เวลารวมทุกรอบ ÷ จำนวนรอบ',
-        'sw_info_min': 'รอบที่ทำเวลาได้น้อยที่สุด (เร็วที่สุด)',
-        'sw_info_max': 'รอบที่ใช้เวลามากที่สุด (ช้าที่สุด)',
-        'sw_info_std': 'ส่วนเบี่ยงเบนมาตรฐาน (Sample SD) บอกว่าเวลาแต่ละรอบกระจายห่างจากค่าเฉลี่ยแค่ไหน ยิ่งน้อยยิ่งสม่ำเสมอ = √( Σ(เวลารอบ − ค่าเฉลี่ย)² ÷ (n−1) ) — ใช้ n−1 ตามหลัก Bessel เพื่อให้คู่กับตาราง t ใน Time Study',
-
-        'history_title': 'ประวัติการประเมิน',
-        'history_subtitle': 'บันทึกและเปรียบเทียบผลการประเมิน',
-        'history_save': 'บันทึกปัจจุบัน',
-        'history_label_placeholder': 'ชื่อ/ไลน์ (ไม่บังคับ)',
-        'history_empty': 'ยังไม่มีประวัติที่บันทึกไว้',
-        'history_compare': 'เปรียบเทียบ',
-        'history_delete_confirm': 'ลบรายการนี้ออกจากประวัติ?',
-        'compare_back': 'กลับ',
-        'compare_gap': 'ส่วนต่างจากเป้าหมาย',
-
-        'ts_config_title': 'ตั้งค่า Time Study',
-        'ts_confidence': 'ระดับความเชื่อมั่น',
-        'ts_confidence_help': 'ยิ่งสูง → ต้องการรอบมากขึ้นเพื่อให้มั่นใจว่าค่าเฉลี่ยที่วัดได้ถูกต้อง (มาตรฐานอุตสาหกรรมใช้ 95%)',
-        'ts_error': 'ค่าคลาดเคลื่อนที่ยอมรับได้ (±%)',
-        'ts_error_help': 'ยอมให้ค่าเฉลี่ยเพี้ยนได้กี่ % จากค่าจริง (มาตรฐานอุตสาหกรรมใช้ 5%)',
-        'ts_need_pilot': 'ต้องจับเวลาอย่างน้อย 2 รอบ (โหมด Lap) จึงจะคำนวณจำนวนรอบที่ควรจับได้',
-        'ts_capped_df': 'ใช้ df = 30',
-        'ts_msg_prefix': 'ที่ความเชื่อมั่น {conf}% ต้องจับเวลาอย่างน้อย {N_raw} รอบ (ปัดขึ้นเป็น {N} รอบ)',
-        'ts_have_ok': 'คุณจับเวลา {n} รอบแล้ว — เพียงพอทางสถิติ สามารถใช้ค่าเฉลี่ยไปคำนวณ AMV ได้เลย',
-        'ts_have_short': 'คุณจับเวลา {n} รอบ — ต้องจับเพิ่มอีก {more} รอบเพื่อให้ข้อมูลน่าเชื่อถือ',
-        'ts_na': 'ต้องมี ≥ 2 รอบ',
-        'ts_continue_btn': 'จับเวลาต่ออีก {more} รอบ',
-        'ts_ttable_title': 'ตาราง T-Distribution',
-        'ts_ttable_n': 'จำนวนรอบ (n)',
-        'ts_ttable_note': 'แถวไฮไลต์คือ df ปัจจุบันของคุณ · คอลัมน์ไฮไลต์คือระดับความเชื่อมั่นที่เลือก (แบบสองหาง)',
-    },
-    'en': {
-        'brand_sub': 'Performance Evaluation Tool',
-        'header1': 'Set Target',
-        'sam_label': 'SAM Value (Minutes)',
-        'sam_label_base': 'SAM Value',
-        'unit_min': 'Min',
-        'unit_sec': 'Sec',
-        'new_sam_label': 'New SAM (Target)',
-        'eff_target': 'Target Efficiency (%)',
-        'qty_label': 'Target Cut Piece (pcs/hrs.)',
-
-        'header2': 'Record Actual Results',
-        'total_min': 'Total Time (Min)',
-        'total_sec': 'Total Time (Sec)',
-        'total_count': 'Count (Rounds)',
-        'avg_timesec': 'Cycle Time (Sec)',
-        'avg_timemin': 'Cycle Time (Min)',
-        'actual_eff': 'Actual Efficiency (%)',
-        'actual_pcs': 'Actual Efficiency (pcs/hr.)',
-
-        'header3': 'Quality',
-        'pass_qty': 'Passed Qty',
-        'fail_qty': 'Failed Qty',
-        'pass_rate': 'Pass Rate (%)',
-
-        'header4': 'Training Plan',
-        'training_duration': 'Training Duration (Days/Hrs)',
-        'day_unit': 'Day/Hr.',
-
-        'feedback_btn': 'Feedback',
-        'feedback_title': 'Send Feedback',
-        'feedback_subtitle': "We'd love to hear from you",
-        'feedback_rating': 'Satisfaction Rating',
-        'feedback_message': 'Suggestions',
-        'feedback_contact': 'Contact Info (Optional)',
-        'cancel': 'Cancel',
-        'send': 'Send Feedback',
-        'feedback_required': 'Please enter your feedback',
-        'feedback_thanks': '✅ Thank you for your feedback!',
-        'sw_open': 'Stopwatch',
-        'sw_open_sub': 'Tap to open stopwatch',
-        'sw_back': 'Back',
-        'sw_stats': 'Statistics',
-        'sw_summary': 'Summary',
-        'sw_avg': 'Average',
-        'sw_fastest': 'Fastest Time',
-        'sw_slowest': 'Slowest Time',
-        'sw_total': 'Total Time',
-        'sw_std': 'Standard Deviation (s)',
-        'sw_required_n': 'Recommended cycles to time',
-        'sw_info_total': 'Sum of all recorded round times',
-        'sw_laps_title': 'Laps',
-        'sw_rounds': 'Rounds',
-        'sw_save_form': 'Save to Form',
-        'sw_start': 'Start',
-        'sw_stop': 'Stop',
-        'sw_pause': 'Pause',
-        'sw_resume': 'Resume',
-        'sw_lap': 'Lap',
-        'sw_reset': 'Reset',
-        'sw_info_avg': 'Average time per round = total time of all rounds ÷ number of rounds',
-        'sw_info_min': 'The round with the shortest time (fastest)',
-        'sw_info_max': 'The round with the longest time (slowest)',
-        'sw_info_std': 'Standard deviation (Sample SD) — how much each round varies from the average; lower means more consistent. = √( Σ(round time − average)² ÷ (n−1) ) — uses n−1 (Bessel\'s correction) so it pairs correctly with the t-table in Time Study',
-
-        'history_title': 'Evaluation History',
-        'history_subtitle': 'Save and compare past evaluations',
-        'history_save': 'Save Current',
-        'history_label_placeholder': 'Name/Line (optional)',
-        'history_empty': 'No saved history yet',
-        'history_compare': 'Compare',
-        'history_delete_confirm': 'Remove this entry from history?',
-        'compare_back': 'Back',
-        'compare_gap': 'Gap to Target',
-
-        'ts_config_title': 'Time Study Settings',
-        'ts_confidence': 'Confidence Level',
-        'ts_confidence_help': 'Higher → needs more cycles to be sure the measured mean is correct (industry standard: 95%)',
-        'ts_error': 'Acceptable Error (±%)',
-        'ts_error_help': 'How many % the mean can deviate from the true value (industry standard: 5%)',
-        'ts_need_pilot': 'Need at least 2 pilot cycles (Lap mode) to compute the recommended sample size',
-        'ts_capped_df': 'using df = 30',
-        'ts_msg_prefix': 'At {conf}% confidence, need at least {N_raw} cycles (rounded up to {N})',
-        'ts_have_ok': 'You have {n} cycles — statistically sufficient, the mean is safe to use for AMV',
-        'ts_have_short': 'You have {n} cycles — record {more} more to be statistically reliable',
-        'ts_na': 'need ≥ 2 laps',
-        'ts_continue_btn': 'Continue timing {more} more cycle(s)',
-        'ts_ttable_title': 'T-Distribution Table',
-        'ts_ttable_n': 'Cycles (n)',
-        'ts_ttable_note': 'Highlighted row = your current df · highlighted column = selected confidence level (two-tailed)',
-    },
-    'vn': {
-        'brand_sub': 'Công cụ đánh giá hiệu suất',
-        'header1': 'Thiết lập mục tiêu',
-        'sam_label': 'Giá trị SAM (Phút)',
-        'sam_label_base': 'Giá trị SAM',
-        'unit_min': 'Phút',
-        'unit_sec': 'Giây',
-        'new_sam_label': 'SAM mới (Mục tiêu)',
-        'eff_target': 'Hiệu suất mục tiêu (%)',
-        'qty_label': 'Mục tiêu (SP/giờ)',
-
-        'header2': 'Ghi lại kết quả thực tế',
-        'total_min': 'Tổng thời gian (Phút)',
-        'total_sec': 'Tổng thời gian (Giây)',
-        'total_count': 'Số lần (Vòng)',
-        'avg_timesec': 'Thời gian vòng (Giây)',
-        'avg_timemin': 'Thời gian vòng (Phút)',
-        'actual_eff': 'Hiệu suất thực tế (%)',
-        'actual_pcs': 'Hiệu suất thực tế (SP/Giờ)',
-
-        'header3': 'Chất lượng',
-        'pass_qty': 'Số lượng đạt',
-        'fail_qty': 'Số lượng không đạt',
-        'pass_rate': 'Tỷ lệ đạt (%)',
-
-        'header4': 'Kế hoạch đào tạo',
-        'training_duration': 'Thời lượng đào tạo (ngày/giờ)',
-        'day_unit': 'Ngày/Giờ',
-
-        'feedback_btn': 'Phản hồi',
-        'feedback_title': 'Gửi phản hồi',
-        'feedback_subtitle': 'Chúng tôi rất vui được lắng nghe ý kiến của bạn',
-        'feedback_rating': 'Mức độ hài lòng',
-        'feedback_message': 'Đề xuất',
-        'feedback_contact': 'Thông tin liên hệ (Không bắt buộc)',
-        'cancel': 'Hủy',
-        'send': 'Gửi phản hồi',
-        'feedback_required': 'Vui lòng nhập phản hồi của bạn',
-        'feedback_thanks': '✅ Cảm ơn phản hồi của bạn!',
-        'sw_open': 'Bấm giờ',
-        'sw_open_sub': 'Nhấn để mở đồng hồ bấm giờ',
-        'sw_back': 'Trở lại',
-        'sw_stats': 'Thống kê',
-        'sw_summary': 'Tóm tắt',
-        'sw_avg': 'Giá trị trung bình',
-        'sw_fastest': 'Thời gian nhanh nhất',
-        'sw_slowest': 'Thời gian chậm nhất',
-        'sw_total': 'Tổng thời gian',
-        'sw_std': 'Độ lệch chuẩn (s)',
-        'sw_required_n': 'Số vòng nên bấm',
-        'sw_info_total': 'Tổng thời gian của tất cả các vòng đã bấm',
-        'sw_laps_title': 'Danh sách vòng',
-        'sw_rounds': 'Số vòng',
-        'sw_save_form': 'Lưu vào biểu mẫu',
-        'sw_start': 'Bắt đầu',
-        'sw_stop': 'Dừng',
-        'sw_pause': 'Tạm dừng',
-        'sw_resume': 'Tiếp tục',
-        'sw_lap': 'Vòng',
-        'sw_reset': 'Đặt lại',
-        'sw_info_avg': 'Thời gian trung bình mỗi vòng = tổng thời gian các vòng ÷ số vòng',
-        'sw_info_min': 'Vòng có thời gian ngắn nhất (nhanh nhất)',
-        'sw_info_max': 'Vòng có thời gian dài nhất (chậm nhất)',
-        'sw_info_std': 'Độ lệch chuẩn (Sample SD) — cho biết thời gian mỗi vòng dao động quanh giá trị trung bình bao nhiêu; càng nhỏ càng ổn định. = √( Σ(thời gian vòng − trung bình)² ÷ (n−1) ) — dùng n−1 (hiệu chỉnh Bessel) để khớp với bảng t trong Time Study',
-
-        'history_title': 'Lịch sử đánh giá',
-        'history_subtitle': 'Lưu và so sánh các đánh giá trước đây',
-        'history_save': 'Lưu hiện tại',
-        'history_label_placeholder': 'Tên/Chuyền (không bắt buộc)',
-        'history_empty': 'Chưa có lịch sử được lưu',
-        'history_compare': 'So sánh',
-        'history_delete_confirm': 'Xóa mục này khỏi lịch sử?',
-        'compare_back': 'Trở lại',
-        'compare_gap': 'Chênh lệch so với mục tiêu',
-
-        'ts_config_title': 'Cài đặt Time Study',
-        'ts_confidence': 'Mức độ tin cậy',
-        'ts_confidence_help': 'Càng cao → cần nhiều vòng hơn để đảm bảo giá trị trung bình chính xác (chuẩn công nghiệp: 95%)',
-        'ts_error': 'Sai số cho phép (±%)',
-        'ts_error_help': 'Giá trị trung bình được phép lệch bao nhiêu % so với giá trị thực (chuẩn công nghiệp: 5%)',
-        'ts_need_pilot': 'Cần ít nhất 2 vòng thử (chế độ Lap) để tính số vòng khuyến nghị',
-        'ts_capped_df': 'dùng df = 30',
-        'ts_msg_prefix': 'Ở mức tin cậy {conf}%, cần ít nhất {N_raw} vòng (làm tròn lên {N} vòng)',
-        'ts_have_ok': 'Bạn đã bấm {n} vòng — đủ về mặt thống kê, có thể dùng giá trị trung bình để tính AMV',
-        'ts_have_short': 'Bạn đã bấm {n} vòng — cần bấm thêm {more} vòng để đảm bảo tin cậy',
-        'ts_na': 'cần ≥ 2 vòng',
-        'ts_continue_btn': 'Bấm tiếp {more} vòng nữa',
-        'ts_ttable_title': 'Bảng T-Distribution',
-        'ts_ttable_n': 'Số vòng (n)',
-        'ts_ttable_note': 'Hàng được đánh dấu = df hiện tại · cột được đánh dấu = mức tin cậy đã chọn (hai đuôi)',
-    },
-    'la': {
-        'brand_sub': 'ເຄື່ອງມືປະເມີນປະສິດທິພາບ',
-        'header1': 'ການກຳນົດເປົ້າໝາຍ',
-        'sam_label': 'ຄ່າ SAM (ນາທີ)',
-        'sam_label_base': 'ຄ່າ SAM',
-        'unit_min': 'ນາທີ',
-        'unit_sec': 'ວິນາທີ',
-        'new_sam_label': 'ຄ່າ SAM ໃໝ່ (ເປົ້າໝາຍ)',
-        'eff_target': 'ເປົ້າໝາຍການປະຕິບັດ (%)',
-        'qty_label': 'ຈຳນວນເປົ້າໝາຍຂອງຊິ້ນສ່ວນຕໍ່ຊົ່ວໂມງ',
-
-        'header2': 'ບັນທຶກຜົນໄດ້ຮັບຕົວຈິງ',
-        'total_min': 'ເວລາທັງໝົດ (ນາທີ)',
-        'total_sec': 'ເວລາທັງໝົດ (ວິນາທີ)',
-        'total_count': 'ຈຳນວນເທື່ອ (ຮອບ)',
-        'avg_timesec': 'ເວລາຮອບ (ວິນາທີ)',
-        'avg_timemin': 'ເວລາຮອບ (ນາທີ)',
-        'actual_eff': 'ປະສິດທິພາບຕົວຈິງ (%)',
-        'actual_pcs': 'ປະສິດທິພາບຕົວຈິງ (ຊິ້ນ/ຊມ.)',
-
-        'header3': 'ຄຸນນະພາບ',
-        'pass_qty': 'ຈຳນວນທີ່ໄດ້ມາດຕະຖານ (ຊິ້ນ)',
-        'fail_qty': 'ຈຳນວນທີ່ບໍ່ໄດ້ມາດຕະຖານ (ຊິ້ນ)',
-        'pass_rate': 'ອັດຕາການຜ່ານ (%)',
-
-        'header4': 'ແຜນການຝຶກອົບຮົມ',
-        'training_duration': 'ໄລຍະເວລາການຝຶກ (ມື້/ຊມ)',
-        'day_unit': 'ມື້/ຊມ.',
-
-        'feedback_btn': 'ຄໍາຄິດເຫັນ',
-        'feedback_title': 'ສົ່ງຄໍາຄິດເຫັນ',
-        'feedback_subtitle': 'ພວກເຮົາຍິນດີຮັບຟັງຄໍາຄິດເຫັນຂອງທ່ານ',
-        'feedback_rating': 'ລະດັບຄວາມພໍໃຈ',
-        'feedback_message': 'ຂໍ້ສະເໜີ',
-        'feedback_contact': 'ຂໍ້ມູນຕິດຕໍ່ (ບໍ່ບັງຄັບ)',
-        'cancel': 'ຍົກເລີກ',
-        'send': 'ສົ່ງຄໍາຄິດເຫັນ',
-        'feedback_required': 'ກະລຸນາໃສ່ຄໍາຄິດເຫັນ',
-        'feedback_thanks': '✅ ຂອບໃຈສຳລັບຄໍາຄິດເຫັນ!',
-        'sw_open': 'ຈັບເວລາ',
-        'sw_open_sub': 'ແຕະເພື່ອເປີດໂມງຈັບເວລາ',
-        'sw_back': 'ກັບ',
-        'sw_stats': 'ສະຖິຕິ',
-        'sw_summary': 'ສະຫຼຸບຜົນ',
-        'sw_avg': 'ຄ່າສະເລ່ຍ',
-        'sw_fastest': 'ເວລາໄວທີ່ສຸດ',
-        'sw_slowest': 'ເວລາຊ້າທີ່ສຸດ',
-        'sw_total': 'ເວລາລວມ',
-        'sw_std': 'ສ່ວນບ່ຽງເບນມາດຕະຖານ (s)',
-        'sw_required_n': 'ຈຳນວນຮອບທີ່ຄວນຈັບເວລາ',
-        'sw_info_total': 'ຜົນລວມເວລາທຸກຮອບທີ່ຈັບໄດ້',
-        'sw_laps_title': 'ລາຍການຮອບ',
-        'sw_rounds': 'ຈຳນວນຮອບ',
-        'sw_save_form': 'ບັນທຶກລົງຟອມ',
-        'sw_start': 'ເລີ່ມ',
-        'sw_stop': 'ຢຸດ',
-        'sw_pause': 'ພັກ',
-        'sw_resume': 'ຕໍ່',
-        'sw_lap': 'ຮອບ',
-        'sw_reset': 'ຣີເຊັດ',
-        'sw_info_avg': 'ເວລາເສລ່ຍຕໍ່ຮອບ = ເວລາລວມທຸກຮອບ ÷ ຈຳນວນຮອບ',
-        'sw_info_min': 'ຮອບທີ່ໃຊ້ເວລາໜ້ອຍທີ່ສຸດ (ໄວທີ່ສຸດ)',
-        'sw_info_max': 'ຮອບທີ່ໃຊ້ເວລາຫຼາຍທີ່ສຸດ (ຊ້າທີ່ສຸດ)',
-        'sw_info_std': 'ສ່ວນບ່ຽງເບນມາດຕະຖານ (Sample SD) ບອກວ່າເວລາແຕ່ລະຮອບກະຈາຍຫ່າງຈາກຄ່າເສລ່ຍເທົ່າໃດ ຍິ່ງໜ້ອຍຍິ່ງສະໝ່ຳສະເໝີ = √( Σ(ເວລາຮອບ − ຄ່າເສລ່ຍ)² ÷ (n−1) ) — ໃຊ້ n−1 (Bessel) ເພື່ອໃຫ້ຄູ່ກັບຕາຕະລາງ t ໃນ Time Study',
-
-        'history_title': 'ປະຫວັດການປະເມີນ',
-        'history_subtitle': 'ບັນທຶກ ແລະ ປຽບທຽບຜົນການປະເມີນທີ່ຜ່ານມາ',
-        'history_save': 'ບັນທຶກປັດຈຸບັນ',
-        'history_label_placeholder': 'ຊື່/ໄລນ໌ (ບໍ່ບັງຄັບ)',
-        'history_empty': 'ຍັງບໍ່ມີປະຫວັດທີ່ບັນທຶກໄວ້',
-        'history_compare': 'ປຽບທຽບ',
-        'history_delete_confirm': 'ລຶບລາຍການນີ້ອອກຈາກປະຫວັດ?',
-        'compare_back': 'ກັບ',
-        'compare_gap': 'ສ່ວນຕ່າງຈາກເປົ້າໝາຍ',
-
-        'ts_config_title': 'ຕັ້ງຄ່າ Time Study',
-        'ts_confidence': 'ລະດັບຄວາມເຊື່ອໝັ້ນ',
-        'ts_confidence_help': 'ຍິ່ງສູງ → ຕ້ອງການຮອບຫຼາຍຂຶ້ນເພື່ອຮັບປະກັນຄ່າສະເລ່ຍທີ່ວັດໄດ້ຖືກຕ້ອງ (ມາດຕະຖານອຸດສາຫະກຳ: 95%)',
-        'ts_error': 'ຄ່າຄາດເຄື່ອນທີ່ຍອມຮັບໄດ້ (±%)',
-        'ts_error_help': 'ອະນຸຍາດໃຫ້ຄ່າສະເລ່ຍຄາດເຄື່ອນໄດ້ກີ່ % ຈາກຄ່າຈິງ (ມາດຕະຖານອຸດສາຫະກຳ: 5%)',
-        'ts_need_pilot': 'ຕ້ອງຈັບເວລາຢ່າງໜ້ອຍ 2 ຮອບ (ໂໝດ Lap) ຈຶ່ງຈະຄຳນວນຈຳນວນຮອບທີ່ຄວນຈັບໄດ້',
-        'ts_capped_df': 'ໃຊ້ df = 30',
-        'ts_msg_prefix': 'ທີ່ຄວາມເຊື່ອໝັ້ນ {conf}% ຕ້ອງຈັບເວລາຢ່າງໜ້ອຍ {N_raw} ຮອບ (ປັດຂຶ້ນເປັນ {N} ຮອບ)',
-        'ts_have_ok': 'ທ່ານຈັບເວລາ {n} ຮອບແລ້ວ — ພຽງພໍທາງສະຖິຕິ ສາມາດໃຊ້ຄ່າສະເລ່ຍໄປຄຳນວນ AMV ໄດ້ເລີຍ',
-        'ts_have_short': 'ທ່ານຈັບເວລາ {n} ຮອບ — ຕ້ອງຈັບເພີ່ມອີກ {more} ຮອບເພື່ອໃຫ້ຂໍ້ມູນໜ້າເຊື່ອຖື',
-        'ts_na': 'ຕ້ອງມີ ≥ 2 ຮອບ',
-        'ts_continue_btn': 'ຈັບເວລາຕໍ່ອີກ {more} ຮອບ',
-        'ts_ttable_title': 'ຕາຕະລາງ T-Distribution',
-        'ts_ttable_n': 'ຈຳນວນຮອບ (n)',
-        'ts_ttable_note': 'ແຖວທີ່ໄຮໄລ້ຄື df ປັດຈຸບັນ · ຄໍລຳທີ່ໄຮໄລ້ຄືລະດັບຄວາມເຊື່ອໝັ້ນທີ່ເລືອກ (ສອງຫາງ)',
-    }
+// Inline SVG flags render identically on every platform — Chrome on Windows
+// falls back to text pairs (TH / US / VN / LA) for the regional-indicator
+// emojis because the system emoji font lacks flag glyphs.
+const FLAG_SVG = {
+    th: '<svg viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect fill="#A51931" width="60" height="6.7"/><rect fill="#F4F5F8" y="6.7" width="60" height="6.6"/><rect fill="#2D2A4A" y="13.3" width="60" height="13.4"/><rect fill="#F4F5F8" y="26.7" width="60" height="6.6"/><rect fill="#A51931" y="33.3" width="60" height="6.7"/></svg>',
+    en: '<svg viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect fill="#B22234" width="60" height="40"/><g fill="#fff"><rect y="3.08" width="60" height="3.08"/><rect y="9.23" width="60" height="3.08"/><rect y="15.38" width="60" height="3.08"/><rect y="21.54" width="60" height="3.08"/><rect y="27.69" width="60" height="3.08"/><rect y="33.85" width="60" height="3.08"/></g><rect fill="#3C3B6E" width="24" height="21.54"/></svg>',
+    vn: '<svg viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect fill="#DA251D" width="60" height="40"/><polygon fill="#FF0" points="30,10 33.53,20.85 44.94,20.85 35.71,27.55 39.24,38.4 30,31.7 20.76,38.4 24.29,27.55 15.06,20.85 26.47,20.85"/></svg>',
+    la: '<svg viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect fill="#CE1126" width="60" height="40"/><rect fill="#002868" y="10" width="60" height="20"/><circle fill="#fff" cx="30" cy="20" r="6.7"/></svg>',
 };
 
 const LANG_META = {
-    th: { flag: '🇹🇭', name: 'ไทย' },
-    en: { flag: '🇺🇸', name: 'English' },
-    vn: { flag: '🇻🇳', name: 'Tiếng Việt' },
-    la: { flag: '🇱🇦', name: 'ລາວ' },
+    th: { flag: FLAG_SVG.th, name: 'ไทย' },
+    en: { flag: FLAG_SVG.en, name: 'English' },
+    vn: { flag: FLAG_SVG.vn, name: 'Tiếng Việt' },
+    la: { flag: FLAG_SVG.la, name: 'ລາວ' },
 };
 
-const pcsUnit  = { th: 'ชิ้น', en: 'pcs', vn: 'cái', la: 'ຊິ້ນ' };
 const pcsPerHr = { th: 'ชิ้น/ชม.', en: 'pcs/hr', vn: 'SP/giờ', la: 'ຊິ້ນ/ຊມ' };
 
-let chartMode   = 'pcs'; // 'pcs' | 'eff'
-let _chartCache = { data: [], targetPcs: 0, effTarget: 0 };
+// Chart state + renderer live in chart.js — see that file for _chartCache,
+// _chartAnimated, chartMode, setChartMode, renderChartFromCache, renderSVGChart.
 
 const t = key => translations[currentLang]?.[key] ?? translations.th[key] ?? key;
 
@@ -989,6 +724,7 @@ function changeLanguage(lang) {
     if (!translations[lang]) return;
     gaTrack('change_language', { language: lang });
     currentLang = lang;
+    try { localStorage.setItem('csa_lang', lang); } catch {}
     document.documentElement.lang = lang;
 
     // body content
@@ -1008,30 +744,38 @@ function changeLanguage(lang) {
         el.innerText = `${t('day_unit')} ${idx + 1}`;
     });
 
-    // dropdown trigger + active state
-    document.getElementById('currentFlag').innerText = LANG_META[lang].flag;
-    document.getElementById('currentLangName').innerText = LANG_META[lang].name;
+    // Trigger flag (inline SVG from FLAG_SVG — constant we author, XSS-safe)
+    const flagEl = document.getElementById('currentFlag');
+    if (flagEl) flagEl.innerHTML = FLAG_SVG[lang];
+    // Screen readers announce the current language via the trigger's aria-label
+    document.getElementById('actionsTrigger')?.setAttribute('aria-label', `Menu — ${LANG_META[lang].name}`);
+    // Active state on the language pills inside the actions menu
     document.querySelectorAll('.lang-option').forEach(opt => {
         opt.classList.toggle('active', opt.dataset.lang === lang);
     });
 
-    closeLangMenu();
     calculateAll(); // refresh pcs unit
+    _flushHeavyUpdate(); // re-render training grid now so units match the new language
     swUpdateUI();
     // Re-render Time Study readouts (their text is built from t() at render time)
     if (document.getElementById('swStatsPanel')?.style.display === 'block') tsRecalculate();
     if (document.getElementById('tsConfigModal')?.style.display === 'flex') renderTTable();
 }
 
-function toggleLangMenu() {
-    const sel = document.getElementById('langSelector');
-    const open = sel.classList.toggle('open');
-    document.getElementById('langTrigger').setAttribute('aria-expanded', open);
+// ---- Actions overflow menu ----
+// One trigger button collapses every header action (language / export /
+// history / install / theme / reset). Opens on tap, closes on outside tap
+// or Escape. Language pills stay OPEN after switching (so the user can see
+// which flag became active); everything else auto-closes on selection.
+function toggleActionsMenu() {
+    const m = document.getElementById('actionsMenu');
+    const open = m.classList.toggle('open');
+    document.getElementById('actionsTrigger')?.setAttribute('aria-expanded', open);
 }
-function closeLangMenu() {
-    const sel = document.getElementById('langSelector');
-    sel?.classList.remove('open');
-    document.getElementById('langTrigger')?.setAttribute('aria-expanded', 'false');
+function closeActionsMenu() {
+    const m = document.getElementById('actionsMenu');
+    m?.classList.remove('open');
+    document.getElementById('actionsTrigger')?.setAttribute('aria-expanded', 'false');
 }
 
 function resetForm() {
@@ -1073,58 +817,7 @@ function restoreFormState() {
     } catch (_) { /* corrupt/unavailable storage — start fresh */ }
 }
 
-// --- 5c. History Storage ---
-function loadHistory() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY_HISTORY);
-        return raw ? JSON.parse(raw) : [];
-    } catch (_) { return []; }
-}
-
-function persistHistory(list) {
-    try { localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(list)); }
-    catch (_) { /* private browsing / quota exceeded — skip silently */ }
-}
-
-function saveCurrentToHistory(label) {
-    const getValue = id => parseFloat(document.getElementById(id).value) || 0;
-    const inputs = {
-        sam:        getSamMinutes(),
-        effTarget:  getValue('effTargetInput'),
-        totalMin:   getValue('totalMin'),
-        totalTime:  getValue('totalTime'),
-        totalCount: getValue('totalCount'),
-        passQty:    getValue('passQty'),
-        failQty:    getValue('failQty'),
-        duration:   getValue('duration'),
-    };
-    const avgMin = calcAvgMin(inputs.totalMin, inputs.totalTime, inputs.totalCount);
-    const computed = {
-        targetPcs:  pcsFromEff(inputs.sam, inputs.effTarget),
-        actualEff:  avgMin !== null ? calcActualEff(inputs.sam, avgMin) : null,
-        actualPcs:  avgMin !== null ? calcActualPcsPerHr(avgMin) : null,
-        passRate:   calcPassRate(inputs.passQty, inputs.failQty),
-    };
-    const entry = {
-        id:    `h_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        ts:    Date.now(),
-        label: (label || '').trim(),
-        inputs,
-        computed,
-    };
-    const list = loadHistory();
-    list.unshift(entry);
-    if (list.length > HISTORY_MAX) list.length = HISTORY_MAX;
-    persistHistory(list);
-    gaTrack('save_history', { has_label: !!entry.label });
-    return entry;
-}
-
-function deleteHistoryEntry(id) {
-    const list = loadHistory().filter(e => e.id !== id);
-    persistHistory(list);
-    gaTrack('delete_history');
-}
+// --- 5c. History Storage moved to history.js ---
 
 // --- 5d. SAM Unit (min / sec) ---
 // Format a number for display: trim trailing zeros, cap at 4 decimals.
@@ -1206,27 +899,64 @@ function calculateAll() {
             currentActualEff = eff;
             document.getElementById('actualEffPerc').value = `${currentActualEff} %`;
             setResultUnit('actualPcs', calcActualPcsPerHr(avgMin), pcsPerHr[currentLang] || 'pcs/hr');
+            // Ambient status tint — how does actual compare to target?
+            const effStatus = statusForEfficiency(currentActualEff, effTarget);
+            setStatus('actualEffPerc', effStatus);
+            setStatus('actualPcs',     effStatus);
         } else {
             document.getElementById('actualEffPerc').value = '';
             document.getElementById('actualPcs').textContent = '';
+            setStatus('actualEffPerc', null);
+            setStatus('actualPcs', null);
         }
     } else {
         document.getElementById('actualEffPerc').value = '';
         ['avgTimeSec','avgTimeMin','actualPcs'].forEach(id => {
             document.getElementById(id).textContent = '';
         });
+        setStatus('actualEffPerc', null);
+        setStatus('actualPcs', null);
     }
 
     // 3. Quality
     const totalQty  = passQty + failQty;
     const passRate  = calcPassRate(passQty, failQty);
     document.getElementById('passRate').value = passRate !== null ? `${passRate} %` : "";
+    setStatus('passRate', passRate !== null ? statusForPassRate(passRate) : null);
     if (!_tracked.quality && totalQty > 0) {
         _tracked.quality = true;
         gaTrack('use_quality_section');
     }
 
-    // 4. Training Plan — dynamic cards + learning curve chart
+    // 4. Training Plan + form auto-save — the expensive DOM work (rebuilding
+    //    up to 18 training cards + the SVG chart + a synchronous localStorage
+    //    write) is debounced so a burst of keystrokes on a low-end Android
+    //    doesn't rebuild the DOM on every character. Sections 1–3 above are
+    //    just a handful of text writes and stay immediate.
+    _scheduleHeavyUpdate({ sam, effTarget, currentActualEff, duration });
+}
+
+let _heavyTimer = null;
+let _heavyPending = null;
+
+function _scheduleHeavyUpdate(args) {
+    _heavyPending = args;
+    if (_heavyTimer) clearTimeout(_heavyTimer);
+    _heavyTimer = setTimeout(_runHeavyUpdate, 150);
+}
+
+// Flush immediately — used at init/language-change (so the page paints complete)
+// and on page-hide (so the last keystroke is never lost to the debounce).
+function _flushHeavyUpdate() {
+    if (_heavyTimer) { clearTimeout(_heavyTimer); _heavyTimer = null; }
+    if (_heavyPending) _runHeavyUpdate();
+}
+
+function _runHeavyUpdate() {
+    _heavyTimer = null;
+    if (!_heavyPending) return;
+    const { sam, effTarget, currentActualEff, duration } = _heavyPending;
+
     const gap    = effTarget - currentActualEff;
     const tGrid  = document.getElementById('trainingGrid');
     const tChart = document.getElementById('learningChart');
@@ -1267,6 +997,7 @@ function calculateAll() {
         } else {
             tGrid.innerHTML = '';
             _chartCache = { data: [], targetPcs: 0, effTarget: 0 };
+            _chartAnimated = false;  // arm the draw-in animation for the next time
             if (tChart) tChart.style.display = 'none';
         }
     }
@@ -1274,128 +1005,15 @@ function calculateAll() {
     saveFormState();
 }
 
-// --- 7. Learning Curve Chart ---
-function setChartMode(mode) {
-    chartMode = mode;
-    renderChartFromCache();
-}
-
-function renderChartFromCache() {
-    const tChart = document.getElementById('learningChart');
-    if (!tChart) return;
-    if (!_chartCache.data.length) { tChart.style.display = 'none'; return; }
-
-    tChart.style.display = 'block';
-    const { data, targetPcs, effTarget, currentEff, currentPcs } = _chartCache;
-    const isPcs    = chartMode === 'pcs' && targetPcs > 0;
-    const day0Val  = isPcs ? (currentPcs || 0) : (currentEff || 0);
-    const baseVals = data.map(d => ({ day: d.day, value: isPcs ? d.pcs : d.eff }));
-    const values   = day0Val > 0
-        ? [{ day: 0, value: day0Val, isDay0: true }, ...baseVals]
-        : baseVals;
-    const target   = isPcs ? targetPcs : effTarget;
-    const unit     = isPcs ? (pcsPerHr[currentLang] || 'pcs/hr') : '%';
-    const pcsLabel = pcsPerHr[currentLang] || 'pcs/hr';
-    const hasPcs   = targetPcs > 0;
-
-    tChart.innerHTML = `
-    <div class="chart-header">
-        <div class="chart-toggle-group">
-            <button class="chart-toggle-btn ${isPcs ? 'active' : ''} ${!hasPcs ? 'disabled' : ''}"
-                    onclick="setChartMode('pcs')" ${!hasPcs ? 'disabled' : ''}>${pcsLabel}</button>
-            <button class="chart-toggle-btn ${!isPcs ? 'active' : ''}"
-                    onclick="setChartMode('eff')">Eff %</button>
-        </div>
-    </div>
-    ${renderSVGChart(values, target, unit)}`;
-}
-
-function renderSVGChart(values, target, unit) {
-    const n = values.length;
-    if (n === 0) return '';
-
-    const W = 400, H = 180;
-    const p = { t: 20, r: 36, b: 36, l: 42 };
-    const cw = W - p.l - p.r;
-    const ch = H - p.t - p.b;
-
-    const maxY = Math.max(target * 1.2, ...values.map(d => d.value), 1);
-    const x    = i => p.l + (n === 1 ? cw / 2 : (i / (n - 1)) * cw);
-    const y    = v => p.t + ch - (v / maxY) * ch;
-
-    // Y-axis grid + labels
-    const yTicks = [0, 0.25, 0.5, 0.75, 1].map(f => {
-        const v = Math.round(maxY * f), yv = y(v);
-        return `<line x1="${p.l}" y1="${yv}" x2="${p.l+cw}" y2="${yv}"
-                      stroke="var(--border)" stroke-width="1"/>
-                <text x="${p.l-5}" y="${yv+4}" font-size="10" text-anchor="end"
-                      fill="var(--text-3)" font-family="var(--font)">${v}</text>`;
-    }).join('');
-
-    // Target line
-    const ty          = y(target);
-    const targetLabel = unit === '%' ? `${target}%` : `${target} ${unit}`;
-    const targetSvg   = target > 0 ? `
-        <line x1="${p.l}" y1="${ty}" x2="${p.l+cw}" y2="${ty}"
-              stroke="var(--danger)" stroke-width="1.5" stroke-dasharray="5,3"/>
-        <text x="${p.l+cw}" y="${ty-5}" font-size="10" text-anchor="end"
-              fill="var(--danger)" font-family="var(--font)" font-weight="600">${targetLabel}</text>` : '';
-
-    // Area
-    const areaPath = [`M ${x(0)} ${p.t+ch}`,
-        ...values.map((d, i) => `L ${x(i)} ${y(d.value)}`),
-        `L ${x(n-1)} ${p.t+ch} Z`].join(' ');
-    const area = `<path d="${areaPath}" fill="var(--accent-500)" opacity="0.12"/>`;
-
-    // Line
-    const linePath = values.map((d, i) => `${i===0?'M':'L'} ${x(i)} ${y(d.value)}`).join(' ');
-    const line = `<path d="${linePath}" fill="none" stroke="var(--accent-500)"
-                       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-
-    // Dots + hover tooltips
-    const dots = values.map((d, i) => {
-        const cx = x(i), cy = y(d.value);
-        const lbl = unit === '%' ? `${d.value}%` : `${d.value} ${unit}`;
-        const anchor = cx < p.l + cw / 2 ? 'start' : 'end';
-        const tx = anchor === 'start' ? cx + 8 : cx - 8;
-        const ty = cy - 10;
-        if (d.isDay0) {
-            return `
-                <circle cx="${cx}" cy="${cy}" r="5"
-                        fill="var(--warning)" stroke="var(--surface)" stroke-width="2.5"/>
-                <text x="${cx+6}" y="${cy+10}" font-size="9" text-anchor="start"
-                      fill="var(--warning)" font-family="var(--font)" font-weight="700">${lbl}</text>`;
-        }
-        return `<g class="chart-dot-group">
-            <circle cx="${cx}" cy="${cy}" r="4"
-                    fill="var(--accent-500)" stroke="var(--surface)" stroke-width="2"
-                    class="chart-dot"/>
-            <circle cx="${cx}" cy="${cy}" r="16" fill="transparent" class="chart-hit"/>
-            <text x="${tx}" y="${ty}" font-size="9.5" text-anchor="${anchor}"
-                  fill="var(--text-1)" font-family="var(--font)" font-weight="600"
-                  class="chart-tip">${lbl}</text>
-        </g>`;
-    }).join('');
-
-    // X labels — แสดงทุกหน่วย (1, 2, 3, ...)
-    const xLabels = values.map((d, i) =>
-        `<text x="${x(i)}" y="${p.t+ch+10}" font-size="10" text-anchor="middle"
-               fill="var(--text-3)" font-family="var(--font)">${d.day}</text>`
-    ).join('');
-
-    // Axes
-    const axes = `
-        <line x1="${p.l}" y1="${p.t}" x2="${p.l}" y2="${p.t+ch}"
-              stroke="var(--border-strong)" stroke-width="1.5"/>
-        <line x1="${p.l}" y1="${p.t+ch}" x2="${p.l+cw}" y2="${p.t+ch}"
-              stroke="var(--border-strong)" stroke-width="1.5"/>`;
-
-    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
-        ${yTicks}${area}${targetSvg}${line}${dots}${axes}${xLabels}
-    </svg>`;
-}
+// --- 7. Learning Curve Chart moved to chart.js ---
 
 // --- 8. Google Forms Integration ---
+// Google Forms only accepts mode:'no-cors' so we can NEVER verify server-side
+// success from the browser — every fetch() resolves opaquely. The real fix is
+// a Cloudflare Worker / Supabase Edge Function that proxies + rate-limits +
+// returns real ACKs. Until that ships, the best we can do is detect *network
+// unavailability* and queue for the next `online` event so factory users
+// who fill in feedback offline don't silently lose it.
 async function sendToGoogleForms(rating, message, email) {
     const body = new URLSearchParams({
         [GFORM.entry.rating]:  String(rating || '-'),
@@ -1403,6 +1021,135 @@ async function sendToGoogleForms(rating, message, email) {
         [GFORM.entry.email]:   email || '-',
     });
     await fetch(GFORM.url, { method: 'POST', mode: 'no-cors', body });
+}
+
+// ---- Feedback offline queue ----
+const FEEDBACK_QUEUE_KEY = 'csa_feedback_queue_v1';
+const FEEDBACK_QUEUE_MAX = 20;
+
+function loadFeedbackQueue() {
+    try {
+        const raw = localStorage.getItem(FEEDBACK_QUEUE_KEY);
+        const q = raw ? JSON.parse(raw) : [];
+        return Array.isArray(q) ? q : [];
+    } catch { return []; }
+}
+function saveFeedbackQueue(q) {
+    try { localStorage.setItem(FEEDBACK_QUEUE_KEY, JSON.stringify(q)); } catch {}
+}
+function queueFeedback(entry) {
+    const q = loadFeedbackQueue();
+    q.push({ ...entry, queuedAt: Date.now() });
+    // Cap oldest-first to keep localStorage bounded
+    if (q.length > FEEDBACK_QUEUE_MAX) q.splice(0, q.length - FEEDBACK_QUEUE_MAX);
+    saveFeedbackQueue(q);
+    gaTrack('feedback_queued');
+}
+async function drainFeedbackQueue() {
+    if (!navigator.onLine) return;
+    const q = loadFeedbackQueue();
+    if (!q.length) return;
+    const remaining = [];
+    for (const entry of q) {
+        try { await sendToGoogleForms(entry.rating, entry.message, entry.email); }
+        catch (_) { remaining.push(entry); }
+    }
+    saveFeedbackQueue(remaining);
+    const sent = q.length - remaining.length;
+    if (sent > 0) gaTrack('feedback_queue_drained', { sent });
+}
+
+// Drain whenever the browser reports connectivity restored.
+window.addEventListener('online', drainFeedbackQueue);
+
+// ---- PWA install ----
+// Chrome/Edge/Android fire `beforeinstallprompt`. We stash the event, then
+// reveal the header install chip once the user has opened the app more than
+// once (avoids nagging on the first visit). Fully silent on iOS Safari and
+// on browsers that never send the event.
+let _pwaPrompt = null;
+const SESSION_COUNT_KEY = 'csa_session_count';
+
+function _bumpSessionCount() {
+    try {
+        const n = (parseInt(localStorage.getItem(SESSION_COUNT_KEY)) || 0) + 1;
+        localStorage.setItem(SESSION_COUNT_KEY, String(n));
+        return n;
+    } catch { return 1; }
+}
+function _shouldOfferInstall() {
+    // Already installed as a standalone PWA? Never re-offer.
+    if (window.matchMedia('(display-mode: standalone)').matches) return false;
+    if (window.navigator.standalone === true) return false;   // iOS PWA
+    const n = parseInt(localStorage.getItem(SESSION_COUNT_KEY)) || 0;
+    return n >= 2;
+}
+
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _pwaPrompt = e;
+    const btn = document.getElementById('installMenuItem');
+    if (btn && _shouldOfferInstall()) btn.style.display = '';
+});
+
+window.addEventListener('appinstalled', () => {
+    gaTrack('pwa_installed');
+    _pwaPrompt = null;
+    const btn = document.getElementById('installMenuItem');
+    if (btn) btn.style.display = 'none';
+});
+
+async function pwaInstall() {
+    if (!_pwaPrompt) return;
+    gaTrack('pwa_install_click');
+    _pwaPrompt.prompt();
+    const { outcome } = await _pwaPrompt.userChoice;
+    gaTrack('pwa_install_choice', { outcome });
+    _pwaPrompt = null;
+    const btn = document.getElementById('installMenuItem');
+    if (btn) btn.style.display = 'none';
+}
+
+// ---- First-run onboarding tour ----
+const ONBOARDED_KEY = 'csa_onboarded_v1';
+let _onboardStep = 0;
+
+function showOnboardingIfNeeded() {
+    try { if (localStorage.getItem(ONBOARDED_KEY)) return; } catch { return; }
+    const ov = document.getElementById('onboardingOverlay');
+    if (!ov) return;
+    _onboardStep = 0;
+    _renderOnboardStep();
+    ov.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    gaTrack('onboarding_shown');
+}
+function _renderOnboardStep() {
+    const screens = document.querySelectorAll('.onboard-screen');
+    const dots    = document.querySelectorAll('.onboard-dot');
+    screens.forEach((s, i) => { s.hidden = i !== _onboardStep; });
+    dots.forEach   ((d, i) => d.classList.toggle('active', i === _onboardStep));
+    const nextBtn = document.getElementById('onboardNextBtn');
+    if (!nextBtn) return;
+    const label = nextBtn.querySelector('.lang-text');
+    const isLast = _onboardStep === screens.length - 1;
+    const key = isLast ? 'ob_start' : 'ob_next';
+    label.setAttribute('data-key', key);
+    label.textContent = t(key);
+}
+function onboardNext() {
+    const screens = document.querySelectorAll('.onboard-screen');
+    if (_onboardStep >= screens.length - 1) { finishOnboarding(); return; }
+    _onboardStep++;
+    _renderOnboardStep();
+    gaTrack('onboarding_next', { step: _onboardStep });
+}
+function finishOnboarding() {
+    try { localStorage.setItem(ONBOARDED_KEY, '1'); } catch {}
+    const ov = document.getElementById('onboardingOverlay');
+    if (ov) ov.style.display = 'none';
+    document.body.style.overflow = '';
+    gaTrack('onboarding_done', { step: _onboardStep });
 }
 
 function showToast(message) {
@@ -1465,161 +1212,187 @@ async function submitFeedback() {
     const originalText = sendLabel.innerText;
     sendLabel.innerText = '...';
 
+    let queued = false;
     if (GFORM_ENABLED) {
-        try { await sendToGoogleForms(rating, message, email); }
-        catch (_) { /* no-cors: verify ไม่ได้ ถือว่าส่งแล้ว */ }
+        if (!navigator.onLine) {
+            // Offline right now → queue for the next `online` event
+            queueFeedback({ rating, message, email });
+            queued = true;
+        } else {
+            try { await sendToGoogleForms(rating, message, email); }
+            catch (_) { queueFeedback({ rating, message, email }); queued = true; }
+        }
     }
 
     closeFeedbackModal();
-    showToast(t('feedback_thanks'));
+    showToast(queued
+        ? (currentLang === 'th' ? '📨 บันทึกแล้ว จะส่งเมื่อออนไลน์' : '📨 Saved — will send when back online')
+        : t('feedback_thanks'));
 
     submitFeedbackBtn.disabled = false;
     submitFeedbackBtn.style.opacity = '';
     sendLabel.innerText = originalText;
 }
 
-// --- 8b. History / Compare Modal ---
-function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
+// --- 8a2. Formula Modal — show the "how it's calculated" for computed fields.
+//     Every entry has titleKey (reuses the field label key) + formula/desc
+//     translation keys, and a compute() that reads current inputs to build
+//     the "your values" substituted line + the numeric result. compute()
+//     returns null when required inputs are missing → we show fx_no_data. ---
+const FORMULA_DEFS = {
+    target_pcs: {
+        titleKey:   'qty_label',
+        formulaKey: 'fx_formula_target_pcs',
+        descKey:    'fx_desc_target_pcs',
+        compute() {
+            const sam = getSamMinutes();
+            const eff = parseFloat(document.getElementById('effTargetInput').value) || 0;
+            if (!(sam > 0) || !(eff > 0)) return null;
+            const pcs = pcsFromEff(sam, eff);
+            return {
+                substituted: `(60 ÷ ${trimNum(sam)}) × (${eff} ÷ 100) = ${pcs}`,
+                result: `${pcs} ${pcsPerHr[currentLang] || 'pcs/hr'}`,
+            };
+        },
+    },
+    new_sam: {
+        titleKey:   'new_sam_label',
+        formulaKey: 'fx_formula_new_sam',
+        descKey:    'fx_desc_new_sam',
+        compute() {
+            const sam = getSamMinutes();
+            const eff = parseFloat(document.getElementById('effTargetInput').value) || 0;
+            const newSamMin = newSamFromEff(sam, eff);
+            if (newSamMin === null) return null;
+            const val  = samUnit === 'sec' ? newSamMin * 60 : newSamMin;
+            const unit = t(samUnit === 'sec' ? 'unit_sec' : 'unit_min');
+            return {
+                substituted: `${trimNum(sam)} ÷ (${eff} ÷ 100) = ${newSamMin.toFixed(3)} ${t('unit_min')}`,
+                result: `${val.toFixed(2)} ${unit}`,
+            };
+        },
+    },
+    avg_sec: {
+        titleKey:   'avg_timesec',
+        formulaKey: 'fx_formula_avg_sec',
+        descKey:    'fx_desc_avg_sec',
+        compute() {
+            const m = parseFloat(document.getElementById('totalMin').value) || 0;
+            const s = parseFloat(document.getElementById('totalTime').value) || 0;
+            const c = parseFloat(document.getElementById('totalCount').value) || 0;
+            if (!(c > 0) || !(m > 0 || s > 0)) return null;
+            const totalSec = m * 60 + s;
+            const avgSec   = Math.ceil(totalSec / c);
+            return {
+                substituted: `((${m} × 60) + ${s}) ÷ ${c} = ${(totalSec / c).toFixed(2)}`,
+                result: `${avgSec} ${t('unit_sec')}`,
+            };
+        },
+    },
+    avg_min: {
+        titleKey:   'avg_timemin',
+        formulaKey: 'fx_formula_avg_min',
+        descKey:    'fx_desc_avg_min',
+        compute() {
+            const m = parseFloat(document.getElementById('totalMin').value) || 0;
+            const s = parseFloat(document.getElementById('totalTime').value) || 0;
+            const c = parseFloat(document.getElementById('totalCount').value) || 0;
+            const avg = calcAvgMin(m, s, c);
+            if (avg === null) return null;
+            return {
+                substituted: `((${m} × 60) + ${s}) ÷ ${c} ÷ 60 = ${avg.toFixed(4)}`,
+                result: `${avg.toFixed(2)} ${t('unit_min')}`,
+            };
+        },
+    },
+    actual_eff: {
+        titleKey:   'actual_eff',
+        formulaKey: 'fx_formula_actual_eff',
+        descKey:    'fx_desc_actual_eff',
+        compute() {
+            const sam = getSamMinutes();
+            const m = parseFloat(document.getElementById('totalMin').value) || 0;
+            const s = parseFloat(document.getElementById('totalTime').value) || 0;
+            const c = parseFloat(document.getElementById('totalCount').value) || 0;
+            const avg = calcAvgMin(m, s, c);
+            const eff = calcActualEff(sam, avg);
+            if (eff === null) return null;
+            return {
+                substituted: `(${trimNum(sam)} ÷ ${avg.toFixed(4)}) × 100 = ${eff}`,
+                result: `${eff} %`,
+            };
+        },
+    },
+    actual_pcs: {
+        titleKey:   'actual_pcs',
+        formulaKey: 'fx_formula_actual_pcs',
+        descKey:    'fx_desc_actual_pcs',
+        compute() {
+            const m = parseFloat(document.getElementById('totalMin').value) || 0;
+            const s = parseFloat(document.getElementById('totalTime').value) || 0;
+            const c = parseFloat(document.getElementById('totalCount').value) || 0;
+            const avg = calcAvgMin(m, s, c);
+            const pcs = calcActualPcsPerHr(avg);
+            if (pcs === null) return null;
+            return {
+                substituted: `60 ÷ ${avg.toFixed(4)} = ${pcs}`,
+                result: `${pcs} ${pcsPerHr[currentLang] || 'pcs/hr'}`,
+            };
+        },
+    },
+    pass_rate: {
+        titleKey:   'pass_rate',
+        formulaKey: 'fx_formula_pass_rate',
+        descKey:    'fx_desc_pass_rate',
+        compute() {
+            const p = parseFloat(document.getElementById('passQty').value) || 0;
+            const f = parseFloat(document.getElementById('failQty').value) || 0;
+            const rate = calcPassRate(p, f);
+            if (rate === null) return null;
+            return {
+                substituted: `(${p} ÷ (${p} + ${f})) × 100 = ${rate}`,
+                result: `${rate} %`,
+            };
+        },
+    },
+};
 
-const historyModal        = document.getElementById('historyModal');
-const closeHistoryBtn     = document.getElementById('closeHistoryBtn');
-const historyCloseBtn     = document.getElementById('historyCloseBtn');
-const historySaveBtn      = document.getElementById('historySaveBtn');
-const historyLabelInput   = document.getElementById('historyLabelInput');
-const historyListEl       = document.getElementById('historyList');
-const historyEmptyMsg     = document.getElementById('historyEmptyMsg');
-const historyCompareBtn   = document.getElementById('historyCompareBtn');
-const historyListView     = document.getElementById('historyListView');
-const historyCompareView  = document.getElementById('historyCompareView');
-const historyListFooter   = document.getElementById('historyListFooter');
-const historyCompareFooter= document.getElementById('historyCompareFooter');
-const compareTableWrap    = document.getElementById('compareTableWrap');
-const compareBackBtn      = document.getElementById('compareBackBtn');
+function openFormulaModal(key) {
+    const def = FORMULA_DEFS[key];
+    if (!def) return;
+    const modal = document.getElementById('formulaModal');
+    if (!modal) return;
 
-let historySelected = new Set();
+    document.getElementById('formulaTitle').textContent = t(def.titleKey);
+    document.getElementById('formulaExpr').textContent  = t(def.formulaKey);
+    document.getElementById('formulaDesc').textContent  = t(def.descKey);
 
-function fmtHistoryTs(ts) {
-    const d = new Date(ts);
-    const pad = n => String(n).padStart(2, '0');
-    return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+    const subBlock  = document.getElementById('formulaSubBlock');
+    const emptyMsg  = document.getElementById('formulaEmpty');
+    const computed  = def.compute();
+    if (computed) {
+        subBlock.style.display = '';
+        emptyMsg.style.display = 'none';
+        document.getElementById('formulaSubstituted').textContent = computed.substituted;
+        document.getElementById('formulaResult').textContent      = computed.result;
+    } else {
+        subBlock.style.display = 'none';
+        emptyMsg.style.display = '';
+    }
 
-function openHistoryModal() {
-    gaTrack('open_history');
-    renderHistoryList();
-    showHistoryListView();
-    historyModal.style.display = 'flex';
+    modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
+    gaTrack('open_formula', { key });
 }
 
-function closeHistoryModal() {
-    historyModal.style.display = 'none';
+function closeFormulaModal() {
+    const modal = document.getElementById('formulaModal');
+    if (!modal) return;
+    modal.style.display = 'none';
     document.body.style.overflow = '';
 }
 
-function showHistoryListView() {
-    historyListView.style.display    = 'block';
-    historyCompareView.style.display = 'none';
-    historyListFooter.style.display    = 'flex';
-    historyCompareFooter.style.display = 'none';
-}
-
-function showHistoryCompareView() {
-    historyListView.style.display    = 'none';
-    historyCompareView.style.display = 'block';
-    historyListFooter.style.display    = 'none';
-    historyCompareFooter.style.display = 'flex';
-}
-
-function historyRowHtml(e) {
-    const { computed } = e;
-    const title = e.label || fmtHistoryTs(e.ts);
-    const metaParts = [];
-    if (computed.actualEff !== null) metaParts.push(`${computed.actualEff}% eff`);
-    if (computed.targetPcs > 0)      metaParts.push(`${computed.targetPcs} ${pcsPerHr[currentLang] || 'pcs/hr'}`);
-    if (computed.passRate !== null)  metaParts.push(`${computed.passRate}% pass`);
-    return `
-    <div class="history-row" data-id="${e.id}">
-        <label class="history-row-check">
-            <input type="checkbox" class="history-check" value="${e.id}">
-        </label>
-        <div class="history-row-main">
-            <div class="history-row-title">${escapeHtml(title)}</div>
-            <div class="history-row-meta">${escapeHtml(metaParts.join(' · ') || '—')}</div>
-        </div>
-        <button type="button" class="history-delete-btn" data-id="${e.id}" aria-label="Delete">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        </button>
-    </div>`;
-}
-
-function renderHistoryList() {
-    const list = loadHistory();
-    historyEmptyMsg.style.display = list.length ? 'none' : 'block';
-    historyListEl.innerHTML = list.map(historyRowHtml).join('');
-
-    historyListEl.querySelectorAll('.history-check').forEach(cb => {
-        cb.checked = historySelected.has(cb.value);
-        cb.addEventListener('change', () => {
-            if (cb.checked) historySelected.add(cb.value); else historySelected.delete(cb.value);
-            updateCompareButtonState();
-        });
-    });
-    historyListEl.querySelectorAll('.history-delete-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (!confirm(t('history_delete_confirm'))) return;
-            deleteHistoryEntry(btn.dataset.id);
-            historySelected.delete(btn.dataset.id);
-            renderHistoryList();
-        });
-    });
-    updateCompareButtonState();
-}
-
-function updateCompareButtonState() {
-    if (historyCompareBtn) historyCompareBtn.disabled = historySelected.size < 2;
-}
-
-function handleHistorySave() {
-    saveCurrentToHistory(historyLabelInput.value);
-    historyLabelInput.value = '';
-    renderHistoryList();
-}
-
-function renderCompareTable() {
-    const selected = loadHistory().filter(e => historySelected.has(e.id));
-    if (selected.length < 2) return;
-
-    const rows = [
-        { key: 'sam_label',    get: e => e.inputs.sam > 0 ? e.inputs.sam : '—' },
-        { key: 'eff_target',   get: e => e.inputs.effTarget > 0 ? `${e.inputs.effTarget}%` : '—' },
-        { key: 'qty_label',    get: e => e.computed.targetPcs > 0 ? e.computed.targetPcs : '—' },
-        { key: 'actual_eff',   get: e => e.computed.actualEff !== null ? `${e.computed.actualEff}%` : '—' },
-        { key: 'actual_pcs',   get: e => e.computed.actualPcs !== null ? e.computed.actualPcs : '—' },
-        { key: 'pass_rate',    get: e => e.computed.passRate !== null ? `${e.computed.passRate}%` : '—' },
-        { key: 'compare_gap',  get: e => (e.computed.actualEff !== null && e.inputs.effTarget > 0)
-                                          ? `${e.computed.actualEff - e.inputs.effTarget}%` : '—' },
-    ];
-
-    const headerCells = selected.map(e => `<th>${escapeHtml(e.label || fmtHistoryTs(e.ts))}</th>`).join('');
-    const bodyRows = rows.map(r => `
-        <tr><th scope="row">${t(r.key)}</th>${selected.map(e => `<td>${r.get(e)}</td>`).join('')}</tr>`).join('');
-
-    compareTableWrap.innerHTML = `
-        <table class="compare-table">
-            <thead><tr><th></th>${headerCells}</tr></thead>
-            <tbody>${bodyRows}</tbody>
-        </table>`;
-}
-
-function openCompareView() {
-    if (historySelected.size < 2) return;
-    gaTrack('compare_history', { count: historySelected.size });
-    renderCompareTable();
-    showHistoryCompareView();
-}
+// --- 8b. History / Compare Modal moved to history.js ---
 
 // --- 8c. Theme Toggle ---
 function getEffectiveTheme() {
@@ -1680,23 +1453,41 @@ historyModal?.addEventListener('click', e => {
     if (e.target === historyModal) closeHistoryModal();
 });
 
-document.getElementById('langTrigger')?.addEventListener('click', e => {
+// Formula modal — event delegation on labels with data-fx
+document.addEventListener('click', e => {
+    const trigger = e.target.closest('[data-fx]');
+    if (trigger) {
+        e.preventDefault();
+        openFormulaModal(trigger.dataset.fx);
+    }
+});
+document.getElementById('closeFormulaBtn')?.addEventListener('click', closeFormulaModal);
+document.getElementById('closeFormulaOkBtn')?.addEventListener('click', closeFormulaModal);
+document.getElementById('formulaModal')?.addEventListener('click', e => {
+    if (e.target.id === 'formulaModal') closeFormulaModal();
+});
+
+document.getElementById('actionsTrigger')?.addEventListener('click', e => {
     e.stopPropagation();
-    toggleLangMenu();
+    toggleActionsMenu();
 });
 document.querySelectorAll('.lang-option').forEach(opt => {
+    // Language pills swap language but leave the menu open so the user sees
+    // which flag became active. Menu closes via outside-click / Escape.
     opt.addEventListener('click', () => changeLanguage(opt.dataset.lang));
 });
 document.addEventListener('click', e => {
-    if (!e.target.closest('#langSelector')) closeLangMenu();
+    if (!e.target.closest('#actionsMenu')) closeActionsMenu();
 });
 
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         if (feedbackModal?.style.display === 'flex') closeFeedbackModal();
         if (historyModal?.style.display === 'flex') closeHistoryModal();
+        const formulaModal = document.getElementById('formulaModal');
+        if (formulaModal?.style.display === 'flex') { closeFormulaModal(); return; }
         const tsConfigModal = document.getElementById('tsConfigModal');
-        if (tsConfigModal?.style.display === 'flex') { closeTsConfigModal(); closeLangMenu(); return; }
+        if (tsConfigModal?.style.display === 'flex') { closeTsConfigModal(); closeActionsMenu(); return; }
         const swModal = document.getElementById('swModal');
         if (swModal?.style.display === 'flex') {
             const hasOpenInfo = document.querySelector('.sw-stat-desc.sw-show');
@@ -1705,7 +1496,7 @@ document.addEventListener('keydown', e => {
         } else {
             swCloseStatInfo();
         }
-        closeLangMenu();
+        closeActionsMenu();
     }
 });
 
@@ -1755,7 +1546,22 @@ if ('serviceWorker' in navigator) {
 initGA4(); // Google Analytics 4
 initTheme();
 restoreFormState();
-changeLanguage('th');
+_bumpSessionCount();  // used by _shouldOfferInstall()
+// Retry any feedback captured while previously offline (fire-and-forget)
+drainFeedbackQueue();
+// Show 3-screen tour on first launch only (persisted in localStorage)
+showOnboardingIfNeeded();
+// Restore last chosen language (falls back to Thai if unset or invalid)
+const _savedLang = (() => { try { return localStorage.getItem('csa_lang'); } catch { return null; } })();
+changeLanguage(_savedLang && translations[_savedLang] ? _savedLang : 'th');
 calculateAll();
+_flushHeavyUpdate();   // paint the training grid + chart immediately on first load
 if (document.readyState === 'complete') loadWebFonts();
 else window.addEventListener('load', loadWebFonts);
+
+// Never lose the last keystroke to the debounce: flush the pending save when
+// the tab is hidden or the app is being closed.
+window.addEventListener('pagehide', _flushHeavyUpdate);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') _flushHeavyUpdate();
+});

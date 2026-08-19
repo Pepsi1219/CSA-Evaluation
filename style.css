@@ -5,14 +5,34 @@
 
 /* ---- 1. Design Tokens ------------------------------------- */
 :root {
-    /* Brand / Accent */
+    /* Brand / Accent — indigo "target / plan / brand" */
     --accent-50:  #eef2ff;
     --accent-100: #e0e7ff;
     --accent-300: #a5b4fc;
     --accent-500: #6366f1;
     --accent-600: #4f46e5;
     --accent-700: #4338ca;
+    /* Reserved for the primary CTA and brand mark only — no longer sprayed
+       across every button/pill/table header (that was the AI-scaffold tell). */
     --accent-grad: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+
+    /* Teal — "actual / measured" surfaces (semantic differentiation from
+       indigo target/plan). Used sparingly for values that come from the
+       shop floor rather than the plan. */
+    --accent-teal-50:  #ecfdf5;
+    --accent-teal-100: #d1fae5;
+    --accent-teal-500: #14b8a6;
+    --accent-teal-600: #0d9488;
+    --accent-teal-700: #0f766e;
+
+    /* Ambient status — threshold-driven tints on result values. Semantic,
+       not brand — never used as an accent for structure. */
+    --status-ok-soft:   #d1fae5;
+    --status-ok-text:   #047857;
+    --status-warn-soft: #fef3c7;
+    --status-warn-text: #92400e;
+    --status-bad-soft:  #fee2e2;
+    --status-bad-text:  #b91c1c;
 
     /* Semantic */
     --success: #16a34a;
@@ -35,11 +55,13 @@
     --text-2: #5b5f76;
     --text-3: #9095ab;
 
-    /* Radius */
+    /* Radius — wider spread reads more intentional than uniform mid-radius */
+    --r-xs: 6px;
     --r-sm: 10px;
     --r-md: 14px;
     --r-lg: 20px;
     --r-xl: 28px;
+    --r-2xl: 32px;
     --r-full: 999px;
 
     /* Shadow (layered, soft) */
@@ -79,6 +101,19 @@
         --danger-soft: rgba(239, 68, 68, 0.18);
         --warning: #fbbf24;
 
+        --accent-teal-50:  rgba(20, 184, 166, 0.14);
+        --accent-teal-100: rgba(20, 184, 166, 0.22);
+        --accent-teal-500: #2dd4bf;
+        --accent-teal-600: #14b8a6;
+        --accent-teal-700: #7dd3c1;
+
+        --status-ok-soft:   rgba(16, 185, 129, 0.18);
+        --status-ok-text:   #6ee7b7;
+        --status-warn-soft: rgba(245, 158, 11, 0.18);
+        --status-warn-text: #fbbf24;
+        --status-bad-soft:  rgba(239, 68, 68, 0.18);
+        --status-bad-text:  #fca5a5;
+
         --bg-app: #0f1117;
         --surface: #1a1d29;
         --surface-2: #222739;
@@ -113,6 +148,19 @@
     --danger: #f87171;
     --danger-soft: rgba(239, 68, 68, 0.18);
     --warning: #fbbf24;
+
+    --accent-teal-50:  rgba(20, 184, 166, 0.14);
+    --accent-teal-100: rgba(20, 184, 166, 0.22);
+    --accent-teal-500: #2dd4bf;
+    --accent-teal-600: #14b8a6;
+    --accent-teal-700: #7dd3c1;
+
+    --status-ok-soft:   rgba(16, 185, 129, 0.18);
+    --status-ok-text:   #6ee7b7;
+    --status-warn-soft: rgba(245, 158, 11, 0.18);
+    --status-warn-text: #fbbf24;
+    --status-bad-soft:  rgba(239, 68, 68, 0.18);
+    --status-bad-text:  #fca5a5;
 
     --bg-app: #0f1117;
     --surface: #1a1d29;
@@ -151,7 +199,8 @@
 *::-webkit-scrollbar { display: none; }  /* Chromium / Safari: no scrollbar */
 
 html {
-    -webkit-text-size-adjust: 100%;
+    -webkit-text-size-adjust: auto;      /* respect OS text-size setting */
+    text-size-adjust: auto;
     -ms-overflow-style: none;            /* legacy Edge/IE */
 }
 
@@ -161,11 +210,16 @@ body {
     padding: var(--sp-5);
     font-family: var(--font);
     color: var(--text-1);
+    /* Flat ground by default. The decorative blobs are a mobile-hero accent
+       layered on only at phone/tablet widths (see media queries) — on desktop
+       they read as a generic template, so we drop them there.
+       No `background-attachment: fixed`: on mobile it forces a full repaint on
+       every scroll frame (no GPU compositing) — a major jank source on low-end
+       Android. A normally-scrolling gradient composites fine. */
     background:
-        radial-gradient(1200px 600px at 100% -10%, var(--bg-blob-1) 0%, transparent 55%),
-        radial-gradient(1000px 500px at -10% 110%, var(--bg-blob-2) 0%, transparent 50%),
+        radial-gradient(1100px 560px at 100% -10%, var(--bg-blob-1) 0%, transparent 55%),
+        radial-gradient(900px 460px at -10% 110%, var(--bg-blob-2) 0%, transparent 50%),
         var(--bg-app);
-    background-attachment: fixed;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -179,7 +233,7 @@ body {
     max-width: 540px;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: var(--r-xl);
+    border-radius: var(--r-2xl);
     box-shadow: var(--sh-lg);
     padding: var(--sp-6);
     position: relative;
@@ -272,46 +326,53 @@ body {
 }
 .icon-btn svg { width: 18px; height: 18px; }
 
-/* ---- 6. Language Dropdown --------------------------------- */
-.lang-selector { position: relative; }
+/* ---- 6. Actions Overflow Menu -----------------------------
+   One trigger button that collapses every header action. Shows the
+   current-language flag alongside a 3-dot icon so users can see at a
+   glance which language is active without opening the menu. */
+.actions-menu { position: relative; }
 
-.lang-trigger {
-    display: flex;
+.actions-trigger {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 44px;
+    gap: 6px;
     height: 44px;
-    padding: 0;
+    padding: 0 10px 0 8px;
     border: 1px solid var(--border);
     background: var(--surface);
     border-radius: var(--r-md);
     cursor: pointer;
-    font-family: var(--font);
-    color: var(--text-1);
-    transition: background 0.18s, border-color 0.18s, transform 0.12s var(--ease-spring);
+    color: var(--text-2);
+    transition: background 0.18s, border-color 0.18s, color 0.18s, transform 0.12s var(--ease-spring);
+    -webkit-tap-highlight-color: transparent;
 }
-.lang-trigger:hover { background: var(--surface-2); }
-.lang-trigger:active { transform: scale(0.9); }
-.lang-trigger .flag { font-size: 20px; line-height: 1; }
-/* Trigger shows the flag only — name + chevron kept for the menu, hidden here */
-.lang-trigger .lang-name,
-.lang-trigger .chevron { display: none; }
-.lang-selector.open .lang-trigger .chevron { transform: rotate(180deg); }
-.lang-selector.open .lang-trigger {
+.actions-trigger:hover  { background: var(--surface-2); color: var(--text-1); }
+.actions-trigger:active { transform: scale(0.96); }
+.actions-menu.open .actions-trigger {
     border-color: var(--accent-300);
     background: var(--accent-50);
+    color: var(--accent-700);
 }
+.actions-current-flag { display: inline-flex; line-height: 0; }
+.actions-current-flag svg {
+    width: 22px; height: 15px;
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+    display: block;
+}
+.actions-dots { width: 14px; height: 14px; flex-shrink: 0; }
 
-.lang-menu {
+.actions-dropdown {
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    min-width: 168px;
+    min-width: 240px;
+    max-width: 300px;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: var(--r-md);
+    border-radius: var(--r-lg);
     box-shadow: var(--sh-md);
-    padding: 6px;
+    padding: 8px;
     z-index: 50;
     opacity: 0;
     visibility: hidden;
@@ -321,17 +382,74 @@ body {
                 transform 0.18s var(--ease-out),
                 visibility 0.18s;
 }
-.lang-selector.open .lang-menu {
+.actions-menu.open .actions-dropdown {
     opacity: 1;
     visibility: visible;
     transform: translateY(0) scale(1);
 }
 
-.lang-option {
+.actions-section-label {
+    font-family: var(--font);
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-3);
+    padding: 8px 10px 6px;
+}
+
+/* Language pills — 4 flags in a compact row */
+.actions-lang-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    padding: 0 4px 6px;
+}
+.actions-lang-row .lang-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-height: 56px;
+    padding: 8px 4px;
+    border: none;
+    background: transparent;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    font-family: var(--font);
+    color: var(--text-2);
+    transition: background 0.14s, color 0.14s;
+}
+.actions-lang-row .lang-option .flag { display: inline-flex; line-height: 0; }
+.actions-lang-row .lang-option .flag svg {
+    width: 26px; height: 17px;
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+    display: block;
+}
+.actions-lang-row .lang-option .lang-code {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+.actions-lang-row .lang-option:hover { background: var(--surface-2); color: var(--text-1); }
+.actions-lang-row .lang-option.active {
+    background: var(--accent-50);
+    color: var(--accent-700);
+}
+
+.actions-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 6px 0;
+}
+
+.actions-item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     width: 100%;
+    min-height: 44px;
     padding: 10px 12px;
     border: none;
     background: transparent;
@@ -342,18 +460,14 @@ body {
     font-weight: 500;
     color: var(--text-1);
     text-align: left;
-    transition: background 0.14s;
+    transition: background 0.14s, color 0.14s;
 }
-.lang-option .flag { font-size: 18px; }
-.lang-option:hover { background: var(--surface-2); }
-.lang-option.active { background: var(--accent-50); color: var(--accent-700); font-weight: 600; }
-.lang-option .check {
-    margin-left: auto;
-    width: 16px; height: 16px;
-    color: var(--accent-600);
-    opacity: 0;
-}
-.lang-option.active .check { opacity: 1; }
+.actions-item svg { width: 18px; height: 18px; flex-shrink: 0; color: var(--text-2); }
+.actions-item:hover { background: var(--surface-2); }
+.actions-item:hover svg { color: var(--text-1); }
+.actions-item.danger { color: var(--danger); }
+.actions-item.danger svg { color: var(--danger); }
+.actions-item.danger:hover { background: var(--danger-soft); }
 
 /* ---- 7. Section Headers ----------------------------------- */
 .section-title {
@@ -427,6 +541,111 @@ label {
     letter-spacing: -0.01em;
 }
 
+/* Clickable label — opens formula modal for computed fields.
+   Only the label + icon area is the hit target; adjacent input/result
+   is unaffected. */
+.fx-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    align-self: flex-start;
+    padding: 2px 6px 2px 2px;
+    margin-left: 0;
+    border-radius: var(--r-sm, 6px);
+    transition: background 0.15s, color 0.15s;
+}
+.fx-label:hover,
+.fx-label:focus-visible {
+    background: var(--surface-3);
+    color: var(--accent-700);
+    outline: none;
+}
+.fx-info-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--text-3);
+    flex-shrink: 0;
+    transition: color 0.15s;
+}
+.fx-label:hover .fx-info-icon,
+.fx-label:focus-visible .fx-info-icon { color: var(--accent-600); }
+/* Hide info-icon in print — no interactivity on paper */
+@media print { .fx-info-icon { display: none; } }
+
+/* Formula modal — reuses .modal-overlay / .feedback-modal shell */
+.formula-modal { max-width: 480px; }
+.fx-block {
+    margin-bottom: var(--sp-4);
+}
+.fx-block:last-child { margin-bottom: 0; }
+.fx-block-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    margin-bottom: var(--sp-2);
+}
+.fx-formula {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: var(--sp-3) var(--sp-3);
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-1);
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+.fx-formula-sub {
+    background: var(--surface);
+    border-color: var(--accent-200, var(--accent-300));
+    color: var(--accent-800, var(--accent-700));
+}
+.fx-desc {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-2);
+}
+.fx-result-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    margin-top: var(--sp-3);
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--accent-50, var(--surface-2));
+    border-radius: var(--r-md);
+    border-left: 3px solid var(--accent-500);
+}
+.fx-result-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.fx-result-value {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent-700);
+    letter-spacing: -0.01em;
+}
+.fx-empty {
+    margin: 0;
+    padding: var(--sp-3);
+    background: var(--surface-2);
+    border-radius: var(--r-md);
+    font-size: 13px;
+    color: var(--text-3);
+    text-align: center;
+}
+
 /* SAM unit (min/sec) toggle */
 .label-row {
     display: flex;
@@ -483,13 +702,26 @@ label {
     background: var(--surface);
     box-shadow: 0 0 0 4px var(--accent-50);
 }
+/* Readonly result inputs are outputs — no text caret, no focus ring */
+.glass-input[readonly] {
+    cursor: default;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    font-size: 17px;
+}
+.glass-input[readonly]:focus { box-shadow: none; }
 
 /* ---- 10. Result Highlights -------------------------------- */
+/* Readonly results read as instrument readouts, not editable inputs:
+   tabular figures, heavier weight, and a faint left rail that inputs lack. */
 .highlight-result-glass {
     background: var(--accent-50) !important;
     color: var(--accent-700) !important;
     border: 1.5px solid var(--accent-100) !important;
     font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    font-size: 17px;
 }
 /* Readonly value shown as a <div> so the unit can be dimmed next to the
    bold number (an <input> can't style parts of its value). */
@@ -514,6 +746,41 @@ label {
     color: var(--success-text) !important;
     border: 1.5px solid var(--success-border) !important;
     font-weight: 700;
+}
+
+/* "Actual / measured" surfaces — teal, semantically distinct from indigo
+   "target / plan". Applies only inside .actual-section so the eye can tell
+   at a glance which numbers came from the shop floor vs the target. */
+.actual-section .section-badge {
+    background: var(--accent-teal-50);
+    color: var(--accent-teal-700);
+}
+.actual-section .highlight-result-glass {
+    background: var(--accent-teal-50) !important;
+    color: var(--accent-teal-700) !important;
+    border-color: var(--accent-teal-100) !important;
+}
+
+/* Ambient status tint — overrides surface + text colour when the value
+   crosses the good/watch/bad threshold. Scannable across a shop floor.
+   Applied via data-status="ok|warn|bad" set from calculateAll(). */
+.highlight-result-glass[data-status="ok"],
+.highlight-pass-rate[data-status="ok"] {
+    background: var(--status-ok-soft)   !important;
+    color:      var(--status-ok-text)   !important;
+    border-color: transparent          !important;
+}
+.highlight-result-glass[data-status="warn"],
+.highlight-pass-rate[data-status="warn"] {
+    background: var(--status-warn-soft) !important;
+    color:      var(--status-warn-text) !important;
+    border-color: transparent          !important;
+}
+.highlight-result-glass[data-status="bad"],
+.highlight-pass-rate[data-status="bad"] {
+    background: var(--status-bad-soft)  !important;
+    color:      var(--status-bad-text)  !important;
+    border-color: transparent          !important;
 }
 
 /* ---- 11. Stopwatch (Hero) --------------------------------- */
@@ -544,37 +811,6 @@ label {
     position: relative;
     font-variant-numeric: tabular-nums;
 }
-.stopwatch-controls {
-    display: flex;
-    gap: var(--sp-3);
-    justify-content: center;
-    position: relative;
-}
-.sw-btn {
-    flex: 1;
-    max-width: 130px;
-    border: none;
-    padding: 12px 18px;
-    border-radius: var(--r-md);
-    font-family: var(--font);
-    font-weight: 600;
-    font-size: 14px;
-    cursor: pointer;
-    transition: transform 0.12s var(--ease-spring), filter 0.18s, background 0.18s;
-}
-.sw-btn:active { transform: scale(0.94); }
-.btn-start-active { background: var(--success); color: #fff; }
-.btn-start-active:hover { filter: brightness(1.08); }
-.btn-stop-active { background: var(--danger); color: #fff; }
-.btn-reset-sw {
-    background: rgba(255,255,255,0.12);
-    color: #fff;
-    backdrop-filter: blur(4px);
-}
-.btn-reset-sw:hover { background: rgba(255,255,255,0.2); }
-.btn-save-sw { background: var(--accent-600); color: #fff; }
-.btn-save-sw:hover { filter: brightness(1.1); }
-
 /* ---- 12. Training Grid ------------------------------------ */
 .training-grid {
     display: grid;
@@ -631,13 +867,16 @@ label {
 /* ---- 14. Feedback Button (FAB) ---------------------------- */
 .feedback-btn {
     position: fixed;
-    bottom: 24px;
-    right: 24px;
+    /* max() lifts the FAB above the Android gesture bar and the iPhone home indicator */
+    bottom: max(24px, env(safe-area-inset-bottom, 0px));
+    right:  max(24px, env(safe-area-inset-right,  0px));
     display: flex;
     align-items: center;
     gap: var(--sp-2);
+    min-height: 44px;
     padding: 13px 20px;
-    background: var(--accent-grad);
+    /* Flat accent — reserve the gradient for the primary Save CTA only */
+    background: var(--accent-600);
     border: none;
     border-radius: var(--r-full);
     color: #fff;
@@ -657,15 +896,29 @@ label {
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(20, 21, 42, 0.55);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    /* Solid-enough dim that the page reads as covered even when the GPU
+       skips the blur (old Android WebViews). Blur is a progressive bonus. */
+    background: rgba(20, 21, 42, 0.62);
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: var(--sp-5);
+    /* Safe-area on all four edges so modals clear the iPhone notch + landscape insets */
+    padding:
+        max(var(--sp-5), env(safe-area-inset-top,    0px))
+        max(var(--sp-5), env(safe-area-inset-right,  0px))
+        max(var(--sp-5), env(safe-area-inset-bottom, 0px))
+        max(var(--sp-5), env(safe-area-inset-left,   0px));
     z-index: 2000;
     animation: fadeIn 0.25s ease;
+}
+/* Apply blur only where the browser supports it — never let an unsupported
+   property leave a heavy repaint hint on low-end GPUs. */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .modal-overlay {
+        background: rgba(20, 21, 42, 0.5);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+    }
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
@@ -675,7 +928,9 @@ label {
     border-radius: var(--r-xl);
     width: 100%;
     max-width: 460px;
-    max-height: 90vh;
+    /* dvh/svh handle iOS Safari's collapsing URL bar so footer buttons never hide */
+    max-height: 90vh;         /* fallback for older browsers */
+    max-height: min(90dvh, 90svh);
     overflow-y: auto;
     box-shadow: var(--sh-lg);
     animation: slideUp 0.32s var(--ease-spring);
@@ -687,10 +942,10 @@ label {
 
 .modal-close {
     position: absolute;
-    top: 16px;
-    right: 16px;
-    width: 34px;
-    height: 34px;
+    top: 12px;
+    right: 12px;
+    width: 44px;
+    height: 44px;
     background: var(--surface-2);
     border: none;
     border-radius: var(--r-full);
@@ -708,7 +963,7 @@ label {
 .modal-header { text-align: center; padding: var(--sp-8) var(--sp-6) var(--sp-4); }
 .modal-icon {
     width: 56px; height: 56px;
-    background: var(--accent-grad);
+    background: var(--accent-600);
     border-radius: var(--r-lg);
     display: flex;
     align-items: center;
@@ -851,9 +1106,26 @@ label {
     text-overflow: ellipsis;
 }
 .history-row-meta { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.history-row-note {
+    font-size: 12px; color: var(--accent-teal-700);
+    background: var(--accent-teal-50);
+    padding: 4px 8px; border-radius: var(--r-sm);
+    margin-top: 6px;
+    max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.history-note-btn {
+    background: transparent; border: none;
+    color: var(--text-3); font-family: var(--font);
+    font-size: 12px; font-weight: 500;
+    cursor: pointer; padding: 4px 0; margin-top: 4px;
+    display: inline-flex; align-items: center; gap: 4px;
+    transition: color 0.15s;
+}
+.history-note-btn:hover { color: var(--accent-600); }
 .history-delete-btn {
     flex: 0 0 auto;
-    width: 32px; height: 32px;
+    width: 44px; height: 44px;
     border: none;
     border-radius: var(--r-full);
     background: transparent;
@@ -899,34 +1171,74 @@ label {
 
 /* ---- 18. Responsive --------------------------------------- */
 @media (max-width: 560px) {
-    body { padding: var(--sp-3); }
-    .container { padding: var(--sp-5) var(--sp-4); border-radius: var(--r-lg); }
+    /* Edge-to-edge: the card becomes the whole viewport (native-app feel)
+       instead of a rounded card floating inside a gradient margin. */
+    body { padding: 0; }
+    .container {
+        max-width: none;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        padding: var(--sp-5) var(--sp-4)
+                 calc(var(--sp-6) + env(safe-area-inset-bottom, 0px));
+        padding-top: max(var(--sp-5), env(safe-area-inset-top, 0px));
+    }
     #display { font-size: 2.7rem; }
     .form-row { gap: var(--sp-3); }
-    .glass-title { font-size: 17px; }
-    .brand-text { display: none; }
+    .glass-title { font-size: 14px; letter-spacing: -0.01em; }
+    .brand-sub { display: none; }
     /* Keep SAM + efficiency side by side on phones; compact the unit
        toggle so the label and toggle still fit the narrow column. */
     .unit-toggle-group { padding: 2px; }
     .unit-toggle-btn { padding: 2px 7px; font-size: 10px; }
+    /* App-footer sits flush inside the full-bleed surface */
+    .app-footer { max-width: none; }
 }
 
 @media (max-width: 380px) {
+    .glass-title { font-size: 12.5px; }
     .form-row { grid-template-columns: 1fr; }
     /* ...except the SAM row, which the user wants kept as two columns. */
     .form-row-sam { grid-template-columns: 1fr 1fr; }
-    .sw-btn { padding: 11px 10px; font-size: 13px; }
+    /* Three-column rows would give ~90 px per input on iPhone SE and wrap
+       labels 2–3 lines; drop to 2 columns and let the third wrap under. */
+    .form-row-three { grid-template-columns: 1fr 1fr; }
+
+    /* Stopwatch header controls (80 + 140 + 80 = 300 px) overflow a 320 px
+       screen inside sw-page's 24 px padding. Shrink fixed side widths and
+       hide the Back label — the chevron is still tappable. */
+    .sw-back-btn, .sw-config-btn, .sw-header-spacer { width: 56px; }
+    .sw-back-btn > span { display: none; }
+    .sw-page { padding: 0 var(--sp-4); }
+}
+
+/* Tablet: iPad Mini (768) and Android tablets. Between phone (≤560 px capped
+   at 540 px card) and desktop (≥1024 px 2-col at 940 px) the card sat at
+   540 px in white space with no intermediate treatment. Give it room. */
+@media (min-width: 768px) and (max-width: 1023px) {
+    body { padding: var(--sp-6); }
+    .container {
+        max-width: 720px;
+        padding: var(--sp-6) var(--sp-7);
+        border-radius: var(--r-xl);
+    }
+    .glass-input { padding: 14px 16px; }
 }
 
 /* Desktop: the card grows and its four sections flow into two balanced
    columns (masonry), so the app fills a wide screen instead of sitting as
    a narrow strip. Mobile/tablet keep the single-column stack untouched. */
 @media (min-width: 1024px) {
-    body { padding: var(--sp-10); }
+    body {
+        padding: var(--sp-10);
+        /* Drop the pastel hero blobs on desktop — they read as a generic
+           template at wide widths. Flat, considered ground instead. */
+        background: var(--bg-app);
+    }
     .container {
         max-width: 940px;
         padding: var(--sp-8);
-        border-radius: var(--r-xl);
+        border-radius: var(--r-2xl);
     }
     .panels {
         column-count: 2;
@@ -1034,16 +1346,18 @@ label {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--sp-5) 0 var(--sp-2);
+    /* Safe-area on top so the header clears the iPhone notch / Dynamic Island */
+    padding: max(var(--sp-5), env(safe-area-inset-top, 0px)) 0 var(--sp-2);
     flex-shrink: 0;
 }
 .sw-header-spacer { width: 80px; }
 .sw-config-btn {
     width: 80px;
+    min-height: 44px;
     display: flex; align-items: center; justify-content: flex-end;
     background: transparent; border: none;
     color: var(--text-3);
-    cursor: pointer; padding: var(--sp-2) 0;
+    cursor: pointer; padding: 10px 0;
     transition: color 0.18s;
     -webkit-tap-highlight-color: transparent;
 }
@@ -1054,7 +1368,8 @@ label {
     background: transparent; border: none;
     color: var(--accent-600);
     font-family: var(--font); font-size: 16px; font-weight: 500;
-    cursor: pointer; padding: var(--sp-2) 0; width: 80px;
+    cursor: pointer; padding: 10px 0; width: 80px;
+    min-height: 44px;
     transition: opacity 0.18s;
 }
 .sw-back-btn:hover { opacity: 0.7; }
@@ -1066,7 +1381,8 @@ label {
     box-shadow: var(--sh-xs);
 }
 .sw-mode-tab {
-    padding: 7px 20px; border: none;
+    min-height: 40px;
+    padding: 10px 20px; border: none;
     border-radius: var(--r-full);
     background: transparent;
     color: var(--text-3);
@@ -1342,7 +1658,8 @@ label {
     padding: 3px;
 }
 .sw-ts-pill {
-    padding: 6px 14px;
+    min-height: 40px;
+    padding: 10px 16px;
     background: transparent; border: none; border-radius: var(--r-full);
     font-family: var(--font); font-size: 13px; font-weight: 600;
     color: var(--text-2); cursor: pointer;
@@ -1350,19 +1667,20 @@ label {
 }
 .sw-ts-pill:hover { color: var(--text-1); }
 .sw-ts-pill.active {
-    background: var(--accent-grad);
+    background: var(--accent-600);
     color: #fff;
     box-shadow: var(--sh-xs);
 }
-.sw-ts-pills-lg .sw-ts-pill { padding: 10px 20px; font-size: 15px; }
+.sw-ts-pills-lg .sw-ts-pill { min-height: 44px; padding: 12px 22px; font-size: 15px; }
 
 .sw-ts-error-input {
-    width: 90px; text-align: center;
+    width: 100px; text-align: center;
     background: var(--surface-2);
     border: 1.5px solid var(--border);
     border-radius: var(--r-sm);
     color: var(--text-1); font-family: var(--font);
-    font-size: 15px; padding: 7px 10px; outline: none;
+    /* 16px min avoids iOS Safari's auto-zoom-on-focus trap */
+    font-size: 16px; padding: 10px 12px; outline: none;
     font-variant-numeric: tabular-nums;
 }
 .sw-ts-error-input:focus { border-color: var(--accent-500); box-shadow: 0 0 0 3px var(--accent-50); }
@@ -1386,7 +1704,7 @@ label {
     font-size: 13px;
 }
 .sw-tt-table thead th {
-    background: var(--accent-grad);
+    background: var(--accent-600);
     color: #fff;
     padding: 10px 8px;
     font-weight: 700; font-size: 12px;
@@ -1468,6 +1786,9 @@ label {
     padding: 20px var(--sp-6) env(safe-area-inset-bottom, 28px);
     margin: 0 calc(-1 * var(--sp-6));
     background: linear-gradient(to top, var(--bg-app) 72%, transparent 100%);
+    /* visualViewport handler animates translateY when iOS keyboard opens */
+    transition: transform 0.18s ease-out;
+    will-change: transform;
 }
 .sw-rounds-row {
     display: flex;
@@ -1511,6 +1832,109 @@ label {
 }
 
 /* ============================================================
+   PWA INSTALL CHIP + FIRST-RUN ONBOARDING TOUR
+   ============================================================ */
+.install-chip { color: var(--accent-600); }
+.install-chip:hover { color: var(--accent-700); background: var(--accent-50); }
+
+.onboard-overlay {
+    position: fixed; inset: 0;
+    background: rgba(20, 21, 42, 0.68);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 5000;
+    padding:
+        max(var(--sp-5), env(safe-area-inset-top,    0px))
+        max(var(--sp-5), env(safe-area-inset-right,  0px))
+        max(var(--sp-5), env(safe-area-inset-bottom, 0px))
+        max(var(--sp-5), env(safe-area-inset-left,   0px));
+    animation: fadeIn 0.28s ease;
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .onboard-overlay {
+        background: rgba(20, 21, 42, 0.55);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+}
+.onboard-card {
+    background: var(--surface);
+    border-radius: var(--r-2xl);
+    max-width: 420px; width: 100%;
+    max-height: min(88dvh, 88svh);
+    padding: 32px 28px 24px;
+    box-shadow: var(--sh-lg);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    animation: slideUp 0.34s var(--ease-spring);
+}
+.onboard-progress {
+    display: flex; justify-content: center; gap: 8px;
+    margin-bottom: 24px;
+}
+.onboard-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--surface-3);
+    transition: background 0.24s var(--ease-out), width 0.24s var(--ease-out);
+}
+.onboard-dot.active { background: var(--accent-600); width: 28px; border-radius: 4px; }
+.onboard-screen {
+    flex: 1;
+    display: flex; flex-direction: column;
+    align-items: center; text-align: center;
+    padding: 8px 4px 24px;
+}
+/* `hidden` attribute needs help beating our own display:flex above */
+.onboard-screen[hidden] { display: none !important; }
+.onboard-icon {
+    width: 88px; height: 88px;
+    margin-bottom: 20px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--accent-50);
+    color: var(--accent-600);
+    border-radius: var(--r-xl);
+}
+.onboard-icon svg { width: 48px; height: 48px; }
+.onboard-title {
+    font-size: 22px; font-weight: 700;
+    color: var(--text-1); margin: 0 0 12px;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    text-wrap: balance;
+}
+.onboard-desc {
+    font-size: 14.5px; line-height: 1.6;
+    color: var(--text-2); margin: 0;
+    max-width: 32ch;
+}
+.onboard-actions {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding-top: 8px;
+    border-top: 1px solid var(--border);
+    margin-top: auto;
+}
+.onboard-skip {
+    background: transparent; border: none;
+    color: var(--text-3); font-family: var(--font);
+    font-size: 14px; font-weight: 500;
+    cursor: pointer; padding: 12px 16px;
+    min-height: 44px;
+    border-radius: var(--r-md);
+    transition: color 0.15s, background 0.15s;
+}
+.onboard-skip:hover { color: var(--text-1); background: var(--surface-2); }
+.onboard-next {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent-600); color: #fff;
+    border: none; border-radius: var(--r-md);
+    padding: 12px 20px; min-height: 44px;
+    font-family: var(--font); font-size: 15px; font-weight: 600;
+    cursor: pointer; box-shadow: var(--sh-accent);
+    transition: filter 0.16s, transform 0.12s var(--ease-spring);
+}
+.onboard-next:hover  { filter: brightness(1.08); }
+.onboard-next:active { transform: scale(0.98); }
+
+/* ============================================================
    PRINT / EXPORT
    ============================================================ */
 .print-only { display: none; }
@@ -1523,19 +1947,27 @@ label {
 }
 
 @media print {
+    /* A4 with sensible margins; browsers use this when "Save as PDF" too */
+    @page { size: A4 portrait; margin: 14mm 12mm; }
+
     body {
         background: white !important;
         padding: 0 !important;
         display: block !important;
+        color: #111 !important;
+        font-size: 11pt;
     }
     .container {
         max-width: 100% !important;
         box-shadow: none !important;
         border: none !important;
         border-radius: 0 !important;
-        padding: 16px 20px !important;
+        padding: 0 !important;
+        background: white !important;
     }
-    /* Hide interactive elements */
+
+    /* Hide everything the reader can't act on in print — action buttons,
+       floating widgets, modals, decorative blobs. */
     .header-actions,
     .sw-launch-btn,
     .feedback-btn,
@@ -1545,20 +1977,55 @@ label {
     .chart-toggle-group,
     .app-footer,
     .sw-overlay,
+    .modal-overlay,
+    #tsConfigModal,
+    #langSelector,
     hr:last-of-type { display: none !important; }
 
-    /* Show print date */
+    /* Reveal the print-only date/version banner at the top of the page */
     .print-only { display: block !important; }
+    .print-date {
+        color: #444 !important;
+        border-bottom: 1px solid #999 !important;
+        font-weight: 500;
+    }
 
-    /* Preserve colors */
+    /* Force color fidelity on status pills, section badges, chart, etc. */
     * {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
     }
-    /* Avoid bad page breaks */
+
+    /* Ambient status pill colors must survive print — override with paper-safe hues */
+    .highlight-result-glass[data-status="ok"],
+    .highlight-pass-rate[data-status="ok"]   { background: #dcfce7 !important; color: #14532d !important; border: 1px solid #86efac !important; }
+    .highlight-result-glass[data-status="warn"],
+    .highlight-pass-rate[data-status="warn"] { background: #fef3c7 !important; color: #78350f !important; border: 1px solid #fcd34d !important; }
+    .highlight-result-glass[data-status="bad"],
+    .highlight-pass-rate[data-status="bad"]  { background: #fee2e2 !important; color: #7f1d1d !important; border: 1px solid #fca5a5 !important; }
+
+    /* Give the target section indigo, actual section teal even on paper */
+    .highlight-result-glass:not([data-status])                 { background: #eef2ff !important; color: #3730a3 !important; border: 1px solid #c7d2fe !important; }
+    .actual-section .highlight-result-glass:not([data-status]) { background: #ecfdf5 !important; color: #115e59 !important; border: 1px solid #99f6e4 !important; }
+
+    /* Bigger, bolder result numbers in print (readouts, not inputs) */
+    .highlight-result-glass, .highlight-pass-rate { font-weight: 700 !important; }
+
+    /* Avoid ugly page breaks */
     .section-title,
     .day-card,
-    .learning-chart-wrap { break-inside: avoid; }
+    .learning-chart-wrap,
+    .panel { break-inside: avoid; }
+    .panel + .panel { break-before: auto; }
+
+    /* Two-column desktop print → single column so PDFs read top-to-bottom */
+    .panels { column-count: 1 !important; }
+
+    /* Anchor URLs so the PDF is self-referential */
+    a[href]::after { content: " (" attr(href) ")"; font-size: 9pt; color: #666; }
+    /* ...but not for internal / javascript links */
+    a[href^="#"]::after,
+    a[href^="javascript:"]::after { content: ""; }
 }
 
 /* ============================================================
@@ -1592,7 +2059,7 @@ label {
     background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: var(--r-md);
-    padding: var(--sp-3) var(--sp-3) var(--sp-2);
+    padding: var(--sp-2) var(--sp-2) var(--sp-1);
     overflow: hidden;
 }
 
@@ -1600,7 +2067,7 @@ label {
 .chart-header {
     display: flex;
     justify-content: flex-end;
-    margin-bottom: var(--sp-3);
+    margin-bottom: var(--sp-1);
 }
 
 .chart-toggle-group {
@@ -1612,7 +2079,8 @@ label {
 }
 
 .chart-toggle-btn {
-    padding: 7px 18px;
+    min-height: 40px;
+    padding: 10px 18px;
     border: none;
     border-radius: var(--r-full);
     font-family: var(--font);
@@ -1638,3 +2106,8 @@ label {
 .chart-dot-group .chart-tip { opacity: 0; transition: opacity .15s; pointer-events: none; }
 .chart-dot-group:hover .chart-tip { opacity: 1; }
 .chart-dot-group:hover .chart-dot { r: 6; }
+
+/* Learning-curve line: draw in from origin on first paint. Fired once per
+   training-plan session (see _chartAnimated in script.js). */
+.chart-line-anim { animation: chart-draw 800ms var(--ease-out) forwards; }
+@keyframes chart-draw { to { stroke-dashoffset: 0; } }

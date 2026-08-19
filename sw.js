@@ -1,10 +1,14 @@
 
-const CACHE  = 'csa-v1.6.4';  // ← bump version on every deploy to clear old cache
+const CACHE  = 'csa-v1.13.0';  // ← bump version on every deploy to clear old cache
 const ASSETS = [
     './',
     './index.html',
     './style.css',
     './calc.js',
+    './timeutil.js',
+    './translations.js',
+    './chart.js',
+    './history.js',
     './script.js',
     './manifest.json',
     './icon.svg',
@@ -30,21 +34,49 @@ self.addEventListener('activate', e => {
     );
 });
 
-// Fetch: Network-First
-// - Online  → fetches fresh from network, updates cache
-// - Offline → serves from cache (last downloaded version)
+// Fetch: Network-First with 3s timeout + robust offline fallback
+// - Online + fast  → fresh from network, updates cache
+// - Online + slow  → after 3s bail to cache (factory Wi-Fi is flaky)
+// - Offline        → serve from cache; navigations fall back to index.html;
+//                    everything else returns a synthetic 503 (never `undefined`,
+//                    which would crash respondWith and show the browser's
+//                    native offline page).
+const NET_TIMEOUT_MS = 3000;
+
+function fetchWithTimeout(request) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('net-timeout')), NET_TIMEOUT_MS);
+        fetch(request).then(
+            res => { clearTimeout(timer); resolve(res); },
+            err => { clearTimeout(timer); reject(err); }
+        );
+    });
+}
+
 self.addEventListener('fetch', e => {
     const url = new URL(e.request.url);
     if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
 
-    e.respondWith(
-        fetch(e.request)
-            .then(res => {
-                // Cache the fresh response for offline use
-                const clone = res.clone();
-                caches.open(CACHE).then(c => c.put(e.request, clone));
-                return res;
-            })
-            .catch(() => caches.match(e.request)) // Offline fallback
-    );
+    e.respondWith((async () => {
+        try {
+            const res = await fetchWithTimeout(e.request);
+            // Cache the fresh response for offline use (fire-and-forget)
+            const clone = res.clone();
+            caches.open(CACHE).then(c => c.put(e.request, clone)).catch(() => {});
+            return res;
+        } catch (_) {
+            const cached = await caches.match(e.request);
+            if (cached) return cached;
+            // Navigation without a cache entry → serve the app shell
+            if (e.request.mode === 'navigate') {
+                const shell = await caches.match('./index.html');
+                if (shell) return shell;
+            }
+            return new Response('Offline', {
+                status: 503,
+                statusText: 'Service Unavailable',
+                headers: { 'Content-Type': 'text/plain' },
+            });
+        }
+    })());
 });

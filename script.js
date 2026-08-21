@@ -26,6 +26,7 @@ const MAX_TRAINING_DAYS = 18;
 // PERSISTENCE (localStorage) — form auto-save + history
 // ============================================================
 const STORAGE_KEY_FORM    = 'csa_form_v1';
+const STORAGE_KEY_SW      = 'csa_stopwatch_v1';
 // STORAGE_KEY_HISTORY + HISTORY_MAX moved to history.js (their consumers live there)
 const STORAGE_KEY_THEME   = 'csa_theme';
 const FORM_FIELD_IDS = ['samInput','effTargetInput','totalMin','totalTime','totalCount','passQty','failQty','duration'];
@@ -39,15 +40,80 @@ const _tracked = { quality: false, training: false };
 
 // --- 2. Stopwatch Modal State ---
 const sw = {
-    running:  false,
-    paused:   false,    // true when frozen via Pause (not yet finalized)
-    mode:     'lap',    // 'lap' | 'single'
-    elapsed:  0,        // total elapsed ms
-    startTs:  null,     // timestamp when last started
-    lapStart: 0,        // elapsed ms at start of current lap
-    laps:     [],       // [ms per completed lap]
-    interval: null,
+    running:   false,
+    paused:    false,   // true when frozen via Pause (not yet finalized)
+    finalized: false,   // true after Stop — stats panel should be shown on reopen
+    mode:      'lap',   // 'lap' | 'single'
+    elapsed:   0,       // total elapsed ms
+    startTs:   null,    // timestamp when last started
+    lapStart:  0,       // elapsed ms at start of current lap
+    laps:      [],      // [ms per completed lap]
+    interval:  null,
 };
+
+// --- 2b. Stopwatch persistence ---
+// Save/restore across reloads and PWA re-launches so mid-shift lap data isn't
+// lost. `startTs`, `running`, and `interval` are intentionally NOT persisted —
+// on restore the clock is always frozen (paused or finalized).
+function saveStopwatchState() {
+    try {
+        if (sw.elapsed === 0 && sw.laps.length === 0) {
+            localStorage.removeItem(STORAGE_KEY_SW);
+            return;
+        }
+        localStorage.setItem(STORAGE_KEY_SW, JSON.stringify({
+            mode:      sw.mode,
+            elapsed:   sw.elapsed,
+            lapStart:  sw.lapStart,
+            laps:      sw.laps.slice(),
+            finalized: !!sw.finalized,
+        }));
+    } catch (_) { /* private browsing / quota — skip silently */ }
+}
+
+function restoreStopwatchState() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY_SW);
+        if (!raw) return;
+        const s = JSON.parse(raw);
+        if (!s || typeof s !== 'object') return;
+        sw.mode      = (s.mode === 'single' || s.mode === 'lap') ? s.mode : 'lap';
+        sw.elapsed   = Number.isFinite(s.elapsed)  ? s.elapsed  : 0;
+        sw.lapStart  = Number.isFinite(s.lapStart) ? s.lapStart : 0;
+        sw.laps      = Array.isArray(s.laps) ? s.laps.filter(n => Number.isFinite(n)) : [];
+        sw.running   = false;
+        sw.finalized = !!s.finalized;
+        // Anything not finalized is treated as paused so the user can Resume.
+        sw.paused    = !sw.finalized && (sw.elapsed > 0 || sw.laps.length > 0);
+    } catch (_) { /* corrupt storage — start fresh */ }
+}
+
+// Push the restored `sw` state onto the modal DOM. Called from
+// openStopwatchModal() so the display, laps list, stats panel, and mode tabs
+// reflect what was persisted.
+function swSyncDomFromState() {
+    const el = id => document.getElementById(id);
+    // Mode tabs
+    if (el('swTabLap'))    el('swTabLap').classList.toggle('active',    sw.mode === 'lap');
+    if (el('swTabSingle')) el('swTabSingle').classList.toggle('active', sw.mode === 'single');
+    // Main display
+    if (el('swDisplay')) el('swDisplay').textContent = fmtSw(sw.elapsed);
+    // Laps list + section visibility
+    if (sw.mode === 'lap' && sw.laps.length > 0) {
+        if (el('swLapSection')) el('swLapSection').style.display = 'block';
+        swRenderLaps();
+    } else {
+        if (el('swLapSection')) el('swLapSection').style.display = 'none';
+        if (el('swLapList'))    el('swLapList').innerHTML = '';
+    }
+    // Stats panel — only when the session was finalized (Stop pressed)
+    if (sw.finalized && (sw.laps.length > 0 || sw.elapsed > 0)) {
+        swShowStats();
+    } else {
+        if (el('swStatsPanel')) el('swStatsPanel').style.display = 'none';
+        if (el('swSavePanel'))  el('swSavePanel').style.display  = 'none';
+    }
+}
 
 // fmtSw / fmtSec2 / fmtSec4 / snapLapMs are defined in timeutil.js (loaded
 // before this file in index.html) so they can be unit-tested from Node.
@@ -92,6 +158,7 @@ function openStopwatchModal() {
     gaTrack('open_stopwatch');
     document.getElementById('swModal').style.display = 'flex';
     document.body.style.overflow = 'hidden';
+    swSyncDomFromState();   // restore display, laps, mode tabs, stats from persisted state
     swUpdateUI();
     swSetupKeyboardWatch();
 }
@@ -109,6 +176,7 @@ function closeStopwatchModal() {
     document.getElementById('swModal').style.display = 'none';
     document.body.style.overflow = '';
     swTeardownKeyboardWatch();
+    saveStopwatchState();
 }
 
 // iOS Safari doesn't resize the layout viewport when the on-screen keyboard
@@ -142,14 +210,16 @@ function swSetMode(mode) {
     document.getElementById('swTabLap').classList.toggle('active', mode === 'lap');
     document.getElementById('swTabSingle').classList.toggle('active', mode === 'single');
     swUpdateUI();
+    saveStopwatchState();
 }
 
 function swStartStop() {
     if (!sw.running && !sw.paused) {
         // Start (or resume after a finalized Stop) — use monotonic time so
         // NTP corrections mid-lap can't jump the clock.
-        sw.running = true;
-        sw.startTs = performance.now() - sw.elapsed;
+        sw.running   = true;
+        sw.finalized = false;
+        sw.startTs   = performance.now() - sw.elapsed;
         swScheduleTick();
     } else {
         // Stop / finalize. If we got here from Pause, the clock is already
@@ -158,8 +228,9 @@ function swStartStop() {
             swCancelTick();
             sw.elapsed = performance.now() - sw.startTs;
         }
-        sw.running = false;
-        sw.paused  = false;
+        sw.running   = false;
+        sw.paused    = false;
+        sw.finalized = true;
         // In lap mode, Stop closes the in-progress lap so it counts as a
         // round too — e.g. Start → Lap ×3 → Stop yields 4 laps, not 3.
         if (sw.mode === 'lap' && sw.elapsed - sw.lapStart > 0) {
@@ -169,6 +240,7 @@ function swStartStop() {
         swShowStats();
     }
     swUpdateUI();
+    saveStopwatchState();
 }
 
 // Pause freezes the clock without ending the current lap or showing results;
@@ -189,6 +261,7 @@ function swPauseResume() {
         swScheduleTick();
     }
     swUpdateUI();
+    saveStopwatchState();
 }
 
 function swLapOrReset() {
@@ -204,7 +277,7 @@ function swLapOrReset() {
     } else {
         // Reset everything
         swCancelTick();
-        Object.assign(sw, { running:false, paused:false, elapsed:0, startTs:null, lapStart:0, laps:[], interval:null });
+        Object.assign(sw, { running:false, paused:false, finalized:false, elapsed:0, startTs:null, lapStart:0, laps:[], interval:null });
         const el = id => document.getElementById(id);
         if (el('swDisplay'))    el('swDisplay').innerText    = '00:00.00';
         if (el('swCurrentLap')) el('swCurrentLap').innerText = '';
@@ -215,6 +288,7 @@ function swLapOrReset() {
         if (el('swContinueBtn')) el('swContinueBtn').style.display = 'none';
         swUpdateUI();
     }
+    saveStopwatchState();
 }
 
 // rAF-driven ticker — ~30fps refresh (every 2nd frame at 60Hz displays),
@@ -336,10 +410,42 @@ function swRenderLaps() {
         html += `
         <div class="sw-lap-row ${cls}">
             <span>Lap ${i + 1}</span>
-            <span>${fmtSw(sw.laps[i])}</span>
+            <span class="sw-lap-right">
+                <span>${fmtSw(sw.laps[i])}</span>
+                <button type="button" class="sw-lap-del" onclick="swDeleteLap(${i})"
+                        aria-label="${t('sw_delete_lap')}" title="${t('sw_delete_lap')}">×</button>
+            </span>
         </div>`;
     }
     list.innerHTML = html;
+}
+
+// Remove one completed lap. Available during running / paused / stopped.
+// If the stats panel is already visible (post-Stop), recompute it.
+function swDeleteLap(idx) {
+    if (idx < 0 || idx >= sw.laps.length) return;
+    showConfirm(t('sw_delete_lap'), t('sw_delete_lap_confirm'), () => _swDeleteLapConfirmed(idx));
+}
+
+function _swDeleteLapConfirmed(idx) {
+    if (idx < 0 || idx >= sw.laps.length) return;
+    sw.laps.splice(idx, 1);
+    swRenderLaps();
+
+    const statsPanel = document.getElementById('swStatsPanel');
+    const lapSection = document.getElementById('swLapSection');
+    const statsVisible = statsPanel && statsPanel.style.display !== 'none' && statsPanel.style.display !== '';
+    if (sw.laps.length === 0) {
+        if (lapSection) lapSection.style.display = 'none';
+        if (statsPanel) statsPanel.style.display = 'none';
+        const savePanel = document.getElementById('swSavePanel');
+        if (savePanel && !sw.running && !sw.paused) savePanel.style.display = 'none';
+    } else if (statsVisible) {
+        swShowStats();
+    } else {
+        tsRecalculate();
+    }
+    saveStopwatchState();
 }
 
 function swShowStats() {
@@ -1182,6 +1288,26 @@ stars.forEach(star => {
     });
 });
 
+// ---- Confirm modal (custom confirm() replacement) ----
+// Reused by any destructive action that needs "are you sure?" — currently
+// swDeleteLap. Callback runs only on OK; Cancel/backdrop/ESC dismiss silently.
+let _confirmCallback = null;
+function showConfirm(title, message, onOk, opts) {
+    const modal = document.getElementById('confirmModal');
+    if (!modal) { if (onOk) onOk(); return; }
+    document.getElementById('confirmTitle').textContent   = title || '';
+    document.getElementById('confirmMessage').textContent = message || '';
+    const okLabel = document.getElementById('confirmOkLabel');
+    if (okLabel) okLabel.textContent = (opts && opts.okLabel) || t('delete');
+    _confirmCallback = typeof onOk === 'function' ? onOk : null;
+    modal.style.display = 'flex';
+}
+function hideConfirm() {
+    const modal = document.getElementById('confirmModal');
+    if (modal) modal.style.display = 'none';
+    _confirmCallback = null;
+}
+
 function openFeedbackModal() {
     feedbackModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
@@ -1444,6 +1570,44 @@ feedbackModal?.addEventListener('click', e => {
     if (e.target === feedbackModal) closeFeedbackModal();
 });
 
+// Confirm modal wiring
+const _confirmModalEl  = document.getElementById('confirmModal');
+const _confirmOkBtnEl  = document.getElementById('confirmOkBtn');
+const _confirmCancelEl = document.getElementById('confirmCancelBtn');
+_confirmOkBtnEl?.addEventListener('click', () => {
+    const cb = _confirmCallback;
+    hideConfirm();
+    if (cb) cb();
+});
+_confirmCancelEl?.addEventListener('click', hideConfirm);
+_confirmModalEl?.addEventListener('click', e => {
+    if (e.target === _confirmModalEl) hideConfirm();
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && _confirmModalEl?.style.display === 'flex') hideConfirm();
+});
+
+// Back-to-Top FAB — appears once the user has scrolled past a screen-ish of content.
+const _backToTopBtn = document.getElementById('backToTopBtn');
+if (_backToTopBtn) {
+    const SCROLL_THRESHOLD = 320;
+    let _ticking = false;
+    const updateBackToTop = () => {
+        _ticking = false;
+        _backToTopBtn.classList.toggle('visible', window.scrollY > SCROLL_THRESHOLD);
+    };
+    window.addEventListener('scroll', () => {
+        if (!_ticking) {
+            requestAnimationFrame(updateBackToTop);
+            _ticking = true;
+        }
+    }, { passive: true });
+    _backToTopBtn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    updateBackToTop();  // set correct initial state (in case page loads scrolled)
+}
+
 closeHistoryBtn?.addEventListener('click', closeHistoryModal);
 historyCloseBtn?.addEventListener('click', closeHistoryModal);
 historySaveBtn?.addEventListener('click', handleHistorySave);
@@ -1546,6 +1710,7 @@ if ('serviceWorker' in navigator) {
 initGA4(); // Google Analytics 4
 initTheme();
 restoreFormState();
+restoreStopwatchState();
 _bumpSessionCount();  // used by _shouldOfferInstall()
 // Retry any feedback captured while previously offline (fire-and-forget)
 drainFeedbackQueue();

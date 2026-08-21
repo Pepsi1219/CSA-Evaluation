@@ -328,7 +328,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · v1.13.0</p>
+    <p>© CSA Evaluation · v1.14.0</p>
     <button class="feedback-btn" id="feedbackBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -336,6 +336,38 @@
         <span class="feedback-text lang-text" data-key="feedback_btn">Feedback</span>
     </button>
 </footer>
+
+<!-- ============ Back-to-Top Button ============ -->
+<button id="backToTopBtn" class="back-to-top" aria-label="กลับด้านบน" title="กลับด้านบน">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 15l-6-6-6 6"/>
+    </svg>
+</button>
+
+<!-- ============ Confirm Modal (custom confirm() replacement) ============ -->
+<div id="confirmModal" class="modal-overlay confirm-overlay" style="display: none;">
+    <div class="feedback-modal confirm-modal" role="alertdialog" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+        <div class="modal-header">
+            <div class="modal-icon confirm-icon-danger" aria-hidden="true">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                    <path d="M10 11v6M14 11v6"/>
+                </svg>
+            </div>
+            <h3 class="modal-title" id="confirmTitle">—</h3>
+            <p class="modal-subtitle" id="confirmMessage">—</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-cancel" id="confirmCancelBtn">
+                <span class="lang-text" data-key="cancel">ยกเลิก</span>
+            </button>
+            <button class="btn-submit btn-danger" id="confirmOkBtn">
+                <span class="lang-text" id="confirmOkLabel" data-key="delete">ลบ</span>
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- ============ Feedback Modal ============ -->
 <div id="feedbackModal" class="modal-overlay" style="display: none;">

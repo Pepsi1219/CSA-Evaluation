@@ -73,7 +73,7 @@
 
     /* Spacing scale */
     --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
-    --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+    --sp-5: 20px; --sp-6: 24px; --sp-7: 28px; --sp-8: 32px; --sp-10: 40px;
 
     /* Typography */
     --font: 'Inter', 'Noto Sans Thai', 'Noto Sans Lao', -apple-system,
@@ -1040,6 +1040,61 @@ label {
 .btn-submit:active { transform: scale(0.97); }
 .btn-submit svg { width: 18px; height: 18px; }
 .btn-submit:disabled { cursor: not-allowed; }
+/* Danger variant of .btn-submit — used by the confirm modal's OK button. */
+.btn-submit.btn-danger {
+    background: var(--danger, #dc2626);
+    box-shadow: 0 8px 24px rgba(220, 38, 38, 0.28);
+}
+.btn-submit.btn-danger:hover { filter: brightness(1.06); }
+
+/* ---- 15b. Confirm Modal (custom confirm() replacement) --------
+   Reuses .modal-overlay + .feedback-modal shell. Higher z-index so it
+   stacks above the stopwatch modal (z-index: 3000). */
+.confirm-overlay { z-index: 4000; }
+.confirm-modal   { max-width: 380px; }
+.confirm-modal .modal-header    { padding-bottom: var(--sp-5); }
+.confirm-modal .modal-subtitle  { font-size: 15px; color: var(--text-1); }
+.confirm-modal .modal-footer    { border-top: none; padding-top: 0; }
+.modal-icon.confirm-icon-danger {
+    background: var(--danger-soft, #fee2e2);
+    color: var(--danger, #dc2626);
+    box-shadow: none;
+}
+
+/* ---- 15c. Back-to-Top FAB ----------------------------------
+   Sits bottom-LEFT so it never collides with the Feedback FAB (bottom-right).
+   Hidden by default; fades in when JS toggles .visible after scroll. */
+.back-to-top {
+    position: fixed;
+    bottom: max(24px, env(safe-area-inset-bottom, 0px));
+    left:   max(24px, env(safe-area-inset-left,   0px));
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    color: var(--accent-600);
+    border: 1px solid var(--border);
+    border-radius: var(--r-full);
+    cursor: pointer;
+    box-shadow: var(--sh-md);
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+    transition: opacity 0.22s var(--ease-out),
+                transform 0.22s var(--ease-out),
+                box-shadow 0.2s;
+    z-index: 999;
+}
+.back-to-top.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+.back-to-top:hover  { box-shadow: var(--sh-lg); transform: translateY(-2px); }
+.back-to-top:active { transform: scale(0.94); }
+.back-to-top svg    { width: 20px; height: 20px; }
 
 /* ---- 16. Toast -------------------------------------------- */
 .toast-notification {
@@ -1210,6 +1265,18 @@ label {
     .sw-back-btn, .sw-config-btn, .sw-header-spacer { width: 56px; }
     .sw-back-btn > span { display: none; }
     .sw-page { padding: 0 var(--sp-4); }
+}
+
+/* Medium (561–767): phone landscape / small tablet. Without this rule the
+   card kept its 540 px max but body padding was only 20 px, so between
+   ~580–640 px viewport the card sat almost flush against the viewport edge.
+   Give the ground enough padding that the card always breathes. */
+@media (min-width: 561px) and (max-width: 767px) {
+    body { padding: var(--sp-8); }
+    .container {
+        max-width: 620px;
+        padding: var(--sp-6);
+    }
 }
 
 /* Tablet: iPad Mini (768) and Android tablets. Between phone (≤560 px capped
@@ -1778,6 +1845,32 @@ label {
 .sw-lap-row.sw-lap-current  { color: var(--text-3); background: var(--surface-2); }
 .sw-lap-row.sw-lap-fastest  { color: var(--success-text); background: var(--success-soft); }
 .sw-lap-row.sw-lap-slowest  { color: var(--danger); background: var(--danger-soft); }
+.sw-lap-right {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+.sw-lap-del {
+    width: 28px; height: 28px;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0; margin: 0;
+    border: none;
+    background: transparent;
+    color: var(--text-3);
+    font-family: var(--font);
+    font-size: 20px;
+    line-height: 1;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.14s, color 0.14s;
+    -webkit-tap-highlight-color: transparent;
+}
+.sw-lap-del:hover,
+.sw-lap-del:focus-visible {
+    background: var(--danger-soft);
+    color: var(--danger);
+    outline: none;
+}
 
 /* ── Save Panel — sticky bottom with gradient ── */
 .sw-save-panel {
@@ -1971,6 +2064,7 @@ label {
     .header-actions,
     .sw-launch-btn,
     .feedback-btn,
+    .back-to-top,
     .history-section,
     .history-action-bar,
     .btn-clear-history,

@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+    parseNum,
     pcsFromEff,
     calcAvgMin,
     calcActualEff,
@@ -9,6 +10,27 @@ const {
     calcPassRate,
     calcTrainingDay,
 } = require('../calc.js');
+
+test('parseNum', async (t) => {
+    await t.test('parses a plain decimal string', () => {
+        assert.equal(parseNum('0.456'), 0.456);
+        assert.equal(parseNum('12'), 12);
+    });
+    await t.test('accepts a comma as the decimal separator (TH/VN/LA locales)', () => {
+        // The SAM input pattern permits a comma; plain parseFloat would return 0.
+        assert.equal(parseNum('0,456'), 0.456);
+        assert.equal(parseNum('45,67'), 45.67);
+    });
+    await t.test('passes numbers through unchanged', () => {
+        assert.equal(parseNum(3.5), 3.5);
+    });
+    await t.test('returns NaN for blank/garbage so callers keep their own fallback', () => {
+        assert.ok(Number.isNaN(parseNum('')));
+        assert.ok(Number.isNaN(parseNum('abc')));
+        assert.ok(Number.isNaN(parseNum(null)));
+        assert.ok(Number.isNaN(parseNum(undefined)));
+    });
+});
 
 test('pcsFromEff', async (t) => {
     await t.test('computes pieces/hour at a given SAM and efficiency %', () => {
@@ -29,6 +51,12 @@ test('calcAvgMin', async (t) => {
     await t.test('computes average cycle time in minutes', () => {
         assert.equal(calcAvgMin(1, 0, 2), 0.5);
         assert.equal(calcAvgMin(0, 30, 1), 0.5);
+    });
+    await t.test('handles fractional seconds (stopwatch saves 10 ms resolution)', () => {
+        // 45.67 s over 1 round → 0.7611666… min. The seconds field now carries
+        // decimals, so this precision must survive into the calc.
+        assert.ok(Math.abs(calcAvgMin(0, 45.67, 1) - 45.67 / 60) < 1e-9);
+        assert.ok(Math.abs(calcAvgMin(1, 5.5, 2) - 65.5 / 2 / 60) < 1e-9);
     });
     await t.test('returns null when count is missing', () => {
         assert.equal(calcAvgMin(1, 0, 0), null);

@@ -1,9 +1,15 @@
 
-const CACHE  = 'csa-v1.14.0';  // ← bump version on every deploy to clear old cache
+// Keep this literal in lock-step with APP_VERSION in version.js — the byte
+// change here is what forces old clients to re-install the SW and drop stale
+// caches (some older browsers don't re-check importScripts'd files, so the
+// canonical value is duplicated here on purpose). test/version.test.js fails
+// the build if this drifts from version.js.
+const CACHE  = 'csa-v1.15.0';  // ← bump on every deploy; must match version.js
 const ASSETS = [
     './',
     './index.html',
     './style.css',
+    './version.js',
     './calc.js',
     './timeutil.js',
     './translations.js',

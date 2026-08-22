@@ -147,7 +147,13 @@ function renderSVGChart(values, target, unit) {
         <line x1="${p.l}" y1="${p.t+ch}" x2="${p.l+cw}" y2="${p.t+ch}"
               stroke="var(--border-strong)" stroke-width="1.5"/>`;
 
-    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;">
+    // Accessible name for screen readers — the chart is otherwise a wall of
+    // decorative <path>/<text> nodes with no semantic meaning. t() is a global
+    // from script.js, resolved at render time (always after script.js has run).
+    const ariaLabel = (typeof t === 'function' ? t('chart_aria') : 'Learning-curve chart');
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;"
+                 role="img" aria-label="${ariaLabel}">
+        <title>${ariaLabel}</title>
         ${yTicks}${area}${targetSvg}${line}${dots}${axes}${xLabels}
     </svg>`;
 }

@@ -146,11 +146,11 @@
                     <button type="button" class="unit-toggle-btn" id="samUnitBtnSec" onclick="setSamUnit('sec')"><span class="lang-text" data-key="unit_sec">วินาที</span></button>
                 </div>
             </div>
-            <input type="text" id="samInput" class="glass-input" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" oninput="calculateAll()">
+            <input type="text" id="samInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="sam_label_base" oninput="calculateAll()">
         </div>
         <div class="input-group">
             <label class="lang-text" data-key="eff_target">เป้าหมายประสิทธิภาพ (%)</label>
-            <input type="text" id="effTargetInput" class="glass-input" inputmode="numeric" pattern="[0-9]*" oninput="calculateAll()">
+            <input type="text" id="effTargetInput" class="glass-input" inputmode="none" pattern="[0-9]*" data-numpad="int" data-numpad-label="eff_target" oninput="calculateAll()">
         </div>
     </div>
 
@@ -215,15 +215,15 @@
         <div class="form-row-three">
             <div class="input-group">
                 <label class="lang-text" data-key="total_min">เวลารวม (นาที)</label>
-                <input type="text" id="totalMin" class="glass-input" inputmode="numeric" pattern="[0-9]*" value="0" oninput="calculateAll()">
+                <input type="text" id="totalMin" class="glass-input" inputmode="none" pattern="[0-9]*" value="0" data-numpad="int" data-numpad-label="total_min" oninput="calculateAll()">
             </div>
             <div class="input-group">
                 <label class="lang-text" data-key="total_sec">เวลารวม (วินาที)</label>
-                <input type="text" id="totalTime" class="glass-input" inputmode="numeric" pattern="[0-9]*" oninput="calculateAll()">
+                <input type="text" id="totalTime" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="total_sec" oninput="calculateAll()">
             </div>
             <div class="input-group">
                 <label class="lang-text" data-key="total_count">จำนวน (รอบ)</label>
-                <input type="text" id="totalCount" class="glass-input" inputmode="numeric" pattern="[0-9]*" value="1" oninput="calculateAll()">
+                <input type="text" id="totalCount" class="glass-input" inputmode="none" pattern="[0-9]*" value="1" data-numpad="int" data-numpad-label="total_count" oninput="calculateAll()">
             </div>
         </div>
 
@@ -280,11 +280,11 @@
         <div class="form-row-three">
             <div class="input-group">
                 <label class="lang-text" data-key="pass_qty">จำนวนที่ "ผ่าน" (ชิ้น)</label>
-                <input type="text" id="passQty" inputmode="numeric" pattern="[0-9]*" class="glass-input" oninput="calculateAll()">
+                <input type="text" id="passQty" inputmode="none" pattern="[0-9]*" class="glass-input" data-numpad="int" data-numpad-label="pass_qty" oninput="calculateAll()">
             </div>
             <div class="input-group">
                 <label class="lang-text" data-key="fail_qty">จำนวนที่ "ไม่ผ่าน" (ชิ้น)</label>
-                <input type="text" id="failQty" inputmode="numeric" pattern="[0-9]*" class="glass-input" oninput="calculateAll()">
+                <input type="text" id="failQty" inputmode="none" pattern="[0-9]*" class="glass-input" data-numpad="int" data-numpad-label="fail_qty" oninput="calculateAll()">
             </div>
             <div class="input-group">
                 <label class="fx-label" data-fx="pass_rate">
@@ -314,7 +314,7 @@
 
         <div class="input-group">
             <label class="lang-text" data-key="training_duration">ระยะเวลาการฝึก (วัน/ชม)</label>
-            <input type="text" id="duration" class="glass-input" inputmode="numeric" pattern="[0-9]*" oninput="calculateAll()">
+            <input type="text" id="duration" class="glass-input" inputmode="none" pattern="[0-9]*" data-numpad="int" data-numpad-label="training_duration" oninput="calculateAll()">
         </div>
 
         <div class="training-grid" id="trainingGrid"></div>
@@ -328,7 +328,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · v1.14.0</p>
+    <p>© CSA Evaluation · <span id="appVersion">v1.15.0</span></p>
     <button class="feedback-btn" id="feedbackBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -600,7 +600,7 @@
             </button>
             <div class="sw-rounds-row" id="swRoundsRow" style="display:none;">
                 <label class="lang-text" data-key="sw_rounds">จำนวนรอบ</label>
-                <input type="number" id="swRoundsInput" class="sw-rounds-input" value="1" min="1">
+                <input type="text" id="swRoundsInput" class="sw-rounds-input" inputmode="none" pattern="[0-9]*" value="1" data-numpad="int" data-numpad-label="sw_rounds">
             </div>
             <button class="sw-save-to-form-btn" onclick="swSaveToForm()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -649,8 +649,9 @@
             <div class="sw-config-section">
                 <div class="sw-config-label lang-text" data-key="ts_error">ค่าคลาดเคลื่อนที่ยอมรับได้ (±%)</div>
                 <div class="sw-config-input-row">
-                    <input type="number" id="tsErrorInput" class="sw-ts-error-input sw-ts-error-input-lg"
-                           value="5" min="0.5" max="50" step="0.5" oninput="tsRecalculate()">
+                    <input type="text" id="tsErrorInput" class="sw-ts-error-input sw-ts-error-input-lg"
+                           inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="5"
+                           data-numpad="decimal" data-numpad-label="ts_error" oninput="tsRecalculate()">
                     <span class="sw-config-input-suffix">%</span>
                 </div>
                 <p class="sw-config-help lang-text" data-key="ts_error_help">ยอมให้ค่าเฉลี่ยเพี้ยนได้กี่ % จากค่าจริง (มาตรฐานอุตสาหกรรมใช้ 5%)</p>
@@ -737,6 +738,44 @@
     </div>
 </div>
 
+<!-- ============ In-app Numpad (replaces the mobile OS numeric keyboard) ============ -->
+<div id="numpadModal" class="numpad-overlay" style="display:none;">
+    <div class="numpad-sheet" role="dialog" aria-modal="true" aria-labelledby="numpadFieldLabel">
+        <div class="numpad-header">
+            <span id="numpadFieldLabel" class="numpad-field-label"></span>
+            <button type="button" class="numpad-x" id="numpadCloseBtn" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="numpad-display"><span id="numpadValue" class="numpad-value">0</span></div>
+        <div class="numpad-grid">
+            <button type="button" class="numpad-key" data-numkey="7">7</button>
+            <button type="button" class="numpad-key" data-numkey="8">8</button>
+            <button type="button" class="numpad-key" data-numkey="9">9</button>
+            <button type="button" class="numpad-key" data-numkey="4">4</button>
+            <button type="button" class="numpad-key" data-numkey="5">5</button>
+            <button type="button" class="numpad-key" data-numkey="6">6</button>
+            <button type="button" class="numpad-key" data-numkey="1">1</button>
+            <button type="button" class="numpad-key" data-numkey="2">2</button>
+            <button type="button" class="numpad-key" data-numkey="3">3</button>
+            <button type="button" class="numpad-key numpad-key-dot" id="numpadDotKey" data-numkey=".">.</button>
+            <button type="button" class="numpad-key" data-numkey="0">0</button>
+            <button type="button" class="numpad-key numpad-key-back" data-numkey="back" aria-label="Backspace">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M21 5H8.5a2 2 0 0 0-1.6.8l-4 5.2a1 1 0 0 0 0 1.2l4 5.2a2 2 0 0 0 1.6.8H21a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><line x1="17" y1="9" x2="11" y2="15"/><line x1="11" y1="9" x2="17" y2="15"/></svg>
+            </button>
+        </div>
+        <div class="numpad-actions">
+            <button type="button" class="numpad-clear" id="numpadClearBtn">
+                <span class="lang-text" data-key="numpad_clear">ล้าง</span>
+            </button>
+            <button type="button" class="numpad-done" id="numpadDoneBtn">
+                <span class="lang-text" data-key="numpad_done">ตกลง</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="version.js" defer></script>
 <script src="calc.js" defer></script>
 <script src="timeutil.js" defer></script>
 <script src="translations.js" defer></script>

@@ -34,7 +34,7 @@ function persistHistory(list) {
 }
 
 function saveCurrentToHistory(label) {
-    const getValue = id => parseFloat(document.getElementById(id).value) || 0;
+    const getValue = id => parseNum(document.getElementById(id).value) || 0;
     const inputs = {
         sam:        getSamMinutes(),
         effTarget:  getValue('effTargetInput'),

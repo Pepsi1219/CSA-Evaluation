@@ -219,7 +219,7 @@
             </div>
             <div class="input-group">
                 <label class="lang-text" data-key="total_sec">เวลารวม (วินาที)</label>
-                <input type="text" id="totalTime" class="glass-input" inputmode="numeric" pattern="[0-9]*" oninput="calculateAll()">
+                <input type="text" id="totalTime" class="glass-input" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" oninput="calculateAll()">
             </div>
             <div class="input-group">
                 <label class="lang-text" data-key="total_count">จำนวน (รอบ)</label>
@@ -328,7 +328,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · v1.14.0</p>
+    <p>© CSA Evaluation · <span id="appVersion">v1.15.0</span></p>
     <button class="feedback-btn" id="feedbackBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -737,6 +737,7 @@
     </div>
 </div>
 
+<script src="version.js" defer></script>
 <script src="calc.js" defer></script>
 <script src="timeutil.js" defer></script>
 <script src="translations.js" defer></script>

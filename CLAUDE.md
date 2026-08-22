@@ -10,7 +10,8 @@ The shipped app is a handful of files at the repo root (no build step). JS files
 
 - `index.html` (~715 lines) — all markup: main form + feedback modal + formula modal + stopwatch modal + history/compare modal + Time Study config modal + onboarding overlay
 - `style.css` (~2100 lines) — all styling (numbered sections via comment headers, e.g. `/* ---- 9. Inputs & Layout ---- */`)
-- `calc.js` (~65 lines) — pure calc: `pcsFromEff`, `calcAvgMin`, `calcActualEff`, `newSamFromEff`, `calcActualPcsPerHr`, `calcPassRate`, `calcTrainingDay`. No DOM access.
+- `version.js` (~10 lines) — **single source of truth for `APP_VERSION`**, loaded first. `script.js` stamps the footer (`#appVersion`) and the CSV "App version" row from it; `sw.js` keeps a matching `csa-vX.Y.Z` literal (its own context can't read the global); `test/version.test.js` fails the build if footer / CSV / `sw.js` / `package.json` ever drift from it. No DOM access.
+- `calc.js` (~80 lines) — pure calc: `parseNum` (comma-tolerant number parse), `pcsFromEff`, `calcAvgMin`, `calcActualEff`, `newSamFromEff`, `calcActualPcsPerHr`, `calcPassRate`, `calcTrainingDay`. No DOM access. Every DOM number read in `script.js`/`history.js` goes through `parseNum` so a comma decimal (TH/VN/LA) doesn't silently zero the field.
 - `timeutil.js` (~105 lines) — pure time + Time Study helpers: `fmtSw` / `fmtSec2` / `fmtSec4` (formatters), `snapLapMs` (10 ms display-resolution snap), `T_TABLE` + `tsTValue` (two-tailed Student's t critical values, df 1–30), `computeSampleSize(laps, confidence, errorPercent)` (sample-SD with Bessel's `n-1`, returns `{n, mean, sd, df, tVal, N_raw, N}`), CSV helpers `csvEscape` / `csvRow` / `csvBuild` (RFC 4180 with UTF-8 BOM for Excel Thai support). No DOM access.
 - `translations.js` (~560 lines) — flat i18n dictionary keyed by `th`/`en`/`vn`/`la`; the `translations` object is a browser global consumed by `t()` + `changeLanguage()` in `script.js`.
 - `chart.js` (~155 lines) — hand-built inline SVG learning-curve chart (no charting library). Owns `chartMode` ('pcs' | 'eff'), `_chartCache`, `_chartAnimated` (one-shot line-draw animation flag), `setChartMode`, `renderChartFromCache`, `renderSVGChart`. Draws with `var(--...)` tokens so it re-themes automatically. Depends on globals from `script.js` (`currentLang`, `pcsPerHr`).
@@ -21,6 +22,10 @@ The shipped app is a handful of files at the repo root (no build step). JS files
 
 `package.json` and `test/` exist only to run the `node:test` unit tests — they are not part of the deployed app.
 
+## Editing philosophy (important)
+
+**Fix at the system level, never spot-patch blindly.** Before changing any line, trace what it touches across the whole app and fix every dependent point — don't just silence the symptom in front of you. Concretely: a value that appears in more than one place gets **one source of truth** the others read from (see `version.js` → footer + CSV + the version-sync test), not N hand-synced copies; a shared behavior (parsing, formatting, rounding) becomes **one helper routed everywhere** (see `parseNum` used by every DOM number read), not a fix in the one field that was reported; and when a change ripples (e.g. the seconds field accepting decimals) update **all** the consumers — input `pattern`/`inputmode`, the calc, every display, the formula modal, CSV, the stopwatch bridge — plus the tests and this file. If a drift can recur, add a test that fails the build when it does. Leave the system more consistent than you found it, not just locally unbroken.
+
 ## Development
 
 There is no build, bundle, or lint tooling in this repo, and `package.json` exists only to run `calc.js`'s unit tests (see below) — not to build or serve the app. To work on the app, open `index.html` directly in a browser or serve the directory with any static file server, e.g.:
@@ -29,9 +34,9 @@ There is no build, bundle, or lint tooling in this repo, and `package.json` exis
 python3 -m http.server 8000
 ```
 
-**Bump the service worker cache version** in `sw.js` (`const CACHE = 'csa-vX.Y.Z'`) whenever deployed assets change — the fetch handler is network-first but the cache version string is what forces old clients to drop stale caches. Keep this in sync with the version shown in the footer (`index.html`, `.app-footer`).
+**Bumping the version:** edit `APP_VERSION` in `version.js` (the canonical value — footer + CSV read it at runtime) **and** the matching `const CACHE = 'csa-vX.Y.Z'` literal in `sw.js`. The `sw.js` byte change is what forces old clients to drop stale caches (the fetch handler is network-first, but the cache name is the bust signal), so it can't be derived from the global — it's duplicated on purpose and locked to `APP_VERSION` by `test/version.test.js`. Also bump `package.json`'s `version` to match (the same test enforces it). `npm test` fails if any of the four drift.
 
-Run `npm test` (Node's built-in `node:test` runner, no dependencies) to check the pure modules — `calc.js`, `timeutil.js` (formatters + T-table + sample-size + CSV), and `translations.js` (dictionary integrity + fallback chain + placeholder-token preservation). Current coverage: 80+ tests across `test/calc.test.js`, `test/timeutil.test.js`, `test/translations.test.js`. `package.json` exists only for this; the shipped app still has no build step.
+Run `npm test` (Node's built-in `node:test` runner, no dependencies) to check the pure modules — `calc.js` (incl. `parseNum`), `timeutil.js` (formatters + T-table + sample-size + CSV), `translations.js` (dictionary integrity + fallback chain + placeholder-token preservation), and `version.js` (version-sync guard across `sw.js`/`package.json`/footer). Current coverage: 90+ tests across `test/calc.test.js`, `test/timeutil.test.js`, `test/translations.test.js`, `test/version.test.js`. `package.json` exists only for this; the shipped app still has no build step.
 
 **Do not open a browser preview to visually verify UI/CSS changes in this project.** The user does that verification themselves and is better positioned to judge it. After editing code, confirm correctness through reading the code, `npm test`, and static checks — don't launch `preview_start` or drive the Browser pane for this repo unless the user explicitly asks for it.
 

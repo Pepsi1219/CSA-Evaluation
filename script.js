@@ -27,6 +27,7 @@ const MAX_TRAINING_DAYS = 18;
 // ============================================================
 const STORAGE_KEY_FORM    = 'csa_form_v1';
 const STORAGE_KEY_SW      = 'csa_stopwatch_v1';
+const SW_LAPS_MAX         = 1000;   // hard ceiling on restored lap count (anti-corruption)
 // STORAGE_KEY_HISTORY + HISTORY_MAX moved to history.js (their consumers live there)
 const STORAGE_KEY_THEME   = 'csa_theme';
 const FORM_FIELD_IDS = ['samInput','effTargetInput','totalMin','totalTime','totalCount','passQty','failQty','duration'];
@@ -80,7 +81,12 @@ function restoreStopwatchState() {
         sw.mode      = (s.mode === 'single' || s.mode === 'lap') ? s.mode : 'lap';
         sw.elapsed   = Number.isFinite(s.elapsed)  ? s.elapsed  : 0;
         sw.lapStart  = Number.isFinite(s.lapStart) ? s.lapStart : 0;
-        sw.laps      = Array.isArray(s.laps) ? s.laps.filter(n => Number.isFinite(n)) : [];
+        // Keep only finite lap values, and cap the count so a corrupted/oversized
+        // payload can't load a runaway array into memory (real time studies never
+        // approach this many laps).
+        sw.laps      = Array.isArray(s.laps)
+            ? s.laps.filter(n => Number.isFinite(n)).slice(0, SW_LAPS_MAX)
+            : [];
         sw.running   = false;
         sw.finalized = !!s.finalized;
         // Anything not finalized is treated as paused so the user can Resume.
@@ -520,10 +526,17 @@ function swSaveToForm() {
         totalMs = sw.elapsed;
         rounds  = parseInt(document.getElementById('swRoundsInput')?.value) || 1;
     }
-    const totalSec = Math.floor(totalMs / 1000);
+    // Carry the full measured precision into the form. The seconds field now
+    // accepts decimals, so instead of flooring to whole seconds (which threw
+    // away the stopwatch's carefully-snapped 10 ms resolution and biased every
+    // saved time downward) we keep 2 decimals — the same resolution the laps
+    // are stored and displayed at.
+    const totalSec2 = Math.round(totalMs / 10) / 100;   // seconds @ 10 ms res, 2 dp
+    const mins      = Math.floor(totalSec2 / 60);
+    const secs      = Math.round((totalSec2 - mins * 60) * 100) / 100;
     const g = id => document.getElementById(id);
-    if (g('totalMin'))   g('totalMin').value   = Math.floor(totalSec / 60);
-    if (g('totalTime'))  g('totalTime').value  = totalSec % 60;
+    if (g('totalMin'))   g('totalMin').value   = mins;
+    if (g('totalTime'))  g('totalTime').value  = secs;
     if (g('totalCount')) g('totalCount').value = rounds;
     calculateAll();
     closeStopwatchModal();
@@ -546,7 +559,7 @@ function tsSetConfidence(c) {
 
 function tsRecalculate() {
     const errorInput = document.getElementById('tsErrorInput');
-    let e = parseFloat(errorInput?.value);
+    let e = parseNum(errorInput?.value);
     if (!isFinite(e) || e <= 0) e = 5;
     if (e > 50) e = 50;
     _ts.error = e;
@@ -744,7 +757,7 @@ function exportCSV() {
     const rows = [
         ['ฟิลด์', 'Field', 'ค่า / Value', 'หน่วย / Unit'],
         ['วันที่-เวลา', 'Timestamp', ts, ''],
-        ['เวอร์ชันแอป', 'App version', 'v1.13.0', ''],
+        ['เวอร์ชันแอป', 'App version', 'v' + APP_VERSION, ''],
         [],
         ['— ตั้งเป้าหมาย', '— Set Target', '', ''],
         ['ค่า SAM', 'SAM Value', val('samInput'), samUnit === 'sec' ? 'วินาที / sec' : 'นาที / min'],
@@ -933,7 +946,7 @@ function trimNum(n) {
 
 // SAM value in minutes, regardless of the unit the user is typing in.
 function getSamMinutes() {
-    const raw = parseFloat(document.getElementById('samInput').value) || 0;
+    const raw = parseNum(document.getElementById('samInput').value) || 0;
     return samUnit === 'sec' ? raw / 60 : raw;
 }
 
@@ -944,7 +957,7 @@ function setSamUnit(unit, convert = true) {
     if (unit !== 'min' && unit !== 'sec') return;
     if (convert && unit !== samUnit) {
         const el  = document.getElementById('samInput');
-        const raw = parseFloat(el.value);
+        const raw = parseNum(el.value);
         if (!isNaN(raw)) {
             el.value = trimNum(unit === 'sec' ? raw * 60 : raw / 60);
         }
@@ -962,7 +975,7 @@ function updateSamUnitUI() {
 
 // --- 6. Core Calculation ---
 function calculateAll() {
-    const getValue = id => parseFloat(document.getElementById(id).value) || 0;
+    const getValue = id => parseNum(document.getElementById(id).value) || 0;
 
     const sam        = getSamMinutes();
     const effTarget  = getValue('effTargetInput');
@@ -998,7 +1011,10 @@ function calculateAll() {
     let currentActualEff = 0;
     const avgMin = calcAvgMin(totalMin, totalTime, totalCount);
     if (avgMin !== null) {
-        setResultUnit('avgTimeSec', Math.ceil(avgMin * 60), t('unit_sec'));
+        // Show the exact cycle time (2 decimals) — efficiency + pcs below are
+        // computed from the same unrounded avgMin, so the displayed seconds now
+        // reconcile with them instead of being ceil'd up out of agreement.
+        setResultUnit('avgTimeSec', (avgMin * 60).toFixed(2), t('unit_sec'));
         setResultUnit('avgTimeMin', avgMin.toFixed(2), t('unit_min'));
         const eff = calcActualEff(sam, avgMin);
         if (eff !== null) {
@@ -1372,7 +1388,7 @@ const FORMULA_DEFS = {
         descKey:    'fx_desc_target_pcs',
         compute() {
             const sam = getSamMinutes();
-            const eff = parseFloat(document.getElementById('effTargetInput').value) || 0;
+            const eff = parseNum(document.getElementById('effTargetInput').value) || 0;
             if (!(sam > 0) || !(eff > 0)) return null;
             const pcs = pcsFromEff(sam, eff);
             return {
@@ -1387,7 +1403,7 @@ const FORMULA_DEFS = {
         descKey:    'fx_desc_new_sam',
         compute() {
             const sam = getSamMinutes();
-            const eff = parseFloat(document.getElementById('effTargetInput').value) || 0;
+            const eff = parseNum(document.getElementById('effTargetInput').value) || 0;
             const newSamMin = newSamFromEff(sam, eff);
             if (newSamMin === null) return null;
             const val  = samUnit === 'sec' ? newSamMin * 60 : newSamMin;
@@ -1403,15 +1419,15 @@ const FORMULA_DEFS = {
         formulaKey: 'fx_formula_avg_sec',
         descKey:    'fx_desc_avg_sec',
         compute() {
-            const m = parseFloat(document.getElementById('totalMin').value) || 0;
-            const s = parseFloat(document.getElementById('totalTime').value) || 0;
-            const c = parseFloat(document.getElementById('totalCount').value) || 0;
+            const m = parseNum(document.getElementById('totalMin').value) || 0;
+            const s = parseNum(document.getElementById('totalTime').value) || 0;
+            const c = parseNum(document.getElementById('totalCount').value) || 0;
             if (!(c > 0) || !(m > 0 || s > 0)) return null;
             const totalSec = m * 60 + s;
-            const avgSec   = Math.ceil(totalSec / c);
+            const avgSec   = totalSec / c;
             return {
-                substituted: `((${m} × 60) + ${s}) ÷ ${c} = ${(totalSec / c).toFixed(2)}`,
-                result: `${avgSec} ${t('unit_sec')}`,
+                substituted: `((${m} × 60) + ${s}) ÷ ${c} = ${avgSec.toFixed(2)}`,
+                result: `${avgSec.toFixed(2)} ${t('unit_sec')}`,
             };
         },
     },
@@ -1420,9 +1436,9 @@ const FORMULA_DEFS = {
         formulaKey: 'fx_formula_avg_min',
         descKey:    'fx_desc_avg_min',
         compute() {
-            const m = parseFloat(document.getElementById('totalMin').value) || 0;
-            const s = parseFloat(document.getElementById('totalTime').value) || 0;
-            const c = parseFloat(document.getElementById('totalCount').value) || 0;
+            const m = parseNum(document.getElementById('totalMin').value) || 0;
+            const s = parseNum(document.getElementById('totalTime').value) || 0;
+            const c = parseNum(document.getElementById('totalCount').value) || 0;
             const avg = calcAvgMin(m, s, c);
             if (avg === null) return null;
             return {
@@ -1437,9 +1453,9 @@ const FORMULA_DEFS = {
         descKey:    'fx_desc_actual_eff',
         compute() {
             const sam = getSamMinutes();
-            const m = parseFloat(document.getElementById('totalMin').value) || 0;
-            const s = parseFloat(document.getElementById('totalTime').value) || 0;
-            const c = parseFloat(document.getElementById('totalCount').value) || 0;
+            const m = parseNum(document.getElementById('totalMin').value) || 0;
+            const s = parseNum(document.getElementById('totalTime').value) || 0;
+            const c = parseNum(document.getElementById('totalCount').value) || 0;
             const avg = calcAvgMin(m, s, c);
             const eff = calcActualEff(sam, avg);
             if (eff === null) return null;
@@ -1454,9 +1470,9 @@ const FORMULA_DEFS = {
         formulaKey: 'fx_formula_actual_pcs',
         descKey:    'fx_desc_actual_pcs',
         compute() {
-            const m = parseFloat(document.getElementById('totalMin').value) || 0;
-            const s = parseFloat(document.getElementById('totalTime').value) || 0;
-            const c = parseFloat(document.getElementById('totalCount').value) || 0;
+            const m = parseNum(document.getElementById('totalMin').value) || 0;
+            const s = parseNum(document.getElementById('totalTime').value) || 0;
+            const c = parseNum(document.getElementById('totalCount').value) || 0;
             const avg = calcAvgMin(m, s, c);
             const pcs = calcActualPcsPerHr(avg);
             if (pcs === null) return null;
@@ -1471,8 +1487,8 @@ const FORMULA_DEFS = {
         formulaKey: 'fx_formula_pass_rate',
         descKey:    'fx_desc_pass_rate',
         compute() {
-            const p = parseFloat(document.getElementById('passQty').value) || 0;
-            const f = parseFloat(document.getElementById('failQty').value) || 0;
+            const p = parseNum(document.getElementById('passQty').value) || 0;
+            const f = parseNum(document.getElementById('failQty').value) || 0;
             const rate = calcPassRate(p, f);
             if (rate === null) return null;
             return {
@@ -1706,6 +1722,11 @@ if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').catch(() => {});
     });
 }
+
+// Stamp the footer from the single source of truth so it can never drift from
+// the CSV export (both read APP_VERSION from version.js).
+const _appVersionEl = document.getElementById('appVersion');
+if (_appVersionEl) _appVersionEl.textContent = 'v' + APP_VERSION;
 
 initGA4(); // Google Analytics 4
 initTheme();

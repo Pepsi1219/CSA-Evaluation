@@ -1824,6 +1824,15 @@ if ('serviceWorker' in navigator) {
 const _appVersionEl = document.getElementById('appVersion');
 if (_appVersionEl) _appVersionEl.textContent = 'v' + APP_VERSION;
 
+// Native-app feel: no zoom. The viewport meta (maximum-scale=1, user-scalable=no)
+// plus `touch-action: pan-x pan-y` (style.css) block pinch/double-tap zoom on
+// Android, but iOS Safari ignores both — so also swallow its pinch gesture
+// events here. Single-finger scrolling is untouched; desktop browser zoom
+// (Ctrl +/- / Ctrl-wheel) is deliberately left working.
+['gesturestart', 'gesturechange', 'gestureend'].forEach(evt =>
+    document.addEventListener(evt, e => e.preventDefault(), { passive: false })
+);
+
 initGA4(); // Google Analytics 4
 initTheme();
 restoreFormState();

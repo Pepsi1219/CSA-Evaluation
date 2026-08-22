@@ -1576,6 +1576,100 @@ function initTheme() {
     });
 }
 
+// --- 8d. In-app Numpad ---------------------------------------------------
+// Every editable numeric field carries inputmode="none" (so the mobile OS
+// keyboard never opens) plus data-numpad ("int" | "decimal") and
+// data-numpad-label (a translation key for the sheet header). Tapping a field
+// opens this keypad; each key rewrites the field's value and re-fires its
+// native `input` event, so the existing per-field handlers (calculateAll /
+// tsRecalculate) run untouched — one seam, no recompute logic duplicated here.
+// Physical keyboards still type normally (inputmode only suppresses the
+// on-screen one), so desktop entry is unaffected.
+const _numpad = { field: null, buffer: '', decimal: false };
+
+function openNumpad(field) {
+    const modal = document.getElementById('numpadModal');
+    if (!field || !modal) return;
+    _numpad.field   = field;
+    // Normalize a legacy comma value to a dot so the pad edits it consistently.
+    _numpad.buffer  = String(field.value || '').replace(',', '.');
+    _numpad.decimal = field.dataset.numpad === 'decimal';
+
+    const dotKey = document.getElementById('numpadDotKey');
+    if (dotKey) dotKey.style.visibility = _numpad.decimal ? '' : 'hidden';
+
+    const labelEl = document.getElementById('numpadFieldLabel');
+    if (labelEl) labelEl.textContent = field.dataset.numpadLabel ? t(field.dataset.numpadLabel) : '';
+
+    _renderNumpad();
+    modal.style.display = 'flex';
+    gaTrack('open_numpad', { field: field.id || '' });
+}
+
+function closeNumpad() {
+    const modal = document.getElementById('numpadModal');
+    if (!modal) return;
+    // Drop a dangling trailing dot on commit so "5." is stored as "5".
+    if (_numpad.field && /\.$/.test(_numpad.buffer)) {
+        _numpad.buffer = _numpad.buffer.slice(0, -1);
+        _commitNumpad();
+    }
+    modal.style.display = 'none';
+    _numpad.field = null;
+    _numpad.buffer = '';
+}
+
+function _renderNumpad() {
+    const disp = document.getElementById('numpadValue');
+    if (disp) disp.textContent = _numpad.buffer === '' ? '0' : _numpad.buffer;
+}
+
+// Write the buffer back to the field and re-fire its input handler so the whole
+// calc pipeline reacts live, exactly as if the user had typed the character.
+function _commitNumpad() {
+    if (!_numpad.field) return;
+    _numpad.field.value = _numpad.buffer;
+    _numpad.field.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function numpadPress(key) {
+    if (!_numpad.field) return;
+    if (key === 'back') {
+        _numpad.buffer = _numpad.buffer.slice(0, -1);
+    } else if (key === '.') {
+        if (!_numpad.decimal || _numpad.buffer.includes('.')) return;
+        _numpad.buffer = _numpad.buffer === '' ? '0.' : _numpad.buffer + '.';
+    } else {
+        // Replace a lone leading zero so "0" then "5" is "5", never "05".
+        _numpad.buffer = _numpad.buffer === '0' ? key : _numpad.buffer + key;
+    }
+    _renderNumpad();
+    _commitNumpad();
+}
+
+function numpadClear() {
+    if (!_numpad.field) return;
+    _numpad.buffer = '';
+    _renderNumpad();
+    _commitNumpad();
+}
+
+// Open on click of any numpad field (delegated so it also covers the two
+// fields living inside the stopwatch / Time-Study modals).
+document.addEventListener('click', e => {
+    const field = e.target.closest('input[data-numpad]');
+    if (field) openNumpad(field);
+});
+document.querySelectorAll('#numpadModal [data-numkey]').forEach(btn => {
+    btn.addEventListener('click', () => numpadPress(btn.dataset.numkey));
+});
+document.getElementById('numpadDoneBtn')?.addEventListener('click', closeNumpad);
+document.getElementById('numpadCloseBtn')?.addEventListener('click', closeNumpad);
+document.getElementById('numpadClearBtn')?.addEventListener('click', numpadClear);
+document.getElementById('numpadModal')?.addEventListener('click', e => {
+    if (e.target.id === 'numpadModal') closeNumpad();
+});
+
 // --- 9. Event Wiring ---
 feedbackBtn?.addEventListener('click', openFeedbackModal);
 closeModalBtn?.addEventListener('click', closeFeedbackModal);
@@ -1662,6 +1756,8 @@ document.addEventListener('click', e => {
 
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
+        // Numpad sits above every other modal, so it swallows ESC first.
+        if (document.getElementById('numpadModal')?.style.display === 'flex') { closeNumpad(); return; }
         if (feedbackModal?.style.display === 'flex') closeFeedbackModal();
         if (historyModal?.style.display === 'flex') closeHistoryModal();
         const formulaModal = document.getElementById('formulaModal');

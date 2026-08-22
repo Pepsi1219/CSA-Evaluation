@@ -4,7 +4,7 @@
 // caches (some older browsers don't re-check importScripts'd files, so the
 // canonical value is duplicated here on purpose). test/version.test.js fails
 // the build if this drifts from version.js.
-const CACHE  = 'csa-v1.16.0';  // ← bump on every deploy; must match version.js
+const CACHE  = 'csa-v1.17.0';  // ← bump on every deploy; must match version.js
 const ASSETS = [
     './',
     './index.html',
@@ -15,9 +15,22 @@ const ASSETS = [
     './translations.js',
     './chart.js',
     './history.js',
+    './tutorial.js',
     './script.js',
     './manifest.json',
     './icon.svg',
+    // Tutorial screenshots (real app captures used by the learning centre)
+    './assets/tutorial/overview.png',
+    './assets/tutorial/menu.png',
+    './assets/tutorial/numpad.png',
+    './assets/tutorial/sam-target.png',
+    './assets/tutorial/formula-modal.png',
+    './assets/tutorial/stopwatch.png',
+    './assets/tutorial/time-study.png',
+    './assets/tutorial/actual-status.png',
+    './assets/tutorial/quality.png',
+    './assets/tutorial/training-chart.png',
+    './assets/tutorial/history.png',
 ];
 
 // Install: pre-cache core assets

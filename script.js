@@ -879,6 +879,8 @@ function changeLanguage(lang) {
     // Re-render Time Study readouts (their text is built from t() at render time)
     if (document.getElementById('swStatsPanel')?.style.display === 'block') tsRecalculate();
     if (document.getElementById('tsConfigModal')?.style.display === 'flex') renderTTable();
+    // Tutorial content is rendered from JS (L() picks the language) — re-render if open.
+    if (typeof tutorialOnLangChange === 'function') tutorialOnLangChange();
 }
 
 // ---- Actions overflow menu ----
@@ -1670,6 +1672,37 @@ document.getElementById('numpadModal')?.addEventListener('click', e => {
     if (e.target.id === 'numpadModal') closeNumpad();
 });
 
+// --- 8e. Settings modal ---------------------------------------------------
+// Hosts the tutorial launcher + the theme and language controls (moved out of
+// the header overflow menu so everything configurable lives in one place).
+// Theme + language keep their original ids/classes, so toggleTheme() and the
+// changeLanguage() wiring keep working unchanged.
+function openSettingsModal() {
+    const m = document.getElementById('settingsModal');
+    if (!m) return;
+    updateTutProgressBadge();
+    m.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    gaTrack('open_settings');
+}
+function closeSettingsModal() {
+    const m = document.getElementById('settingsModal');
+    if (!m) return;
+    m.style.display = 'none';
+    document.body.style.overflow = '';
+}
+document.getElementById('settingsCloseBtn')?.addEventListener('click', closeSettingsModal);
+document.getElementById('settingsModal')?.addEventListener('click', e => {
+    if (e.target.id === 'settingsModal') closeSettingsModal();
+});
+
+// Tutorial modal chrome (open/close/back live in tutorial.js).
+document.getElementById('tutCloseBtn')?.addEventListener('click', closeTutorial);
+document.getElementById('tutBackBtn')?.addEventListener('click', tutBack);
+document.getElementById('tutorialModal')?.addEventListener('click', e => {
+    if (e.target.id === 'tutorialModal') closeTutorial();
+});
+
 // --- 9. Event Wiring ---
 feedbackBtn?.addEventListener('click', openFeedbackModal);
 closeModalBtn?.addEventListener('click', closeFeedbackModal);
@@ -1758,6 +1791,8 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         // Numpad sits above every other modal, so it swallows ESC first.
         if (document.getElementById('numpadModal')?.style.display === 'flex') { closeNumpad(); return; }
+        if (document.getElementById('tutorialModal')?.style.display === 'flex') { tutBack(); return; }
+        if (document.getElementById('settingsModal')?.style.display === 'flex') { closeSettingsModal(); return; }
         if (feedbackModal?.style.display === 'flex') closeFeedbackModal();
         if (historyModal?.style.display === 'flex') closeHistoryModal();
         const formulaModal = document.getElementById('formulaModal');
@@ -1842,6 +1877,8 @@ _bumpSessionCount();  // used by _shouldOfferInstall()
 drainFeedbackQueue();
 // Show 3-screen tour on first launch only (persisted in localStorage)
 showOnboardingIfNeeded();
+// Reflect tutorial progress on the Settings launcher badge
+if (typeof updateTutProgressBadge === 'function') updateTutProgressBadge();
 // Restore last chosen language (falls back to Thai if unset or invalid)
 const _savedLang = (() => { try { return localStorage.getItem('csa_lang'); } catch { return null; } })();
 changeLanguage(_savedLang && translations[_savedLang] ? _savedLang : 'th');

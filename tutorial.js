@@ -619,7 +619,15 @@ function _roundRect(ctx, x, y, w, h, r) {
     ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
 }
-function _letterSpace(s, px) { return s.split('').join(String.fromCharCode(8202).repeat(Math.max(1, Math.round(px / 3)))); }
+// Tracking (letter-spacing) is a Latin typographic device. Splitting on UTF-16
+// code units and injecting hair-spaces between them detaches Thai/Lao vowels and
+// tone marks from their base consonants (and Vietnamese diacritics from theirs),
+// garbling the text — e.g. "วันที่" → "ว้ันก๊ี". So only space plain ASCII strings;
+// return any string with non-Latin characters untouched.
+function _letterSpace(s, px) {
+    if (/[^\x00-\x7F]/.test(s)) return s;
+    return s.split('').join(String.fromCharCode(8202).repeat(Math.max(1, Math.round(px / 3))));
+}
 function _fit(ctx, text, maxW, size, font, weight) {
     let s = size;
     ctx.font = `${weight} ${s}px ${font}`;
@@ -650,5 +658,5 @@ function tutorialOnLangChange() {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { TUTORIAL_DATA, QUIZ_DATA, QUIZ_PASS_PCT };
+    module.exports = { TUTORIAL_DATA, QUIZ_DATA, QUIZ_PASS_PCT, _letterSpace };
 }

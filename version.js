@@ -12,7 +12,7 @@
 // for all consumers; also require()-able from Node for the test.
 // ============================================================
 
-const APP_VERSION = '1.17.0';
+const APP_VERSION = '1.18.0';
 
 // Expose as a browser/worker global (self === window in a page, === the SW
 // global in a worker). No-op under Node, where `self` is undefined.

@@ -1673,10 +1673,9 @@ document.getElementById('numpadModal')?.addEventListener('click', e => {
 });
 
 // --- 8e. Settings modal ---------------------------------------------------
-// Hosts the tutorial launcher + the theme and language controls (moved out of
-// the header overflow menu so everything configurable lives in one place).
-// Theme + language keep their original ids/classes, so toggleTheme() and the
-// changeLanguage() wiring keep working unchanged.
+// Hosts the tutorial launcher only (labelled "ระบบฝึกสอนการใช้งาน"). Theme +
+// language live back in the header overflow menu, so this sheet is purely the
+// entry point into the learning centre.
 function openSettingsModal() {
     const m = document.getElementById('settingsModal');
     if (!m) return;

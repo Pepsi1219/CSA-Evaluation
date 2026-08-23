@@ -19,7 +19,12 @@ const ASSETS = [
     './script.js',
     './manifest.json',
     './icon.svg',
-    // Tutorial screenshots (real app captures used by the learning centre)
+    // Tutorial screenshots (real app captures used by the learning centre).
+    // Only the Thai (default/fallback) set is pre-cached here. Per-language
+    // captures live in assets/tutorial/<lang>/ (en/vn/la) with the SAME
+    // filenames; they are runtime-cached by the fetch handler on first view,
+    // so they must NOT be listed here — addAll() is atomic and a not-yet-added
+    // file would fail the whole install. See assets/tutorial/README.md.
     './assets/tutorial/overview.png',
     './assets/tutorial/menu.png',
     './assets/tutorial/numpad.png',

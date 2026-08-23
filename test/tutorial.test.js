@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { TUTORIAL_DATA, QUIZ_DATA, QUIZ_PASS_PCT } = require('../tutorial.js');
+const { TUTORIAL_DATA, QUIZ_DATA, QUIZ_PASS_PCT, _letterSpace } = require('../tutorial.js');
 const IMG_DIR = path.join(__dirname, '..', 'assets', 'tutorial');
 
 // Every localized content object must at least carry a non-empty Thai string
@@ -38,6 +38,26 @@ test('tutorial lessons', async (t) => {
                     const p = path.join(IMG_DIR, st.img);
                     assert.ok(fs.existsSync(p), `missing screenshot: assets/tutorial/${st.img} (lesson ${les.id})`);
                 }
+    });
+});
+
+test('certificate letter-spacing helper', async (t) => {
+    const HAIR = String.fromCharCode(8202);
+    await t.test('tracks ASCII strings so the eyebrow/labels get spacing', () => {
+        const out = _letterSpace('DATE', 2);
+        assert.ok(out.includes(HAIR), 'ASCII string should have hair-spaces inserted');
+        // No spacing character should sit before the first or after the last glyph.
+        assert.equal(out.replace(new RegExp(HAIR, 'g'), ''), 'DATE');
+    });
+    await t.test('leaves Thai untouched so combining marks stay attached', () => {
+        // Thai labels carry vowels/tone marks as separate code points; inserting a
+        // hair-space between any two would detach a mark and garble the glyph.
+        for (const s of ['วันที่', 'คะแนน', 'รหัสใบรับรอง']) {
+            assert.equal(_letterSpace(s, 2), s, `Thai "${s}" must pass through unchanged`);
+        }
+    });
+    await t.test('leaves Vietnamese diacritics untouched', () => {
+        assert.equal(_letterSpace('Ngày', 2), 'Ngày');
     });
 });
 

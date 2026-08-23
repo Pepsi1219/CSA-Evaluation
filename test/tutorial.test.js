@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { TUTORIAL_DATA, QUIZ_DATA, QUIZ_PASS_PCT, _letterSpace } = require('../tutorial.js');
+const { TUTORIAL_DATA, QUIZ_DATA, QUIZ_PASS_PCT, _letterSpace, _stepImgSrc } = require('../tutorial.js');
 const IMG_DIR = path.join(__dirname, '..', 'assets', 'tutorial');
 
 // Every localized content object must at least carry a non-empty Thai string
@@ -38,6 +38,27 @@ test('tutorial lessons', async (t) => {
                     const p = path.join(IMG_DIR, st.img);
                     assert.ok(fs.existsSync(p), `missing screenshot: assets/tutorial/${st.img} (lesson ${les.id})`);
                 }
+    });
+});
+
+test('per-language screenshot resolution', async (t) => {
+    await t.test('Thai (default) resolves to the flat fallback base', () => {
+        assert.equal(_stepImgSrc('overview.png', 'th'), 'assets/tutorial/overview.png');
+    });
+    await t.test('other languages resolve to their own subfolder, same filename', () => {
+        assert.equal(_stepImgSrc('overview.png', 'en'), 'assets/tutorial/en/overview.png');
+        assert.equal(_stepImgSrc('overview.png', 'vn'), 'assets/tutorial/vn/overview.png');
+        assert.equal(_stepImgSrc('overview.png', 'la'), 'assets/tutorial/la/overview.png');
+    });
+    await t.test('unknown/empty language falls back to the flat base', () => {
+        assert.equal(_stepImgSrc('menu.png', ''), 'assets/tutorial/menu.png');
+    });
+    await t.test('the per-language folders exist so authors have a place to drop images', () => {
+        for (const lang of ['en', 'vn', 'la']) {
+            const dir = path.join(IMG_DIR, lang);
+            assert.ok(fs.existsSync(dir) && fs.statSync(dir).isDirectory(),
+                `missing language folder assets/tutorial/${lang}/`);
+        }
     });
 });
 

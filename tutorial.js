@@ -25,6 +25,18 @@ function L(obj) {
     return obj[currentLang] || obj.th || '';
 }
 
+// Resolve a step screenshot's URL for the active language.
+//   Thai (default)  → assets/tutorial/<file>          (flat — the fallback base)
+//   en / vn / la    → assets/tutorial/<lang>/<file>   (same filename, per-language folder)
+// The base filename is identical across languages; only the folder changes, so a
+// lesson keeps one stable name (e.g. 'overview.png') in every language. Until a
+// language's screenshots are added, the <img> onerror handler falls back to the
+// Thai capture (see the lesson view), so the tutorial always renders something.
+function _stepImgSrc(file, lang) {
+    lang = lang || (typeof currentLang !== 'undefined' ? currentLang : 'th');
+    return (lang && lang !== 'th') ? `${TUT_IMG}${lang}/${file}` : `${TUT_IMG}${file}`;
+}
+
 // ---- Content: categories → lessons → steps (each step = 1 screenshot + caption)
 const TUTORIAL_DATA = [
     {
@@ -344,7 +356,8 @@ function _renderLesson(p) {
     <div class="tut-lesson">
         <h2 class="tut-lesson-heading">${_esc(L(les.title))}</h2>
         <div class="tut-shot-frame">
-            <img class="tut-shot" src="${TUT_IMG}${st.img}" alt="${_esc(L(les.title))}" loading="lazy">
+            <img class="tut-shot" src="${_stepImgSrc(st.img)}" alt="${_esc(L(les.title))}" loading="lazy"
+                 onerror="this.onerror=null;this.src='${TUT_IMG}${st.img}'">
         </div>
         <p class="tut-caption">${_esc(L(st.cap))}</p>
         <div class="tut-step-dots">${dots}</div>
@@ -658,5 +671,5 @@ function tutorialOnLangChange() {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { TUTORIAL_DATA, QUIZ_DATA, QUIZ_PASS_PCT, _letterSpace };
+    module.exports = { TUTORIAL_DATA, QUIZ_DATA, QUIZ_PASS_PCT, _letterSpace, _stepImgSrc };
 }

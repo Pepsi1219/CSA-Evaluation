@@ -2659,6 +2659,16 @@ label {
     box-shadow: 0 0 0 3px var(--accent-100);
     background: var(--surface);
 }
+/* Employee code: prominent, monospace-numeric, centered so it reads like a keypad entry */
+.login-input-code {
+    font-size: 1.35rem;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+    caret-color: transparent;   /* the field is populated by the in-app numpad, not typing */
+    cursor: pointer;
+}
 .login-error {
     min-height: 1.2em;
     margin: 0 0 var(--sp-3);

@@ -84,6 +84,26 @@ export async function signIn(email, password) {
     return cred.user;
 }
 
+// Employee-code login. The app UI collects a numeric code (e.g. 68020002),
+// which is synthesized into a Firebase email+password pair here. The suffix
+// domain is a placeholder — no mail is ever sent, Firebase only checks format.
+// The "password" is the code itself; effective security is the pre-registered
+// allowlist in Firebase Auth (unknown code → auth error) + Firestore Rules
+// (each uid can only touch its own history). Keep employee codes hard to guess
+// (avoid strictly sequential numbering).
+export const EMPLOYEE_EMAIL_SUFFIX = '@ie-calc.internal';
+export function codeToEmail(code) { return `${String(code).trim()}${EMPLOYEE_EMAIL_SUFFIX}`; }
+export function emailToCode(email) {
+    if (!email) return '';
+    const at = email.indexOf('@');
+    return at >= 0 ? email.slice(0, at) : email;
+}
+export async function signInWithCode(code) {
+    const c = String(code).trim();
+    if (!c) throw Object.assign(new Error('empty-code'), { code: 'auth/invalid-credential' });
+    return signIn(codeToEmail(c), c);
+}
+
 export async function signOutUser() {
     if (!_auth) return;
     await signOut(_auth);

@@ -23,7 +23,8 @@ import { t } from './state.js';
 import { updateTutProgressBadge } from './tutorial.js';
 import {
     FIREBASE_ENABLED, initFirebase, onAuthChange, subscribeHistory,
-    migrateLocalHistory, _setCurrentUser, signIn, authErrorKey,
+    migrateLocalHistory, _setCurrentUser, signInWithCode, authErrorKey,
+    emailToCode,
 } from './auth.js';
 import { loadLocalHistory } from './history.js';
 import './wiring.js';
@@ -60,8 +61,7 @@ document.addEventListener('visibilitychange', () => {
 // ============================================================
 const loginOverlay   = document.getElementById('loginOverlay');
 const loginForm      = document.getElementById('loginForm');
-const loginEmail     = document.getElementById('loginEmail');
-const loginPassword  = document.getElementById('loginPassword');
+const loginCode      = document.getElementById('loginCode');
 const loginError     = document.getElementById('loginError');
 const loginSubmitBtn = document.getElementById('loginSubmitBtn');
 
@@ -70,7 +70,9 @@ function showLoginOverlay() {
     loginOverlay.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     if (loginError) loginError.textContent = '';
-    loginEmail?.focus();
+    // Do NOT auto-focus loginCode — that would pop the OS keyboard on mobile.
+    // The field carries inputmode="none" + data-numpad so tapping it opens the
+    // in-app numpad (same UX as every other numeric field in the app).
 }
 function hideLoginOverlay() {
     if (!loginOverlay) return;
@@ -103,10 +105,12 @@ async function enterApp(user) {
             await subscribeHistory(user.uid);               // await first snapshot
             await migrateLocalHistory(user.uid, loadLocalHistory());
         } catch (_) { /* proceed with whatever cache exists */ }
-        // Reveal the account row in Settings and fill in the email.
+        // Reveal the account row in Settings and show the employee code
+        // (strip the synthetic @ie-calc.internal suffix — operators recognize
+        // the code, not the fake email).
         const accountSection = document.getElementById('accountSection');
         const accountEmail   = document.getElementById('accountEmail');
-        if (accountEmail) accountEmail.textContent = user.email || '';
+        if (accountEmail) accountEmail.textContent = emailToCode(user.email);
         if (accountSection) accountSection.style.display = '';
     }
     hideLoginOverlay();
@@ -146,10 +150,9 @@ boot();
 // ============================================================
 loginForm?.addEventListener('submit', async e => {
     e.preventDefault();
-    if (!loginEmail || !loginPassword) return;
-    const email = loginEmail.value.trim();
-    const password = loginPassword.value;
-    if (!email || !password) return;
+    if (!loginCode) return;
+    const code = loginCode.value.trim();
+    if (!code) return;
 
     if (loginError) loginError.textContent = '';
     if (loginSubmitBtn) {
@@ -158,7 +161,7 @@ loginForm?.addEventListener('submit', async e => {
         loginSubmitBtn.textContent = t('login_signing_in');
     }
     try {
-        await signIn(email, password);
+        await signInWithCode(code);
         // onAuthChange → enterApp handles the transition + overlay hide.
     } catch (err) {
         if (loginError) loginError.textContent = t(authErrorKey(err));

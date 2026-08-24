@@ -694,18 +694,14 @@
             </svg>
         </div>
         <h1 class="login-title" id="loginTitle"><span class="lang-text" data-key="login_title">เข้าสู่ระบบ</span></h1>
-        <p class="login-subtitle lang-text" data-key="login_subtitle">ลงชื่อเข้าใช้เพื่อใช้งานเครื่องมือและดูประวัติของคุณ</p>
+        <p class="login-subtitle lang-text" data-key="login_subtitle">ใส่รหัสพนักงานของคุณเพื่อเข้าใช้งาน</p>
 
-        <form id="loginForm" class="login-form" autocomplete="on" novalidate>
-            <label class="login-field-label lang-text" data-key="login_email_label" for="loginEmail">อีเมล</label>
-            <input type="email" id="loginEmail" class="login-input" name="email"
-                   autocomplete="username" inputmode="email"
-                   data-key-placeholder="login_email_ph" placeholder="you@example.com" required>
-
-            <label class="login-field-label lang-text" data-key="login_password_label" for="loginPassword">รหัสผ่าน</label>
-            <input type="password" id="loginPassword" class="login-input" name="password"
-                   autocomplete="current-password"
-                   data-key-placeholder="login_password_ph" placeholder="••••••••" required>
+        <form id="loginForm" class="login-form" autocomplete="off" novalidate>
+            <label class="login-field-label lang-text" data-key="login_code_label" for="loginCode">รหัสพนักงาน</label>
+            <input type="text" id="loginCode" class="login-input login-input-code"
+                   inputmode="none" pattern="[0-9]*" autocomplete="off"
+                   data-numpad="int" data-numpad-label="login_code_label"
+                   data-key-placeholder="login_code_ph" placeholder="เช่น 68020002" required>
 
             <p id="loginError" class="login-error" role="alert" aria-live="assertive"></p>
 

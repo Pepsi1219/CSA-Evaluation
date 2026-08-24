@@ -81,35 +81,35 @@
 
                         <hr class="actions-divider">
 
-                        <button type="button" class="actions-item" role="menuitem" onclick="exportCSV(); closeActionsMenu();">
+                        <button type="button" class="actions-item" role="menuitem" data-action="csv">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>
                             <span class="lang-text" data-key="menu_csv">ดาวน์โหลด CSV</span>
                         </button>
-                        <button type="button" class="actions-item" role="menuitem" onclick="printReport(); closeActionsMenu();">
+                        <button type="button" class="actions-item" role="menuitem" data-action="print">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
                             <span class="lang-text" data-key="menu_pdf">บันทึกเป็น PDF</span>
                         </button>
-                        <button type="button" class="actions-item" role="menuitem" onclick="openHistoryModal(); closeActionsMenu();">
+                        <button type="button" class="actions-item" role="menuitem" data-action="history">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M3 3v5h5"/><path d="M3.05 13a9 9 0 1 0 2.13-6.36L3 8"/></svg>
                             <span class="lang-text" data-key="menu_history">ประวัติการประเมิน</span>
                         </button>
-                        <button type="button" class="actions-item" role="menuitem" id="installMenuItem" onclick="pwaInstall(); closeActionsMenu();" style="display:none;">
+                        <button type="button" class="actions-item" role="menuitem" id="installMenuItem" data-action="install" style="display:none;">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                             <span class="lang-text" data-key="menu_install">ติดตั้งแอป</span>
                         </button>
-                        <button type="button" class="actions-item" role="menuitem" id="themeToggleBtn" onclick="toggleTheme()">
+                        <button type="button" class="actions-item" role="menuitem" id="themeToggleBtn" data-action="theme">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="themeIconMoon"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="themeIconSun" style="display:none;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
                             <span class="lang-text" data-key="menu_theme">สลับธีมมืด/สว่าง</span>
                         </button>
-                        <button type="button" class="actions-item" role="menuitem" onclick="openSettingsModal(); closeActionsMenu();">
+                        <button type="button" class="actions-item" role="menuitem" data-action="settings">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"/><line x1="22" y1="10" x2="22" y2="15"/></svg>
                             <span class="lang-text" data-key="menu_settings">ระบบฝึกสอนการใช้งาน</span>
                         </button>
 
                         <hr class="actions-divider">
 
-                        <button type="button" class="actions-item danger" role="menuitem" onclick="resetForm(); closeActionsMenu();">
+                        <button type="button" class="actions-item danger" role="menuitem" data-action="reset">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                             <span class="lang-text" data-key="menu_reset">ล้างข้อมูลทั้งหมด</span>
                         </button>
@@ -146,15 +146,15 @@
             <div class="label-row">
                 <label class="lang-text" data-key="sam_label_base">ค่า SAM</label>
                 <div class="unit-toggle-group" role="group" aria-label="SAM unit">
-                    <button type="button" class="unit-toggle-btn active" id="samUnitBtnMin" onclick="setSamUnit('min')"><span class="lang-text" data-key="unit_min">นาที</span></button>
-                    <button type="button" class="unit-toggle-btn" id="samUnitBtnSec" onclick="setSamUnit('sec')"><span class="lang-text" data-key="unit_sec">วินาที</span></button>
+                    <button type="button" class="unit-toggle-btn active" id="samUnitBtnMin" data-action="sam-unit" data-arg="min"><span class="lang-text" data-key="unit_min">นาที</span></button>
+                    <button type="button" class="unit-toggle-btn" id="samUnitBtnSec" data-action="sam-unit" data-arg="sec"><span class="lang-text" data-key="unit_sec">วินาที</span></button>
                 </div>
             </div>
-            <input type="text" id="samInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="sam_label_base" oninput="calculateAll()">
+            <input type="text" id="samInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="sam_label_base">
         </div>
         <div class="input-group">
             <label class="lang-text" data-key="eff_target">เป้าหมายประสิทธิภาพ (%)</label>
-            <input type="text" id="effTargetInput" class="glass-input" inputmode="none" pattern="[0-9]*" data-numpad="int" data-numpad-label="eff_target" oninput="calculateAll()">
+            <input type="text" id="effTargetInput" class="glass-input" inputmode="none" pattern="[0-9]*" data-numpad="int" data-numpad-label="eff_target">
         </div>
     </div>
 
@@ -197,7 +197,7 @@
         </h3>
 
         <!-- Stopwatch Launch Button -->
-        <button type="button" class="sw-launch-btn" onclick="openStopwatchModal()">
+        <button type="button" class="sw-launch-btn" data-action="sw-open">
             <div class="sw-launch-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                      stroke-linecap="round" stroke-linejoin="round">
@@ -219,15 +219,15 @@
         <div class="form-row-three">
             <div class="input-group">
                 <label class="lang-text" data-key="total_min">เวลารวม (นาที)</label>
-                <input type="text" id="totalMin" class="glass-input" inputmode="none" pattern="[0-9]*" value="0" data-numpad="int" data-numpad-label="total_min" oninput="calculateAll()">
+                <input type="text" id="totalMin" class="glass-input" inputmode="none" pattern="[0-9]*" value="0" data-numpad="int" data-numpad-label="total_min">
             </div>
             <div class="input-group">
                 <label class="lang-text" data-key="total_sec">เวลารวม (วินาที)</label>
-                <input type="text" id="totalTime" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="total_sec" oninput="calculateAll()">
+                <input type="text" id="totalTime" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="total_sec">
             </div>
             <div class="input-group">
                 <label class="lang-text" data-key="total_count">จำนวน (รอบ)</label>
-                <input type="text" id="totalCount" class="glass-input" inputmode="none" pattern="[0-9]*" value="1" data-numpad="int" data-numpad-label="total_count" oninput="calculateAll()">
+                <input type="text" id="totalCount" class="glass-input" inputmode="none" pattern="[0-9]*" value="1" data-numpad="int" data-numpad-label="total_count">
             </div>
         </div>
 
@@ -284,11 +284,11 @@
         <div class="form-row-three">
             <div class="input-group">
                 <label class="lang-text" data-key="pass_qty">จำนวนที่ "ผ่าน" (ชิ้น)</label>
-                <input type="text" id="passQty" inputmode="none" pattern="[0-9]*" class="glass-input" data-numpad="int" data-numpad-label="pass_qty" oninput="calculateAll()">
+                <input type="text" id="passQty" inputmode="none" pattern="[0-9]*" class="glass-input" data-numpad="int" data-numpad-label="pass_qty">
             </div>
             <div class="input-group">
                 <label class="lang-text" data-key="fail_qty">จำนวนที่ "ไม่ผ่าน" (ชิ้น)</label>
-                <input type="text" id="failQty" inputmode="none" pattern="[0-9]*" class="glass-input" data-numpad="int" data-numpad-label="fail_qty" oninput="calculateAll()">
+                <input type="text" id="failQty" inputmode="none" pattern="[0-9]*" class="glass-input" data-numpad="int" data-numpad-label="fail_qty">
             </div>
             <div class="input-group">
                 <label class="fx-label" data-fx="pass_rate">
@@ -318,7 +318,7 @@
 
         <div class="input-group">
             <label class="lang-text" data-key="training_duration">ระยะเวลาการฝึก (วัน/ชม)</label>
-            <input type="text" id="duration" class="glass-input" inputmode="none" pattern="[0-9]*" data-numpad="int" data-numpad-label="training_duration" oninput="calculateAll()">
+            <input type="text" id="duration" class="glass-input" inputmode="none" pattern="[0-9]*" data-numpad="int" data-numpad-label="training_duration">
         </div>
 
         <div class="training-grid" id="trainingGrid"></div>
@@ -508,7 +508,7 @@
 
         <!-- Header -->
         <div class="sw-header">
-            <button class="sw-back-btn" onclick="closeStopwatchModal()">
+            <button class="sw-back-btn" data-action="sw-close">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
                      stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
                     <path d="M15 18l-6-6 6-6"/>
@@ -516,10 +516,10 @@
                 <span class="lang-text" data-key="sw_back">กลับ</span>
             </button>
             <div class="sw-mode-tabs">
-                <button class="sw-mode-tab active" id="swTabLap" onclick="swSetMode('lap')">Lap</button>
-                <button class="sw-mode-tab" id="swTabSingle" onclick="swSetMode('single')">Single</button>
+                <button class="sw-mode-tab active" id="swTabLap" data-action="sw-mode" data-arg="lap">Lap</button>
+                <button class="sw-mode-tab" id="swTabSingle" data-action="sw-mode" data-arg="single">Single</button>
             </div>
-            <button class="sw-config-btn" onclick="openTsConfigModal()" title="Config" aria-label="Config">
+            <button class="sw-config-btn" data-action="ts-open" title="Config" aria-label="Config">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                      stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
                     <circle cx="12" cy="12" r="3"/>
@@ -537,11 +537,11 @@
         <!-- Control Buttons -->
         <div class="sw-controls">
             <button class="sw-modal-btn sw-btn-secondary sw-btn-disabled"
-                    id="swLapResetBtn" onclick="swLapOrReset()" disabled>รอบ</button>
+                    id="swLapResetBtn" data-action="sw-lap" disabled>รอบ</button>
             <button class="sw-modal-btn sw-btn-secondary sw-btn-disabled"
-                    id="swPauseBtn" onclick="swPauseResume()" disabled>พัก</button>
+                    id="swPauseBtn" data-action="sw-pause" disabled>พัก</button>
             <button class="sw-modal-btn sw-btn-start"
-                    id="swStartStopBtn" onclick="swStartStop()">เริ่ม</button>
+                    id="swStartStopBtn" data-action="sw-startstop">เริ่ม</button>
         </div>
 
         <!-- Summary Panel -->
@@ -550,37 +550,37 @@
                 <span class="sw-stats-title lang-text" data-key="sw_summary">สรุปผล</span>
             </div>
             <div class="sw-stats-grid">
-                <div class="sw-stat sw-stat-tappable" onclick="swToggleStatInfo('avg')">
+                <div class="sw-stat sw-stat-tappable" data-action="sw-stat" data-arg="avg">
                     <span class="lang-text" data-key="sw_avg">ค่าเฉลี่ย</span>
                     <span id="swStatAvg">—</span>
                 </div>
                 <div class="sw-stat-desc lang-text" id="swInfo_avg" data-key="sw_info_avg">เวลาเฉลี่ยต่อรอบ = เวลารวมทุกรอบ ÷ จำนวนรอบ</div>
 
-                <div class="sw-stat sw-stat-fastest sw-stat-tappable" onclick="swToggleStatInfo('min')">
+                <div class="sw-stat sw-stat-fastest sw-stat-tappable" data-action="sw-stat" data-arg="min">
                     <span class="lang-text" data-key="sw_fastest">เวลาเร็วสุด</span>
                     <span id="swStatMin">—</span>
                 </div>
                 <div class="sw-stat-desc lang-text" id="swInfo_min" data-key="sw_info_min">รอบที่ทำเวลาได้น้อยที่สุด (เร็วที่สุด)</div>
 
-                <div class="sw-stat sw-stat-slowest sw-stat-tappable" onclick="swToggleStatInfo('max')">
+                <div class="sw-stat sw-stat-slowest sw-stat-tappable" data-action="sw-stat" data-arg="max">
                     <span class="lang-text" data-key="sw_slowest">เวลาช้าสุด</span>
                     <span id="swStatMax">—</span>
                 </div>
                 <div class="sw-stat-desc lang-text" id="swInfo_max" data-key="sw_info_max">รอบที่ใช้เวลามากที่สุด (ช้าที่สุด)</div>
 
-                <div class="sw-stat sw-stat-tappable" onclick="swToggleStatInfo('total')">
+                <div class="sw-stat sw-stat-tappable" data-action="sw-stat" data-arg="total">
                     <span class="lang-text" data-key="sw_total">เวลารวม</span>
                     <span id="swStatTotal">—</span>
                 </div>
                 <div class="sw-stat-desc lang-text" id="swInfo_total" data-key="sw_info_total">ผลรวมเวลาทุกรอบที่จับได้</div>
 
-                <div class="sw-stat sw-stat-tappable" onclick="swToggleStatInfo('std')">
+                <div class="sw-stat sw-stat-tappable" data-action="sw-stat" data-arg="std">
                     <span class="lang-text" data-key="sw_std">ส่วนเบี่ยงเบนมาตรฐาน (s)</span>
                     <span id="swStatStd">—</span>
                 </div>
                 <div class="sw-stat-desc lang-text" id="swInfo_std" data-key="sw_info_std">ส่วนเบี่ยงเบนมาตรฐาน...</div>
 
-                <div class="sw-stat sw-stat-reqn sw-stat-tappable" onclick="swToggleStatInfo('reqn')">
+                <div class="sw-stat sw-stat-reqn sw-stat-tappable" data-action="sw-stat" data-arg="reqn">
                     <span class="lang-text" data-key="sw_required_n">จำนวนรอบที่ควรจับเวลา</span>
                     <span id="swStatReqN">—</span>
                 </div>
@@ -596,7 +596,7 @@
 
         <!-- Save to Form (sticky bottom) -->
         <div class="sw-save-panel" id="swSavePanel" style="display:none;">
-            <button class="sw-continue-btn" id="swContinueBtn" style="display:none;" onclick="swContinueTiming()">
+            <button class="sw-continue-btn" id="swContinueBtn" style="display:none;" data-action="sw-continue">
                 <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18" aria-hidden="true">
                     <polygon points="6,4 20,12 6,20"/>
                 </svg>
@@ -606,7 +606,7 @@
                 <label class="lang-text" data-key="sw_rounds">จำนวนรอบ</label>
                 <input type="text" id="swRoundsInput" class="sw-rounds-input" inputmode="none" pattern="[0-9]*" value="1" data-numpad="int" data-numpad-label="sw_rounds">
             </div>
-            <button class="sw-save-to-form-btn" onclick="swSaveToForm()">
+            <button class="sw-save-to-form-btn" data-action="sw-save">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                      stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
@@ -624,7 +624,7 @@
 <div id="tsConfigModal" class="sw-overlay" style="display:none;" role="dialog" aria-modal="true">
     <div class="sw-page">
         <div class="sw-header">
-            <button class="sw-back-btn" onclick="closeTsConfigModal()">
+            <button class="sw-back-btn" data-action="ts-close">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
                      stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
                     <path d="M15 18l-6-6 6-6"/>
@@ -642,9 +642,9 @@
             <div class="sw-config-section">
                 <div class="sw-config-label lang-text" data-key="ts_confidence">ระดับความเชื่อมั่น</div>
                 <div class="sw-ts-pills sw-ts-pills-lg">
-                    <button type="button" class="sw-ts-pill" data-conf="90" onclick="tsSetConfidence(90)">90%</button>
-                    <button type="button" class="sw-ts-pill active" data-conf="95" onclick="tsSetConfidence(95)">95%</button>
-                    <button type="button" class="sw-ts-pill" data-conf="99" onclick="tsSetConfidence(99)">99%</button>
+                    <button type="button" class="sw-ts-pill" data-conf="90" data-action="ts-conf" data-arg="90">90%</button>
+                    <button type="button" class="sw-ts-pill active" data-conf="95" data-action="ts-conf" data-arg="95">95%</button>
+                    <button type="button" class="sw-ts-pill" data-conf="99" data-action="ts-conf" data-arg="99">99%</button>
                 </div>
                 <p class="sw-config-help lang-text" data-key="ts_confidence_help">ยิ่งสูง → ต้องการรอบมากขึ้นเพื่อให้มั่นใจว่าค่าเฉลี่ยที่วัดได้ถูกต้อง (มาตรฐานอุตสาหกรรมใช้ 95%)</p>
             </div>
@@ -655,7 +655,7 @@
                 <div class="sw-config-input-row">
                     <input type="text" id="tsErrorInput" class="sw-ts-error-input sw-ts-error-input-lg"
                            inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="5"
-                           data-numpad="decimal" data-numpad-label="ts_error" oninput="tsRecalculate()">
+                           data-numpad="decimal" data-numpad-label="ts_error">
                     <span class="sw-config-input-suffix">%</span>
                 </div>
                 <p class="sw-config-help lang-text" data-key="ts_error_help">ยอมให้ค่าเฉลี่ยเพี้ยนได้กี่ % จากค่าจริง (มาตรฐานอุตสาหกรรมใช้ 5%)</p>
@@ -731,8 +731,8 @@
         </div>
 
         <div class="onboard-actions">
-            <button type="button" class="onboard-skip lang-text" data-key="ob_skip" onclick="finishOnboarding()">ข้าม</button>
-            <button type="button" class="onboard-next" id="onboardNextBtn" onclick="onboardNext()">
+            <button type="button" class="onboard-skip lang-text" data-key="ob_skip" data-action="onboard-finish">ข้าม</button>
+            <button type="button" class="onboard-next" id="onboardNextBtn" data-action="onboard-next">
                 <span class="lang-text" data-key="ob_next">ถัดไป</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
                     <polyline points="9 18 15 12 9 6"/>
@@ -755,7 +755,7 @@
             <!-- Learning (primary) -->
             <div class="settings-section">
                 <div class="settings-section-label lang-text" data-key="set_learning">การเรียนรู้</div>
-                <button type="button" class="tut-launch-card" onclick="openTutorial()">
+                <button type="button" class="tut-launch-card" data-action="tutorial-open">
                     <span class="tut-launch-icon">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"/><line x1="22" y1="10" x2="22" y2="15"/></svg>
                     </span>

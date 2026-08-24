@@ -53,9 +53,9 @@ export function renderChartFromCache() {
     <div class="chart-header">
         <div class="chart-toggle-group">
             <button class="chart-toggle-btn ${isPcs ? 'active' : ''} ${!hasPcs ? 'disabled' : ''}"
-                    onclick="setChartMode('pcs')" ${!hasPcs ? 'disabled' : ''}>${pcsLabel}</button>
+                    data-action="chart-mode" data-arg="pcs" ${!hasPcs ? 'disabled' : ''}>${pcsLabel}</button>
             <button class="chart-toggle-btn ${!isPcs ? 'active' : ''}"
-                    onclick="setChartMode('eff')">Eff %</button>
+                    data-action="chart-mode" data-arg="eff">Eff %</button>
         </div>
     </div>
     ${renderSVGChart(values, target, unit)}`;

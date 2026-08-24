@@ -440,7 +440,7 @@ function swRenderLaps() {
             <span>Lap ${i + 1}</span>
             <span class="sw-lap-right">
                 <span>${fmtSw(sw.laps[i])}</span>
-                <button type="button" class="sw-lap-del" onclick="swDeleteLap(${i})"
+                <button type="button" class="sw-lap-del" data-action="sw-del-lap" data-arg="${i}"
                         aria-label="${t('sw_delete_lap')}" title="${t('sw_delete_lap')}">×</button>
             </span>
         </div>`;

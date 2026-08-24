@@ -272,7 +272,7 @@ function _renderHome(p) {
         const lessons = cat.lessons.map(les => {
             const done = !!p.done[les.id];
             return `
-            <button type="button" class="tut-lesson-row" onclick="tutOpenLesson('${cat.id}','${les.id}')">
+            <button type="button" class="tut-lesson-row" data-action="tut-lesson" data-cat="${cat.id}" data-lesson="${les.id}">
                 <span class="tut-lesson-check ${done ? 'is-done' : ''}">${done
                     ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>'
                     : ''}</span>
@@ -308,10 +308,10 @@ function _renderHome(p) {
                 : L({ th: 'เรียนให้ครบทุกบทเพื่อปลดล็อก (', en: 'Finish every lesson to unlock (' }) + doneN + '/' + totalN + ')'}</span>
         </div>
         ${unlocked
-            ? `<button type="button" class="tut-quiz-btn" onclick="tutStartQuiz()">${passed ? L({ th: 'ทำใหม่', en: 'Retake' }) : L({ th: 'เริ่มทำ', en: 'Start' })}</button>`
+            ? `<button type="button" class="tut-quiz-btn" data-action="tut-quiz-start">${passed ? L({ th: 'ทำใหม่', en: 'Retake' }) : L({ th: 'เริ่มทำ', en: 'Start' })}</button>`
             : ''}
     </div>
-    ${passed ? `<button type="button" class="tut-cert-link" onclick="tutOpenCert()">
+    ${passed ? `<button type="button" class="tut-cert-link" data-action="tut-cert">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><circle cx="12" cy="8" r="6"/><path d="M15.5 13.5 17 22l-5-3-5 3 1.5-8.5"/></svg>
         ${L({ th: 'ดู / ดาวน์โหลดใบรับรอง', en: 'View / download certificate' })}</button>` : ''}`;
 
@@ -364,9 +364,9 @@ function _renderLesson(p) {
         <p class="tut-caption">${_esc(L(st.cap))}</p>
         <div class="tut-step-dots">${dots}</div>
         <div class="tut-lesson-nav">
-            <button type="button" class="tut-nav-btn ghost" ${i === 0 ? 'disabled' : ''} onclick="tutStep(-1)">${L({ th: 'ก่อนหน้า', en: 'Back' })}</button>
+            <button type="button" class="tut-nav-btn ghost" ${i === 0 ? 'disabled' : ''} data-action="tut-step" data-arg="-1">${L({ th: 'ก่อนหน้า', en: 'Back' })}</button>
             <span class="tut-step-count">${i + 1} / ${n}</span>
-            <button type="button" class="tut-nav-btn primary" onclick="tutStep(1)">${nextLabel}</button>
+            <button type="button" class="tut-nav-btn primary" data-action="tut-step" data-arg="1">${nextLabel}</button>
         </div>
     </div>`;
     return { html, progress: Math.round(((i + 1) / n) * 100) };
@@ -415,7 +415,7 @@ function _renderQuiz() {
     const cur = q.questions[q.idx];
     const item = QUIZ_DATA[cur.qi];
     const opts = cur.optOrder.map((oi, pos) => `
-        <button type="button" class="tut-opt ${cur.picked === pos ? 'picked' : ''}" onclick="tutPick(${pos})">
+        <button type="button" class="tut-opt ${cur.picked === pos ? 'picked' : ''}" data-action="tut-pick" data-arg="${pos}">
             <span class="tut-opt-mark"></span>
             <span class="tut-opt-text">${_esc(L(item.o[oi]))}</span>
         </button>`).join('');
@@ -427,8 +427,8 @@ function _renderQuiz() {
         <h2 class="tut-quiz-q">${_esc(L(item.q))}</h2>
         <div class="tut-opts">${opts}</div>
         <div class="tut-lesson-nav">
-            <button type="button" class="tut-nav-btn ghost" ${q.idx === 0 ? 'disabled' : ''} onclick="tutQuizNav(-1)">${L({ th: 'ก่อนหน้า', en: 'Back' })}</button>
-            <button type="button" class="tut-nav-btn primary" ${canNext ? '' : 'disabled'} onclick="tutQuizNav(1)">${isLast ? L({ th: 'ส่งคำตอบ', en: 'Submit' }) : L({ th: 'ถัดไป', en: 'Next' })}</button>
+            <button type="button" class="tut-nav-btn ghost" ${q.idx === 0 ? 'disabled' : ''} data-action="tut-quiz-nav" data-arg="-1">${L({ th: 'ก่อนหน้า', en: 'Back' })}</button>
+            <button type="button" class="tut-nav-btn primary" ${canNext ? '' : 'disabled'} data-action="tut-quiz-nav" data-arg="1">${isLast ? L({ th: 'ส่งคำตอบ', en: 'Submit' }) : L({ th: 'ถัดไป', en: 'Next' })}</button>
         </div>
     </div>`;
     return { html, progress: Math.round(((q.idx) / q.questions.length) * 100) };
@@ -468,9 +468,9 @@ function _renderResult(p) {
         <p class="tut-result-sub">${L({ th: 'ตอบถูก ', en: 'Correct ' })}${r.correct}/${r.total} · ${L({ th: 'เกณฑ์ผ่าน ', en: 'pass mark ' })}${QUIZ_PASS_PCT}%</p>
         <div class="tut-result-actions">
             ${r.passed
-                ? `<button type="button" class="tut-nav-btn primary" onclick="tutOpenCert()">${L({ th: 'รับใบรับรอง', en: 'Get certificate' })}</button>`
-                : `<button type="button" class="tut-nav-btn primary" onclick="tutStartQuiz()">${L({ th: 'ลองใหม่', en: 'Try again' })}</button>`}
-            <button type="button" class="tut-nav-btn ghost" onclick="tutGoHome()">${L({ th: 'กลับหน้าหลัก', en: 'Back to home' })}</button>
+                ? `<button type="button" class="tut-nav-btn primary" data-action="tut-cert">${L({ th: 'รับใบรับรอง', en: 'Get certificate' })}</button>`
+                : `<button type="button" class="tut-nav-btn primary" data-action="tut-quiz-start">${L({ th: 'ลองใหม่', en: 'Try again' })}</button>`}
+            <button type="button" class="tut-nav-btn ghost" data-action="tut-home">${L({ th: 'กลับหน้าหลัก', en: 'Back to home' })}</button>
         </div>
     </div>`;
 }
@@ -498,10 +498,10 @@ function _renderCert(p) {
         <p class="tut-cert-hint">${L({ th: 'ใส่ชื่อของคุณให้ปรากฏบนใบรับรอง', en: 'Enter the name to appear on the certificate' })}</p>
         <input type="text" id="certNameInput" class="tut-cert-input" maxlength="60"
                placeholder="${L({ th: 'ชื่อ - นามสกุล', en: 'Full name' })}" value="${_esc(savedName)}">
-        <button type="button" class="tut-nav-btn primary tut-cert-gen" onclick="tutGenerateCert()">${L({ th: 'สร้างใบรับรอง', en: 'Generate certificate' })}</button>
+        <button type="button" class="tut-nav-btn primary tut-cert-gen" data-action="tut-cert-gen">${L({ th: 'สร้างใบรับรอง', en: 'Generate certificate' })}</button>
         <div id="certPreviewWrap" class="tut-cert-preview" style="display:none;">
             <img id="certPreviewImg" alt="certificate" class="tut-cert-img">
-            <button type="button" class="tut-nav-btn primary" onclick="tutDownloadCert()">${L({ th: 'ดาวน์โหลด PNG', en: 'Download PNG' })}</button>
+            <button type="button" class="tut-nav-btn primary" data-action="tut-cert-download">${L({ th: 'ดาวน์โหลด PNG', en: 'Download PNG' })}</button>
         </div>
     </div>`;
 }

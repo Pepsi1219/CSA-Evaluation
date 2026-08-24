@@ -1,8 +1,23 @@
-// Minimal Vite config for Phase 1 (ESM migration).
-// - Root = repo root (index.html at repo root, sources will move to src/ in Phase 1b).
-// - `public/` holds static assets copied verbatim to dist (manifest, icon, tutorial screenshots).
-// - No obfuscator / PWA plugin yet — added in Phase 3 / Phase 4.
+// Copyright (c) 2025 Pongsathon. All rights reserved. Proprietary — see LICENSE.
+//
+// Vite build config. Phase 3 adds JavaScript obfuscation to the shipped bundle
+// as the deterrence layer that goes with the LICENSE. Firestore Security Rules
+// are the actual data guard; obfuscation only makes the client-side calc logic
+// costly to lift, not impossible.
+//
+// Tuning notes (change with caution):
+//   - include only src/*.js — never obfuscate node_modules; Firebase in
+//     particular has computed identifiers the transformer will happily break.
+//   - controlFlowFlattening / stringArray with base64 encoding is the sweet
+//     spot: heavy enough to make the calc pipeline unreadable, light enough
+//     that bundle bloat stays manageable and mobile paint time isn't hurt.
+//   - selfDefending guards the obfuscator's own output against being reformatted;
+//     debugProtection makes DevTools trip a debugger loop on the calc path.
+//   - disableConsoleOutput silences console.* — fine because we ship no logs.
+//   - renameGlobals stays FALSE: turning it on would rename references like
+//     `document`/`window`/DOM ids that our code assumes stay stable.
 import { defineConfig } from 'vite';
+import obfuscator from 'vite-plugin-javascript-obfuscator';
 
 export default defineConfig({
     root: '.',
@@ -10,6 +25,31 @@ export default defineConfig({
     build: {
         outDir: 'dist',
         emptyOutDir: true,
-        sourcemap: false,
+        sourcemap: false,   // never ship source maps — they undo every layer below
     },
+    plugins: [
+        obfuscator({
+            include: ['src/**/*.js'],
+            exclude: [/node_modules/],
+            apply: 'build',   // dev preserves readable source for HMR + debugging
+            options: {
+                compact: true,
+                controlFlowFlattening: true,
+                controlFlowFlatteningThreshold: 0.75,
+                deadCodeInjection: true,
+                deadCodeInjectionThreshold: 0.4,
+                debugProtection: true,
+                debugProtectionInterval: 2000,
+                disableConsoleOutput: true,
+                identifierNamesGenerator: 'hexadecimal',
+                renameGlobals: false,   // MUST stay false — see note at top
+                selfDefending: true,
+                stringArray: true,
+                stringArrayEncoding: ['base64'],
+                stringArrayThreshold: 0.75,
+                transformObjectKeys: true,
+                unicodeEscapeSequence: false,
+            },
+        }),
+    ],
 });

@@ -1,12 +1,16 @@
 // ============================================================
 // MAIN — entry point. Loaded as the single <script type="module">
-// in index.html. Responsibilities:
-//   1. Register the service worker
-//   2. Stamp the footer version + install no-zoom guards
-//   3. Run app init (theme / GA / restore state / language / calc)
-//   4. Wire pagehide / visibilitychange flush
-//   5. Import wiring.js — binds every former inline handler via
-//      data-action delegation (no window.* bridge).
+// in index.html. Three-phase boot:
+//   A (always): SW register, version stamp, no-zoom guards, theme +
+//               language — so the login overlay is themed/translated.
+//   B (async):  init Firebase, watch auth state. No user → show login
+//               overlay; user → enterApp once; sign-out mid-session →
+//               reload (so no data bleeds across accounts).
+//   C enterApp: subscribe history, await first snapshot, migrate this
+//               device's local history, hide overlay, run the rest of
+//               app init (form/stopwatch restore, calc, fonts).
+// When Firebase isn't configured (no .env), FIREBASE_ENABLED is false and
+// we boot straight into the app with localStorage history (Phase 1 behaviour).
 // ============================================================
 import { APP_VERSION } from './version.js';
 import { translations } from './translations.js';
@@ -15,43 +19,154 @@ import {
     _bumpSessionCount, drainFeedbackQueue, showOnboardingIfNeeded,
     changeLanguage, calculateAll, _flushHeavyUpdate, loadWebFonts,
 } from './app.js';
+import { t } from './state.js';
 import { updateTutProgressBadge } from './tutorial.js';
+import {
+    FIREBASE_ENABLED, initFirebase, onAuthChange, subscribeHistory,
+    migrateLocalHistory, _setCurrentUser, signIn, authErrorKey,
+} from './auth.js';
+import { loadLocalHistory } from './history.js';
 import './wiring.js';
 
-// --- Service worker ---
+// ============================================================
+// Phase A — runs unconditionally, before any auth.
+// ============================================================
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').catch(() => {});
     });
 }
 
-// --- Footer version stamp (single source of truth = version.js) ---
 const _appVersionEl = document.getElementById('appVersion');
 if (_appVersionEl) _appVersionEl.textContent = 'v' + APP_VERSION;
 
-// --- Native-app feel: no zoom (iOS Safari falls through the meta + CSS guards) ---
 ['gesturestart', 'gesturechange', 'gestureend'].forEach(evt =>
     document.addEventListener(evt, e => e.preventDefault(), { passive: false })
 );
 
-// --- Init sequence (order matters — matches original script.js bottom block) ---
 initGA4();
 initTheme();
-restoreFormState();
-restoreStopwatchState();
-_bumpSessionCount();
-drainFeedbackQueue();
-showOnboardingIfNeeded();
-updateTutProgressBadge();
 const _savedLang = (() => { try { return localStorage.getItem('csa_lang'); } catch { return null; } })();
 changeLanguage(_savedLang && translations[_savedLang] ? _savedLang : 'th');
-calculateAll();
-_flushHeavyUpdate();
-if (document.readyState === 'complete') loadWebFonts();
-else window.addEventListener('load', loadWebFonts);
 
-// --- Flush pending debounced saves before hide/unload ---
+// Flush pending debounced saves before hide/unload (independent of auth).
 window.addEventListener('pagehide', _flushHeavyUpdate);
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') _flushHeavyUpdate();
+});
+
+// ============================================================
+// Login overlay helpers
+// ============================================================
+const loginOverlay   = document.getElementById('loginOverlay');
+const loginForm      = document.getElementById('loginForm');
+const loginEmail     = document.getElementById('loginEmail');
+const loginPassword  = document.getElementById('loginPassword');
+const loginError     = document.getElementById('loginError');
+const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+
+function showLoginOverlay() {
+    if (!loginOverlay) return;
+    loginOverlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    if (loginError) loginError.textContent = '';
+    loginEmail?.focus();
+}
+function hideLoginOverlay() {
+    if (!loginOverlay) return;
+    loginOverlay.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+// ============================================================
+// Phase C — bring the app up for a signed-in (or Firebase-disabled) user.
+// ============================================================
+let _appStarted = false;
+function runAppInit() {
+    restoreFormState();
+    restoreStopwatchState();
+    _bumpSessionCount();
+    drainFeedbackQueue();
+    showOnboardingIfNeeded();
+    updateTutProgressBadge();
+    calculateAll();
+    _flushHeavyUpdate();
+    if (document.readyState === 'complete') loadWebFonts();
+    else window.addEventListener('load', loadWebFonts);
+}
+
+async function enterApp(user) {
+    if (_appStarted) return;      // guard: only the first sign-in boots the app
+    _appStarted = true;
+    if (user) {
+        try {
+            await subscribeHistory(user.uid);               // await first snapshot
+            await migrateLocalHistory(user.uid, loadLocalHistory());
+        } catch (_) { /* proceed with whatever cache exists */ }
+        // Reveal the account row in Settings and fill in the email.
+        const accountSection = document.getElementById('accountSection');
+        const accountEmail   = document.getElementById('accountEmail');
+        if (accountEmail) accountEmail.textContent = user.email || '';
+        if (accountSection) accountSection.style.display = '';
+    }
+    hideLoginOverlay();
+    runAppInit();
+}
+
+// ============================================================
+// Phase B — auth gate.
+// ============================================================
+async function boot() {
+    if (!FIREBASE_ENABLED) {
+        // No backend configured → Phase 1 behaviour, no login gate.
+        hideLoginOverlay();
+        enterApp(null);
+        return;
+    }
+    initFirebase();
+    let _sawUser = false;
+    onAuthChange(user => {
+        _setCurrentUser(user);
+        if (user) {
+            _sawUser = true;
+            enterApp(user);
+        } else if (_sawUser) {
+            // Signed out mid-session — hard reload so no per-user cache lingers.
+            window.location.reload();
+        } else {
+            // No stored session — show the login gate.
+            showLoginOverlay();
+        }
+    });
+}
+boot();
+
+// ============================================================
+// Login form submit
+// ============================================================
+loginForm?.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (!loginEmail || !loginPassword) return;
+    const email = loginEmail.value.trim();
+    const password = loginPassword.value;
+    if (!email || !password) return;
+
+    if (loginError) loginError.textContent = '';
+    if (loginSubmitBtn) {
+        loginSubmitBtn.disabled = true;
+        loginSubmitBtn.dataset.loading = '1';
+        loginSubmitBtn.textContent = t('login_signing_in');
+    }
+    try {
+        await signIn(email, password);
+        // onAuthChange → enterApp handles the transition + overlay hide.
+    } catch (err) {
+        if (loginError) loginError.textContent = t(authErrorKey(err));
+    } finally {
+        if (loginSubmitBtn) {
+            loginSubmitBtn.disabled = false;
+            delete loginSubmitBtn.dataset.loading;
+            loginSubmitBtn.textContent = t('login_signin_btn');
+        }
+    }
 });

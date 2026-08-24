@@ -684,6 +684,40 @@
     </div>
 </div>
 
+<!-- ============ Login gate (Firebase Auth) ============ -->
+<div id="loginOverlay" class="login-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+    <div class="login-card">
+        <div class="login-brand" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="8" y="6" width="32" height="36" rx="4"/>
+                <line x1="16" y1="16" x2="32" y2="16"/><line x1="16" y1="24" x2="32" y2="24"/><line x1="16" y1="32" x2="24" y2="32"/>
+            </svg>
+        </div>
+        <h1 class="login-title" id="loginTitle"><span class="lang-text" data-key="login_title">เข้าสู่ระบบ</span></h1>
+        <p class="login-subtitle lang-text" data-key="login_subtitle">ลงชื่อเข้าใช้เพื่อใช้งานเครื่องมือและดูประวัติของคุณ</p>
+
+        <form id="loginForm" class="login-form" autocomplete="on" novalidate>
+            <label class="login-field-label lang-text" data-key="login_email_label" for="loginEmail">อีเมล</label>
+            <input type="email" id="loginEmail" class="login-input" name="email"
+                   autocomplete="username" inputmode="email"
+                   data-key-placeholder="login_email_ph" placeholder="you@example.com" required>
+
+            <label class="login-field-label lang-text" data-key="login_password_label" for="loginPassword">รหัสผ่าน</label>
+            <input type="password" id="loginPassword" class="login-input" name="password"
+                   autocomplete="current-password"
+                   data-key-placeholder="login_password_ph" placeholder="••••••••" required>
+
+            <p id="loginError" class="login-error" role="alert" aria-live="assertive"></p>
+
+            <button type="submit" id="loginSubmitBtn" class="login-submit-btn">
+                <span class="lang-text" data-key="login_signin_btn">เข้าสู่ระบบ</span>
+            </button>
+        </form>
+
+        <p class="login-offline-note lang-text" data-key="login_offline_note">ต้องมีอินเทอร์เน็ตในการเข้าสู่ระบบครั้งแรก หลังจากนั้นใช้งานออฟไลน์ได้</p>
+    </div>
+</div>
+
 <!-- ============ Onboarding Tour (first launch) ============ -->
 <div id="onboardingOverlay" class="onboard-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="onboardTitle">
     <div class="onboard-card">
@@ -765,6 +799,20 @@
                     </span>
                     <span class="tut-launch-badge" id="tutProgressBadge"></span>
                 </button>
+            </div>
+
+            <!-- Account (only shown when signed in via Firebase) -->
+            <div class="settings-section" id="accountSection" style="display:none;">
+                <div class="settings-section-label lang-text" data-key="set_account">บัญชี</div>
+                <div class="account-row">
+                    <div class="account-info">
+                        <span class="account-signed-label lang-text" data-key="account_signed_in_as">ลงชื่อเข้าใช้เป็น</span>
+                        <span class="account-email" id="accountEmail"></span>
+                    </div>
+                    <button type="button" class="account-signout-btn" data-action="signout">
+                        <span class="lang-text" data-key="account_signout">ออกจากระบบ</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

@@ -1,0 +1,15 @@
+rules_version = '2';
+// Per-user history: a signed-in user may read and write only under their own
+// users/{uid} document tree. Everything else is denied. This — not the client
+// obfuscation — is what actually protects one operator's data from another.
+// Publish with `firebase deploy --only firestore:rules` or paste in the console.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/history/{entryId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

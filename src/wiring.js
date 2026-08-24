@@ -18,6 +18,7 @@ import {
 } from './app.js';
 import { openHistoryModal } from './history.js';
 import { setChartMode } from './chart.js';
+import { signOutUser } from './auth.js';
 import {
     openTutorial, tutOpenLesson, tutStep, tutStartQuiz, tutPick,
     tutQuizNav, tutGoHome, tutOpenCert, tutGenerateCert, tutDownloadCert,
@@ -65,6 +66,8 @@ const ACTIONS = {
     'onboard-next':   () => onboardNext(),
     // settings → tutorial launcher
     'tutorial-open': () => openTutorial(),
+    // account sign-out (onAuthChange → main.js reloads the page)
+    signout:        () => signOutUser(),
     // chart mode toggle (generated markup in chart.js)
     'chart-mode':   arg => setChartMode(arg),
     // tutorial (generated markup in tutorial.js)

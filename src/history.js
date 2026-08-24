@@ -14,11 +14,19 @@ import {
     calcActualPcsPerHr,
     calcPassRate,
 } from './calc.js';
-import { t, currentLang, pcsPerHr, gaTrack } from './state.js';
+import { t, currentLang, pcsPerHr, gaTrack, HISTORY_MAX } from './state.js';
 import { getSamMinutes } from './app.js';
+import {
+    FIREBASE_ENABLED, isSignedIn, getHistoryCache,
+    fsSaveEntry, fsDeleteEntry, fsSetNote, subscribeHistoryChange,
+} from './auth.js';
 
 export const STORAGE_KEY_HISTORY = 'csa_history_v1';
-export const HISTORY_MAX         = 100;
+export { HISTORY_MAX };  // re-export for app.js's existing import
+
+// True when history reads/writes should route to Firestore instead of
+// localStorage: the backend is configured AND a user is signed in.
+function _useCloud() { return FIREBASE_ENABLED && isSignedIn(); }
 
 export function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g,
@@ -26,13 +34,20 @@ export function escapeHtml(str) {
 }
 
 // ---- Storage ----
-export function loadHistory() {
+// loadHistory() stays synchronous (every consumer calls it inline). When signed
+// in it returns the in-memory Firestore cache (kept fresh by auth.js's
+// onSnapshot); otherwise it reads localStorage. Only the localStorage path
+// persists via persistHistory — cloud writes go through the fs* helpers.
+export function loadLocalHistory() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY_HISTORY);
         const parsed = raw ? JSON.parse(raw) : [];
         // Guard against a corrupted "null"/object payload — always hand back an array.
         return Array.isArray(parsed) ? parsed : [];
     } catch (_) { return []; }
+}
+export function loadHistory() {
+    return _useCloud() ? getHistoryCache() : loadLocalHistory();
 }
 export function persistHistory(list) {
     try { localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(list)); }
@@ -66,26 +81,41 @@ export function saveCurrentToHistory(label) {
         inputs,
         computed,
     };
-    const list = loadHistory();
-    list.unshift(entry);
-    if (list.length > HISTORY_MAX) list.length = HISTORY_MAX;
-    persistHistory(list);
+    if (_useCloud()) {
+        // Fire-and-forget: onSnapshot updates the cache + re-renders. Offline
+        // writes are queued by the SDK and synced on reconnect.
+        fsSaveEntry(entry);
+    } else {
+        const list = loadLocalHistory();
+        list.unshift(entry);
+        if (list.length > HISTORY_MAX) list.length = HISTORY_MAX;
+        persistHistory(list);
+    }
     gaTrack('save_history', { has_label: !!entry.label });
     return entry;
 }
 
 export function deleteHistoryEntry(id) {
-    const list = loadHistory().filter(e => e.id !== id);
-    persistHistory(list);
+    if (_useCloud()) {
+        fsDeleteEntry(id);
+    } else {
+        persistHistory(loadLocalHistory().filter(e => e.id !== id));
+    }
     gaTrack('delete_history');
 }
 
 // Update / write the free-text handover note on a specific entry.
 export function setHistoryNote(id, note) {
-    const list = loadHistory();
+    const clipped = String(note || '').slice(0, 200);
+    if (_useCloud()) {
+        fsSetNote(id, clipped);
+        gaTrack('history_note_saved', { has_note: !!clipped });
+        return;
+    }
+    const list = loadLocalHistory();
     const entry = list.find(e => e.id === id);
     if (!entry) return;
-    entry.note = String(note || '').slice(0, 200);
+    entry.note = clipped;
     persistHistory(list);
     gaTrack('history_note_saved', { has_note: !!entry.note });
 }
@@ -256,5 +286,15 @@ historyCompareBtn?.addEventListener('click', openCompareView);
 compareBackBtn?.addEventListener('click', showHistoryListView);
 historyModal?.addEventListener('click', e => {
     if (e.target === historyModal) closeHistoryModal();
+});
+
+// Re-render the list live when a Firestore snapshot changes the cache (another
+// device saved/deleted, or our own optimistic write round-tripped) — but only
+// while the list view is actually on screen.
+subscribeHistoryChange(() => {
+    if (historyModal?.style.display === 'flex' &&
+        historyListView?.style.display !== 'none') {
+        renderHistoryList();
+    }
 });
 

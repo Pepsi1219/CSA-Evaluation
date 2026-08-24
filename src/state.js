@@ -13,6 +13,11 @@ export const GA4_ENABLED        = true;
 // i18n metadata (unit label per language, used by chart + history rows).
 export const pcsPerHr = { th: 'ชิ้น/ชม.', en: 'pcs/hr', vn: 'SP/giờ', la: 'ຊິ້ນ/ຊມ' };
 
+// History cap — the FIFO ceiling on saved evaluations. Lives here (not in
+// history.js) so both history.js and auth.js can import it without forming an
+// import cycle through each other.
+export const HISTORY_MAX = 100;
+
 // Currently selected language. Mutable via setCurrentLang(); consumers
 // import the live binding and see updates. Default is Thai (also the
 // fallback in t()).

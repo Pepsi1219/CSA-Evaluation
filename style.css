@@ -2583,3 +2583,136 @@ label {
     .settings-sheet { animation: none; }
     .tutorial-progress-bar, .tut-hero-meter-fill { transition: none; }
 }
+
+/* ---- 22. Login gate (Firebase Auth) ----------------------- */
+.login-overlay {
+    position: fixed; inset: 0;
+    background: rgba(20, 21, 42, 0.68);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 6000;   /* above onboarding; the app is unusable until signed in */
+    padding:
+        max(var(--sp-5), env(safe-area-inset-top,    0px))
+        max(var(--sp-5), env(safe-area-inset-right,  0px))
+        max(var(--sp-5), env(safe-area-inset-bottom, 0px))
+        max(var(--sp-5), env(safe-area-inset-left,   0px));
+    animation: fadeIn 0.28s ease;
+}
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .login-overlay {
+        background: rgba(20, 21, 42, 0.55);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+}
+.login-card {
+    background: var(--surface);
+    border-radius: var(--r-2xl);
+    max-width: 400px; width: 100%;
+    max-height: min(92dvh, 92svh);
+    padding: 32px 28px 24px;
+    box-shadow: var(--sh-lg);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+    animation: slideUp 0.34s var(--ease-spring);
+}
+.login-brand {
+    width: 56px; height: 56px;
+    border-radius: var(--r-lg);
+    background: var(--accent-grad);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto var(--sp-4);
+    box-shadow: var(--sh-md);
+}
+.login-brand svg { width: 30px; height: 30px; }
+.login-title {
+    font-size: 1.5rem; font-weight: 800;
+    text-align: center; color: var(--text-1);
+    margin: 0 0 var(--sp-2);
+}
+.login-subtitle {
+    font-size: 0.9rem; color: var(--text-2);
+    text-align: center; line-height: 1.5;
+    margin: 0 0 var(--sp-5);
+}
+.login-form { display: flex; flex-direction: column; }
+.login-field-label {
+    font-size: 0.82rem; font-weight: 600;
+    color: var(--text-2);
+    margin-bottom: var(--sp-2);
+}
+.login-input {
+    width: 100%;
+    padding: 13px var(--sp-4);
+    margin-bottom: var(--sp-4);
+    font-size: 1rem;
+    color: var(--text-1);
+    background: var(--surface-2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-md);
+    transition: border-color 0.18s var(--ease-out), box-shadow 0.18s var(--ease-out);
+    -webkit-appearance: none; appearance: none;
+}
+.login-input:focus {
+    outline: none;
+    border-color: var(--accent-500);
+    box-shadow: 0 0 0 3px var(--accent-100);
+    background: var(--surface);
+}
+.login-error {
+    min-height: 1.2em;
+    margin: 0 0 var(--sp-3);
+    font-size: 0.85rem; font-weight: 600;
+    color: var(--danger);
+    text-align: center;
+}
+.login-error:empty { margin: 0; min-height: 0; }
+.login-submit-btn {
+    width: 100%;
+    padding: 14px var(--sp-4);
+    font-size: 1rem; font-weight: 700;
+    color: #fff;
+    background: var(--accent-grad);
+    border: none; border-radius: var(--r-md);
+    cursor: pointer;
+    box-shadow: var(--sh-md);
+    transition: transform 0.12s var(--ease-out), opacity 0.18s var(--ease-out);
+}
+.login-submit-btn:active { transform: translateY(1px) scale(0.99); }
+.login-submit-btn:disabled { opacity: 0.6; cursor: default; }
+.login-offline-note {
+    font-size: 0.78rem; color: var(--text-3);
+    text-align: center; line-height: 1.5;
+    margin: var(--sp-4) 0 0;
+}
+
+/* Account row in the Settings modal */
+.account-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+}
+.account-info { display: flex; flex-direction: column; min-width: 0; }
+.account-signed-label { font-size: 0.72rem; color: var(--text-3); }
+.account-email {
+    font-size: 0.9rem; font-weight: 600; color: var(--text-1);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.account-signout-btn {
+    flex-shrink: 0;
+    padding: 9px var(--sp-4);
+    font-size: 0.85rem; font-weight: 600;
+    color: var(--danger);
+    background: var(--danger-soft);
+    border: none; border-radius: var(--r-md);
+    cursor: pointer;
+    transition: transform 0.12s var(--ease-out);
+}
+.account-signout-btn:active { transform: scale(0.97); }
+
+@media (prefers-reduced-motion: reduce) {
+    .login-overlay, .login-card { animation: none; }
+}

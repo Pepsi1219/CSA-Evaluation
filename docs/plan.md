@@ -115,40 +115,40 @@
 
 **Branch:** `phase-2-firebase`
 
-- [ ] `npm i firebase`
-- [ ] เพิ่ม `.env.example` ครบ `VITE_FIREBASE_API_KEY / AUTH_DOMAIN / PROJECT_ID / STORAGE_BUCKET / MESSAGING_SENDER_ID / APP_ID`
-- [ ] เพิ่ม `.env` ใน `.gitignore` (ปัจจุบันยังไม่มี)
+- [x] `npm i firebase`
+- [x] เพิ่ม `.env.example` ครบ `VITE_FIREBASE_API_KEY / AUTH_DOMAIN / PROJECT_ID / STORAGE_BUCKET / MESSAGING_SENDER_ID / APP_ID`
+- [x] เพิ่ม `.env` ใน `.gitignore` (ปัจจุบันยังไม่มี)
 - [ ] สร้าง Firebase project (ผู้ใช้ทำใน console), enable Email/Password Auth
-- [ ] **`src/auth.js`:**
-  - [ ] `initFirebase()` — `initializeApp` + `getAuth` + `getFirestore` + `enableIndexedDbPersistence`
-  - [ ] `signIn(email, password)` / `signOutUser()` / `onAuthChange(cb)`
-  - [ ] Firestore data layer: `subscribeHistory(uid, onSnap)` → `onSnapshot('users/{uid}/history')`
-  - [ ] in-memory cache + `getHistoryCache()`
-  - [ ] `fsSaveEntry(uid, entry)` / `fsDeleteEntry(uid, id)` / `fsSetNote(uid, id, note)`
-  - [ ] `mergeHistorySnapshot(entries)` pure — dedupe by id → sort ts desc → cap `HISTORY_MAX`
-- [ ] **`src/main.js` — 3-phase boot:**
-  - [ ] Phase A: theme + lang (รันเสมอ, ให้ overlay มีธีมถูก)
-  - [ ] Phase B: `await initFirebase()` → `onAuthChange` → `showLoginOverlay()` หรือ `enterApp(user)`
+- [x] **`src/auth.js`:**
+  - [x] `initFirebase()` — `initializeApp` + `getAuth` + `initializeFirestore` + `persistentLocalCache` (แทน `enableIndexedDbPersistence` ที่ deprecated ใน SDK v12)
+  - [x] `signIn(email, password)` / `signOutUser()` / `onAuthChange(cb)`
+  - [x] Firestore data layer: `subscribeHistory(uid, onSnap)` → `onSnapshot('users/{uid}/history')`
+  - [x] in-memory cache + `getHistoryCache()`
+  - [x] `fsSaveEntry(uid, entry)` / `fsDeleteEntry(uid, id)` / `fsSetNote(uid, id, note)`
+  - [x] `mergeHistorySnapshot(entries)` pure — dedupe by id → sort ts desc → cap `HISTORY_MAX`
+- [x] **`src/main.js` — 3-phase boot:**
+  - [x] Phase A: theme + lang (รันเสมอ, ให้ overlay มีธีมถูก)
+  - [x] Phase B: `await initFirebase()` → `onAuthChange` → `showLoginOverlay()` หรือ `enterApp(user)`
   - [ ] sign-out mid-session → `location.reload()`
-  - [ ] Phase C `enterApp(user)`: `await` first snapshot → migration → hide overlay → เรียก app init (restoreFormState/restoreStopwatchState/... /calculateAll/loadWebFonts)
-- [ ] **`src/history.js` seam:** `loadHistory()` — ถ้าล็อกอิน & `FIREBASE_ENABLED` → `getHistoryCache()`; write ops branch ไป `fs*`; consumer (`renderHistoryList`, `renderCompareTable`) ไม่แตะ
-- [ ] **Migration ครั้งแรก/uid:** flag `csa_migrated_<uid>` → `writeBatch` → `setDoc(id=entry.id)` idempotent → commit → ตั้ง flag → **ไม่ลบ** `csa_history_v1`
+  - [x] Phase C `enterApp(user)`: `await` first snapshot → migration → hide overlay → เรียก app init (restoreFormState/restoreStopwatchState/... /calculateAll/loadWebFonts)
+- [x] **`src/history.js` seam:** `loadHistory()` — ถ้าล็อกอิน & `FIREBASE_ENABLED` → `getHistoryCache()`; write ops branch ไป `fs*`; consumer (`renderHistoryList`, `renderCompareTable`) ไม่แตะ
+- [x] **Migration ครั้งแรก/uid:** flag `csa_migrated_<uid>` → `writeBatch` → `setDoc(id=entry.id)` idempotent → commit → ตั้ง flag → **ไม่ลบ** `csa_history_v1`
 - [ ] **`index.html`:** เพิ่ม `#loginOverlay` (คัดจาก `#onboardingOverlay`), input email/password เป็น text ปกติ (ห้าม `inputmode="none"`, ห้าม numpad), section บัญชี + ปุ่ม Sign out ใน `#settingsModal`
-- [ ] wiring.js ผูก login submit + sign-out
-- [ ] **`src/translations.js` — เพิ่มคีย์ 4 ภาษา:**
-  - [ ] `login_title` / `login_subtitle`
-  - [ ] `login_email_label` / `login_email_ph`
-  - [ ] `login_password_label` / `login_password_ph`
-  - [ ] `login_signin_btn` / `login_signing_in`
+- [x] wiring.js ผูก login submit + sign-out
+- [x] **`src/translations.js` — เพิ่มคีย์ 4 ภาษา:**
+  - [x] `login_title` / `login_subtitle`
+  - [x] `login_email_label` / `login_email_ph`
+  - [x] `login_password_label` / `login_password_ph`
+  - [x] `login_signin_btn` / `login_signing_in`
   - [ ] `login_offline_note`
-  - [ ] `login_err_invalid` / `login_err_toomany` / `login_err_network` / `login_err_generic`
-  - [ ] `set_account`, `account_signed_in_as` (**คง `{email}` ทุกภาษา**), `account_signout`
-- [ ] **`firestore.rules`:** เขียนตามแผน (users/{uid}/history เฉพาะ owner)
+  - [x] `login_err_invalid` / `login_err_toomany` / `login_err_network` / `login_err_generic`
+  - [x] `set_account`, `account_signed_in_as` (**คง `{email}` ทุกภาษา**), `account_signout`
+- [x] **`firestore.rules`:** เขียนตามแผน (users/{uid}/history เฉพาะ owner)
 - [ ] เผยแพร่ rules ผ่าน `firebase deploy --only firestore:rules` (หรือ console)
 - [ ] Firebase Console → Authorized domains: เพิ่ม `localhost` (dev)
-- [ ] **`test/history-cache.test.js`:** ทดสอบ `mergeHistorySnapshot` (dedupe/sort/cap) + idempotent migration
-- [ ] **`test/translations.test.js`** ต้องผ่าน (คีย์ใหม่ครบ 4 ภาษา + `{email}` token คงอยู่)
-- [ ] `npm test` เขียว, `npm run build` เขียว
+- [x] **`test/history-cache.test.js`:** ทดสอบ `mergeHistorySnapshot` (dedupe/sort/cap, 7 tests) — migration idempotency ตรวจผ่าน manual E2E (ต้อง mock Firebase ถึงจะ unit test ได้)
+- [x] **`test/translations.test.js`** ต้องผ่าน (คีย์ใหม่ครบ 4 ภาษา + `{email}` token คงอยู่)
+- [x] `npm test` เขียว, `npm run build` เขียว
 - [ ] **Manual E2E** (บน http://localhost, ไม่ใช่ file://):
   - [ ] รหัสผิด → error ตรงภาษา
   - [ ] รหัสถูก → เข้าแอป, snapshot มา, history render

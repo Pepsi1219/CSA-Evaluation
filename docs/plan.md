@@ -179,24 +179,42 @@
 
 **Branch:** `phase-3-protect`
 
-- [ ] `vite.config.js`: `build.sourcemap: false`, `build.minify: 'terser'` (หรือ esbuild default)
-- [ ] เพิ่ม `vite-plugin-javascript-obfuscator` — จูนความแรง:
-  - [ ] `controlFlowFlattening: true` (threshold ~0.75)
-  - [ ] `deadCodeInjection: true` (threshold ~0.4)
-  - [ ] `stringArray: true` + `stringArrayEncoding: ['base64']` (rc4 หนักไป)
-  - [ ] `stringArrayThreshold: 0.75`
-  - [ ] `selfDefending: true`
-  - [ ] `debugProtection: true` + `debugProtectionInterval: 2000`
-  - [ ] `disableConsoleOutput: true` (dev ยังปกติเพราะ obfuscator รันแค่ prod build)
-  - [ ] `renameGlobals: false` (safer; DOM listener + Firebase อาศัย global บางตัว)
-  - [ ] `include: ['src/**/*.js']`, `exclude: ['node_modules/**']` — ห้าม obfuscate firebase!
-- [ ] วัด bundle size ก่อน/หลัง — ถ้าโตเกิน 2× ให้ลดความแรง
-- [ ] วัด perf บนมือถือกลาง — chart/tutorial render ต้องยัง smooth
-- [ ] ยืนยัน source map ไม่มีใน `dist/` (`ls dist/assets/*.map` → ว่าง)
-- [ ] เพิ่ม `LICENSE` แบบสงวนลิขสิทธิ์ (All rights reserved)
-- [ ] เพิ่ม copyright header ในไฟล์หลัก (`src/main.js`, `src/app.js`, `src/calc.js`, `src/auth.js`)
-- [ ] Firebase Console → API key restrictions: จำกัด HTTP referrers (Vercel domain + localhost dev)
-- [ ] **commit:** `build: enable obfuscation + source map disabled + LICENSE`
+### Code tasks — ✅ ทำเสร็จหมด
+
+- [x] `vite.config.js`: `build.sourcemap: false` (ยืนยัน `.map` 0 ไฟล์ใน `dist/`)
+- [x] `vite-plugin-javascript-obfuscator` ที่ `apply: 'build'` (dev/HMR ยังอ่านง่าย):
+  - [x] `controlFlowFlattening` 0.75
+  - [x] `deadCodeInjection` 0.4
+  - [x] `stringArray` + `base64` + threshold 0.75
+  - [x] `selfDefending: true`
+  - [x] `debugProtection: true` + interval 2000
+  - [x] `disableConsoleOutput: true`
+  - [x] `renameGlobals: false` (สำคัญ — ถ้า true จะพังเพราะ DOM ids)
+  - [x] `include: ['src/**/*.js']`, `exclude: [/node_modules/]` (Firebase ห้ามแตะ)
+- [x] Bundle size: **742 KB → 968 KB** (+30% raw, +50% gzip) — อยู่ในเกณฑ์ที่ยอมรับได้
+  ต่ำกว่าเพดาน 2× ที่แผนตั้งไว้ · SW cache กลบผลกระทบหลังโหลดแรก
+- [x] ตรวจ obfuscation จริง: 937 unique `_0x` hex ids, 5 ฟังก์ชันสำคัญ leak = 0
+- [x] `LICENSE` — Proprietary/All rights reserved
+- [x] Copyright header ใน `src/main.js`, `src/app.js`, `src/calc.js`, `src/auth.js`
+- [x] `npm test` 112 pass, `npm run build` clean, build time 2 s (was 250 ms)
+
+### 🔧 คุณต้องทำใน Google Cloud / Firebase Console (ผมทำแทนไม่ได้)
+
+- [ ] **Google Cloud Console → APIs & Services → Credentials → Web API key**
+  - **Application restrictions** → HTTP referrers → เพิ่ม `localhost/*`
+    (Vercel domain + custom domain เพิ่มตอน Phase 4)
+  - **API restrictions** → จำกัดเฉพาะ Firebase services ที่แอปใช้:
+    Identity Toolkit API, Cloud Firestore API, Firebase Installations API,
+    Firebase Cloud Messaging API (ถ้าใช้), Token Service API
+
+### ⚠ Perf note
+
+- `debugProtection` loop รันทุก 2 วินาที — สังเกตบนมือถือกลาง ถ้าหนักลด threshold
+- `disableConsoleOutput` ทำให้ console.* เงียบใน production — GA4 tracking ยังทำงาน
+
+### 🚀 หลังคุณตั้ง API key restrictions
+
+- [ ] Merge `phase-3-protect` → `main` (รอ user สั่งเสมอ)
 
 ---
 

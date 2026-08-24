@@ -7,3 +7,10 @@ Thumbs.db
 
 # Editor
 .vscode/
+node_modules/
+
+# Vite
+dist/
+.env
+.env.local
+.env.*.local

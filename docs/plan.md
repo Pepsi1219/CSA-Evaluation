@@ -198,21 +198,20 @@
 - [x] Copyright header ใน `src/main.js`, `src/app.js`, `src/calc.js`, `src/auth.js`
 - [x] `npm test` 112 pass, `npm run build` clean, build time 2 s (was 250 ms)
 
-### 🔧 คุณต้องทำใน Google Cloud / Firebase Console (ผมทำแทนไม่ได้)
+### ⏭ ข้ามโดยผู้ใช้ตัดสินใจ — 2026-08-24
 
-- [ ] **Google Cloud Console → APIs & Services → Credentials → Web API key**
-  - **Application restrictions** → HTTP referrers → เพิ่ม `localhost/*`
-    (Vercel domain + custom domain เพิ่มตอน Phase 4)
-  - **API restrictions** → จำกัดเฉพาะ Firebase services ที่แอปใช้:
-    Identity Toolkit API, Cloud Firestore API, Firebase Installations API,
-    Firebase Cloud Messaging API (ถ้าใช้), Token Service API
+- ~~Google Cloud Console → Web API key restrictions (HTTP referrers + API restrictions)~~
+  **เหตุผลที่ข้าม:** Firestore Rules + Auth allowlist ป้องกันข้อมูลอยู่แล้ว
+  การ restrict API key ป้องกันเฉพาะ **quota abuse** (คนอื่น copy `apiKey` ไปยิงจน
+  quota Spark หมด → แอปดาวน์ชั่วคราว **ไม่มีบิลเข้ามา** เพราะไม่ผูกบัตร)
+  สำหรับ shop-floor scale ความเสี่ยงต่ำ ถ้าอนาคตเจอ quota abuse ค่อยกลับมาตั้ง
 
 ### ⚠ Perf note
 
 - `debugProtection` loop รันทุก 2 วินาที — สังเกตบนมือถือกลาง ถ้าหนักลด threshold
 - `disableConsoleOutput` ทำให้ console.* เงียบใน production — GA4 tracking ยังทำงาน
 
-### 🚀 หลังคุณตั้ง API key restrictions
+### 🚀 พร้อม merge
 
 - [ ] Merge `phase-3-protect` → `main` (รอ user สั่งเสมอ)
 
@@ -222,20 +221,47 @@
 
 **Branch:** `phase-4-vercel`
 
-- [ ] `vite.config.js`: กำหนด `vite-plugin-pwa` แบบ `injectManifest`, `srcDir: 'src'`, `filename: 'sw.js'`, `strategies: 'injectManifest'`
-- [ ] ย้าย `public/sw.js` → `src/sw.js` (source), แก้ให้ปลั๊กอิน inject `self.__WB_MANIFEST` แทนที่ ASSETS list เดิม; รักษา CACHE literal + network-first + 3s timeout + navigation fallback + synthetic 503 เหมือนเดิม
-- [ ] อัพเดต `test/version.test.js` — sw source path → `src/sw.js`
-- [ ] `npm run build` → ยืนยัน `dist/sw.js` มี `__WB_MANIFEST` แทนที่ + CACHE literal ตรง APP_VERSION
-- [ ] `npm run preview` — ทดสอบ offline (DevTools) ผ่านทุก scenario เดิม
-- [ ] เพิ่ม `vercel.json` (ถ้าจำเป็น) — Vercel มัก auto-detect Vite
-- [ ] Push branch → Vercel deploy preview → ทดสอบบน URL preview
-- [ ] Firebase Console → Authorized domains: เพิ่ม `*.vercel.app` + custom domain
-- [ ] ตั้ง env vars ใน Vercel dashboard: `VITE_FIREBASE_*` ทุกตัว
-- [ ] Deploy production
-- [ ] Custom domain (ถ้ามี) — setup DNS
-- [ ] อัพเดต `CLAUDE.md`: deploy target → Vercel (ไม่ใช่ GitHub Pages), env vars, sw source location
-- [ ] Bump 1.21.0 (final)
-- [ ] **commit + merge:** `feat: deploy on Vercel with PWA injectManifest`
+### Code tasks — ✅ ทำเสร็จหมด
+
+- [x] `vite.config.js`: `vite-plugin-pwa` `injectManifest`, `srcDir: 'src'`, `filename: 'sw.js'`, `injectRegister: null` (main.js register เอง), `devOptions.enabled: false`
+- [x] ย้าย `public/sw.js` → `src/sw.js` — เขียนใหม่ใช้ `self.__WB_MANIFEST` แทน hardcoded ASSETS, ใช้ per-URL `cache.add(...).catch()` (แทน atomic addAll กัน 404 ตัวเดียวพังทั้ง install), รักษา CACHE literal + network-first 3s + fallback cascade + synthetic 503 เหมือนเดิม
+- [x] `test/version.test.js` → path `src/sw.js`
+- [x] `npm run build` verified: 16 precache entries (2681 KiB), CACHE=`csa-v1.21.0` ใน dist/sw.js, 0 WB_MANIFEST leak, 0 `.map`
+- [x] `.env.example` มีอยู่แล้ว (Phase 2)
+- [x] `vercel.json`: `framework: vite`, cache-control headers (sw + index no-cache, hashed assets immutable)
+- [x] อัพเดต `CLAUDE.md`: SW ย้าย public/→src/, injectManifest, per-URL cache.add
+- [x] Bump 1.21.0 (src/version.js, src/sw.js, package.json, index.html — 4 places, tested)
+- [x] `npm test` 112 pass
+
+### 🔧 คุณต้องทำใน Vercel + Firebase Console (ผมทำแทนไม่ได้)
+
+- [ ] **Vercel dashboard** — Add New Project → Import จาก GitHub repo `Pepsi1219/CSA-Evaluation`
+  - Root Directory: `.` (default)
+  - Framework Preset: Vite (auto-detected)
+  - Build Command: `npm run build` (default)
+  - Output Directory: `dist` (default)
+- [ ] **Vercel → Settings → Environment Variables** เพิ่มทุกตัว (Production + Preview + Development):
+  - `VITE_FIREBASE_API_KEY`
+  - `VITE_FIREBASE_AUTH_DOMAIN`
+  - `VITE_FIREBASE_PROJECT_ID`
+  - `VITE_FIREBASE_STORAGE_BUCKET`
+  - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+  - `VITE_FIREBASE_APP_ID`
+
+  (ค่าเดียวกับ `.env` — ก็อปมาวาง)
+- [ ] Deploy — Vercel จะ build ตัวแรกอัตโนมัติ ดู URL `<project>.vercel.app`
+- [ ] **Firebase Console → Authentication → Settings → Authorized domains** เพิ่ม:
+  - `<your-vercel-project>.vercel.app`
+  - (custom domain ถ้ามี)
+- [ ] เข้า URL แล้วทดสอบ login/save/reload/sign out
+- [ ] Custom domain (ถ้ามี) — Vercel → Settings → Domains → Add + ตั้ง DNS ตามที่ Vercel บอก
+- [ ] เอา GitHub Pages ออก (ถ้าเลิกใช้)
+
+### 🚀 สำหรับ Vercel deploy → คุณต้อง push ก่อน
+
+- [ ] Merge `phase-1-vite-esm` + `phase-2-firebase` + `phase-3-protect` + `phase-4-vercel` → `main`
+- [ ] Push `main` → Vercel auto-deploy
+  (**รอ user สั่งเสมอ** — deploy production ทันที)
 
 ---
 

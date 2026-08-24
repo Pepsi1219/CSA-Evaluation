@@ -23,7 +23,7 @@ test('sw.js CACHE matches APP_VERSION', () => {
     // The SW runs in its own context and cannot import the page global, so its
     // literal is kept in sync here instead. A byte change in sw.js is also what
     // forces old clients to re-install, so this literal must move every release.
-    const m = read('public/sw.js').match(/const CACHE\s*=\s*'csa-v([\d.]+)'/);
+    const m = read('src/sw.js').match(/const CACHE\s*=\s*'csa-v([\d.]+)'/);
     assert.ok(m, 'could not find `const CACHE = \'csa-vX.Y.Z\'` in sw.js');
     assert.equal(m[1], APP_VERSION);
 });

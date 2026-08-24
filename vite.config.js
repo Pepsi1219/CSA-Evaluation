@@ -18,6 +18,7 @@
 //     `document`/`window`/DOM ids that our code assumes stay stable.
 import { defineConfig } from 'vite';
 import obfuscator from 'vite-plugin-javascript-obfuscator';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
     root: '.',
@@ -28,6 +29,29 @@ export default defineConfig({
         sourcemap: false,   // never ship source maps — they undo every layer below
     },
     plugins: [
+        // Service worker — injectManifest strategy so we keep the hand-tuned
+        // network-first + timeout logic in src/sw.js and just let the plugin
+        // inject the precache list (Vite's hashed asset filenames). main.js
+        // still registers the SW manually, so injectRegister is disabled.
+        VitePWA({
+            strategies: 'injectManifest',
+            srcDir: 'src',
+            filename: 'sw.js',
+            injectRegister: null,
+            manifest: false,      // public/manifest.json is authored by hand
+            injectManifest: {
+                globPatterns: ['**/*.{html,js,css,svg,png,json}'],
+                globIgnores: [
+                    // Per-language tutorial screenshots are runtime-cached on
+                    // first view (Thai fallback covers the rest); precaching
+                    // them would balloon the install and hit addAll with 404s
+                    // for the not-yet-shot languages.
+                    '**/assets/tutorial/{en,vn,la}/**',
+                ],
+                maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+            },
+            devOptions: { enabled: false },   // don't run SW in dev
+        }),
         obfuscator({
             include: ['src/**/*.js'],
             exclude: [/node_modules/],

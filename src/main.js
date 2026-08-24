@@ -26,10 +26,12 @@ import { t, currentLang } from './state.js';
 import { updateTutProgressBadge } from './tutorial.js';
 import {
     FIREBASE_ENABLED, initFirebase, onAuthChange, subscribeHistory,
+    subscribeTutorial, reconcileTutorial,
     migrateLocalHistory, _setCurrentUser, signInWithCode, authErrorKey,
     emailToCode,
 } from './auth.js';
 import { loadLocalHistory } from './history.js';
+import { loadLocalTutProgress } from './tutorial.js';
 import './wiring.js';
 
 // ============================================================
@@ -141,8 +143,16 @@ async function enterApp(user) {
     _appStarted = true;
     if (user) {
         try {
-            await subscribeHistory(user.uid);               // await first snapshot
+            // Await first snapshots in parallel so both history and tutorial
+            // caches are populated before the app renders. Cross-device tutorial
+            // completion needs this — otherwise the launcher badge would flash
+            // 0% then jump to the cloud state.
+            await Promise.all([
+                subscribeHistory(user.uid),
+                subscribeTutorial(user.uid),
+            ]);
             await migrateLocalHistory(user.uid, loadLocalHistory());
+            await reconcileTutorial(user.uid, loadLocalTutProgress());
         } catch (_) { /* proceed with whatever cache exists */ }
         // Reveal the account row in Settings and the header sign-out entry.
         // Show the employee code (strip the synthetic @ie-calc.internal suffix —

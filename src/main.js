@@ -69,11 +69,17 @@ const loginCodeToggle   = document.getElementById('loginCodeToggle');
 const loginError        = document.getElementById('loginError');
 const loginSubmitBtn    = document.getElementById('loginSubmitBtn');
 
+// Dismiss the boot splash + reveal whatever's underneath (login or app).
+// Idempotent — safe to call from both auth paths (unauthed → login shown,
+// authed → app entered).
+function endBoot() { document.body.classList.remove('booting'); }
+
 function showLoginOverlay() {
     if (!loginOverlay) return;
     loginOverlay.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     if (loginError) loginError.textContent = '';
+    endBoot();
 }
 
 // Eye-icon toggle for the employee-code field. Starts as type="password"
@@ -150,6 +156,7 @@ async function enterApp(user) {
     }
     hideLoginOverlay();
     runAppInit();
+    endBoot();
 }
 
 // ============================================================
@@ -164,16 +171,24 @@ async function boot() {
     }
     initFirebase();
     let _sawUser = false;
+    // Safety: if Firebase never fires onAuthChange (network dies before
+    // init resolves) the splash would hang forever. Cap it at 10 s and
+    // force the login card so the user can at least see and retry.
+    const _bootTimeout = setTimeout(() => {
+        if (!_sawUser && !_appStarted) showLoginOverlay();
+    }, 10000);
     onAuthChange(user => {
         _setCurrentUser(user);
         if (user) {
             _sawUser = true;
+            clearTimeout(_bootTimeout);
             enterApp(user);
         } else if (_sawUser) {
             // Signed out mid-session — hard reload so no per-user cache lingers.
             window.location.reload();
         } else {
             // No stored session — show the login gate.
+            clearTimeout(_bootTimeout);
             showLoginOverlay();
         }
     });

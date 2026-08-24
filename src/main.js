@@ -105,13 +105,15 @@ async function enterApp(user) {
             await subscribeHistory(user.uid);               // await first snapshot
             await migrateLocalHistory(user.uid, loadLocalHistory());
         } catch (_) { /* proceed with whatever cache exists */ }
-        // Reveal the account row in Settings and show the employee code
-        // (strip the synthetic @ie-calc.internal suffix — operators recognize
-        // the code, not the fake email).
+        // Reveal the account row in Settings and the header sign-out entry.
+        // Show the employee code (strip the synthetic @ie-calc.internal suffix —
+        // operators recognize the code, not the fake email).
         const accountSection = document.getElementById('accountSection');
         const accountEmail   = document.getElementById('accountEmail');
+        const menuSignout    = document.getElementById('menuSignoutItem');
         if (accountEmail) accountEmail.textContent = emailToCode(user.email);
         if (accountSection) accountSection.style.display = '';
+        if (menuSignout)    menuSignout.style.display  = '';
     }
     hideLoginOverlay();
     runAppInit();

@@ -66,8 +66,10 @@ const ACTIONS = {
     'onboard-next':   () => onboardNext(),
     // settings → tutorial launcher
     'tutorial-open': () => openTutorial(),
-    // account sign-out (onAuthChange → main.js reloads the page)
-    signout:        () => signOutUser(),
+    // account sign-out (onAuthChange → main.js reloads the page).
+    // Close the actions menu first so the click doesn't leave it visibly open
+    // during the reload transition — matches other menu items' behaviour.
+    signout:        () => { closeActionsMenu(); signOutUser(); },
     // chart mode toggle (generated markup in chart.js)
     'chart-mode':   arg => setChartMode(arg),
     // tutorial (generated markup in tutorial.js)

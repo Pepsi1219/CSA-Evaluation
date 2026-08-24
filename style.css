@@ -2227,13 +2227,13 @@ label {
 }
 .numpad-sheet {
     width: 100%;
-    max-width: 480px;
+    max-width: 400px;
     background: var(--surface);
     border-top-left-radius: var(--r-2xl);
     border-top-right-radius: var(--r-2xl);
     box-shadow: var(--sh-lg);
-    padding: var(--sp-4) var(--sp-4)
-             calc(var(--sp-4) + env(safe-area-inset-bottom, 0px));
+    padding: var(--sp-3) var(--sp-4)
+             calc(var(--sp-3) + env(safe-area-inset-bottom, 0px));
     animation: numpad-rise 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 @keyframes numpad-rise {
@@ -2269,16 +2269,16 @@ label {
 }
 .numpad-x:active { background: var(--surface-3); }
 .numpad-display {
-    min-height: 56px;
+    min-height: 46px;
     display: flex;
     align-items: center;
     justify-content: flex-end;
     padding: var(--sp-2) var(--sp-4);
-    margin-bottom: var(--sp-4);
+    margin-bottom: var(--sp-3);
     background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: var(--r-md);
-    font-size: 2rem;
+    font-size: 1.55rem;
     font-weight: 700;
     color: var(--text-1);
     font-variant-numeric: tabular-nums;
@@ -2296,14 +2296,14 @@ label {
     margin-bottom: var(--sp-3);
 }
 .numpad-key {
-    height: 60px;
+    height: 48px;
     display: grid;
     place-items: center;
     border: 1px solid var(--border);
     border-radius: var(--r-md);
     background: var(--surface);
     color: var(--text-1);
-    font-size: 1.4rem;
+    font-size: 1.15rem;
     font-weight: 600;
     font-family: var(--font);
     cursor: pointer;
@@ -2323,10 +2323,10 @@ label {
 }
 .numpad-clear,
 .numpad-done {
-    height: 54px;
+    height: 44px;
     border: none;
     border-radius: var(--r-md);
-    font-size: 1.05rem;
+    font-size: 0.95rem;
     font-weight: 700;
     font-family: var(--font);
     cursor: pointer;
@@ -2690,12 +2690,6 @@ label {
 }
 .login-submit-btn:active { transform: translateY(1px) scale(0.99); }
 .login-submit-btn:disabled { opacity: 0.6; cursor: default; }
-.login-offline-note {
-    font-size: 0.78rem; color: var(--text-3);
-    text-align: center; line-height: 1.5;
-    margin: var(--sp-4) 0 0;
-}
-
 /* Account row in the Settings modal */
 .account-row {
     display: flex; align-items: center; justify-content: space-between;

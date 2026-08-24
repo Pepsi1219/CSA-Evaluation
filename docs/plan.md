@@ -115,52 +115,63 @@
 
 **Branch:** `phase-2-firebase`
 
+### ⚠ Deviations from the original plan (locked in with the user)
+
+- **Login = employee-code only** (ไม่ใช่ email + password) — ผู้ใช้พิมพ์แค่ `68020002`
+  แอปสังเคราะห์ email `68020002@ie-calc.internal` + password = รหัสตัวมันเอง
+  ยิงเข้า Firebase Auth ตรวจ allowlist ที่ admin สร้างไว้ใน Console
+  (security = allowlist + Firestore Rules; รหัสควรตั้งแบบไม่เรียงกันเป๊ะเพื่อกันเดา)
+- **Password field:** `type="password"` + ปุ่ม eye toggle · ไม่มี in-app numpad ที่หน้า login
+  (`inputmode="numeric"` ให้ OS ปล่อย numeric keyboard แทน)
+- **ไม่มี** offline note ที่หน้า login (ผู้ใช้ถอดออก)
+- **Language switcher** บนการ์ด login มุมขวาบน (4 ธง) — ผู้ใช้เปลี่ยนภาษาก่อน sign in ได้
+- **Sign out** อยู่ทั้งใน Settings และในเมนู header actions
+- Numpad ทั้งแอปย่อลงเล็กน้อย (60→48px keys) หลัง user feedback
+
+### Code tasks — ✅ ทำเสร็จหมด
+
 - [x] `npm i firebase`
-- [x] เพิ่ม `.env.example` ครบ `VITE_FIREBASE_API_KEY / AUTH_DOMAIN / PROJECT_ID / STORAGE_BUCKET / MESSAGING_SENDER_ID / APP_ID`
-- [x] เพิ่ม `.env` ใน `.gitignore` (ปัจจุบันยังไม่มี)
-- [ ] สร้าง Firebase project (ผู้ใช้ทำใน console), enable Email/Password Auth
-- [x] **`src/auth.js`:**
-  - [x] `initFirebase()` — `initializeApp` + `getAuth` + `initializeFirestore` + `persistentLocalCache` (แทน `enableIndexedDbPersistence` ที่ deprecated ใน SDK v12)
-  - [x] `signIn(email, password)` / `signOutUser()` / `onAuthChange(cb)`
-  - [x] Firestore data layer: `subscribeHistory(uid, onSnap)` → `onSnapshot('users/{uid}/history')`
-  - [x] in-memory cache + `getHistoryCache()`
-  - [x] `fsSaveEntry(uid, entry)` / `fsDeleteEntry(uid, id)` / `fsSetNote(uid, id, note)`
-  - [x] `mergeHistorySnapshot(entries)` pure — dedupe by id → sort ts desc → cap `HISTORY_MAX`
-- [x] **`src/main.js` — 3-phase boot:**
-  - [x] Phase A: theme + lang (รันเสมอ, ให้ overlay มีธีมถูก)
-  - [x] Phase B: `await initFirebase()` → `onAuthChange` → `showLoginOverlay()` หรือ `enterApp(user)`
-  - [ ] sign-out mid-session → `location.reload()`
-  - [x] Phase C `enterApp(user)`: `await` first snapshot → migration → hide overlay → เรียก app init (restoreFormState/restoreStopwatchState/... /calculateAll/loadWebFonts)
-- [x] **`src/history.js` seam:** `loadHistory()` — ถ้าล็อกอิน & `FIREBASE_ENABLED` → `getHistoryCache()`; write ops branch ไป `fs*`; consumer (`renderHistoryList`, `renderCompareTable`) ไม่แตะ
-- [x] **Migration ครั้งแรก/uid:** flag `csa_migrated_<uid>` → `writeBatch` → `setDoc(id=entry.id)` idempotent → commit → ตั้ง flag → **ไม่ลบ** `csa_history_v1`
-- [ ] **`index.html`:** เพิ่ม `#loginOverlay` (คัดจาก `#onboardingOverlay`), input email/password เป็น text ปกติ (ห้าม `inputmode="none"`, ห้าม numpad), section บัญชี + ปุ่ม Sign out ใน `#settingsModal`
-- [x] wiring.js ผูก login submit + sign-out
-- [x] **`src/translations.js` — เพิ่มคีย์ 4 ภาษา:**
-  - [x] `login_title` / `login_subtitle`
-  - [x] `login_email_label` / `login_email_ph`
-  - [x] `login_password_label` / `login_password_ph`
-  - [x] `login_signin_btn` / `login_signing_in`
-  - [ ] `login_offline_note`
-  - [x] `login_err_invalid` / `login_err_toomany` / `login_err_network` / `login_err_generic`
-  - [x] `set_account`, `account_signed_in_as` (**คง `{email}` ทุกภาษา**), `account_signout`
-- [x] **`firestore.rules`:** เขียนตามแผน (users/{uid}/history เฉพาะ owner)
-- [ ] เผยแพร่ rules ผ่าน `firebase deploy --only firestore:rules` (หรือ console)
-- [ ] Firebase Console → Authorized domains: เพิ่ม `localhost` (dev)
-- [x] **`test/history-cache.test.js`:** ทดสอบ `mergeHistorySnapshot` (dedupe/sort/cap, 7 tests) — migration idempotency ตรวจผ่าน manual E2E (ต้อง mock Firebase ถึงจะ unit test ได้)
-- [x] **`test/translations.test.js`** ต้องผ่าน (คีย์ใหม่ครบ 4 ภาษา + `{email}` token คงอยู่)
-- [x] `npm test` เขียว, `npm run build` เขียว
-- [ ] **Manual E2E** (บน http://localhost, ไม่ใช่ file://):
-  - [ ] รหัสผิด → error ตรงภาษา
-  - [ ] รหัสถูก → เข้าแอป, snapshot มา, history render
-  - [ ] Save entry → เห็น doc ใน `/users/{uid}/history` (Firebase Console)
-  - [ ] Reload → เข้าตรง (session ค้าง IndexedDB, ไม่ผ่าน overlay)
-  - [ ] Sign out → กลับหน้า login, form/stopwatch state reset
-  - [ ] Login user คนที่ 2 → history ว่าง; user #1 ไม่เห็นของ user #2
-  - [ ] ยิงจาก Rules Playground ยืนยัน rule reject cross-uid
-  - [ ] Reload หลัง migration → ไม่ migrate ซ้ำ (ดู network tab)
-  - [ ] Offline (DevTools) → save ได้ (แค่ cache) → กลับ online → sync ขึ้น
-- [ ] Bump version 1.20.0
-- [ ] **commit + merge:** `feat: gate app with Firebase Auth + per-user Firestore history`
+- [x] `.env.example` + `.env` gitignored (VITE_FIREBASE_* ครบ, .env มีค่าจริงแล้ว)
+- [x] **`src/auth.js`:** initFirebase (persistentLocalCache — modern replacement ของ deprecated enableIndexedDbPersistence), signIn/signOutUser/onAuthChange, subscribeHistory (onSnapshot), in-memory cache + getHistoryCache, fsSaveEntry/fsDeleteEntry/fsSetNote, pure mergeHistorySnapshot, migrateLocalHistory idempotent, **signInWithCode + codeToEmail/emailToCode** (employee-code adapter)
+- [x] **`src/main.js` — 3-phase boot:** A theme+lang เสมอ · B initFirebase + onAuthChange (no user→showLoginOverlay, user→enterApp, sign-out mid-session→`location.reload()`) · C enterApp await first snapshot + migration + reveal account row + reveal header sign-out + run app init
+- [x] **`src/history.js` seam:** loadHistory→getHistoryCache when signed in, writes route to `fs*`, live re-render subscribeHistoryChange, consumers ไม่แตะ
+- [x] **Migration:** flag `csa_migrated_<uid>`, `writeBatch` idempotent, ไม่ลบ `csa_history_v1`
+- [x] **`index.html`:** `#loginOverlay` (employee-code field, eye toggle, lang switcher), account section + sign-out ใน Settings, sign-out entry ในเมนู header
+- [x] **`src/wiring.js`:** login submit + sign-out (close menu ก่อน sign out)
+- [x] **`src/translations.js` — 4 ภาษาครบ:** `login_title/subtitle`, `login_code_label` (แทน email/password), `login_signin_btn/signing_in`, `login_err_invalid/toomany/network/generic`, `set_account`, `account_signed_in_as` (= "รหัสพนักงาน"), `account_signout`
+- [x] **`firestore.rules`:** users/{uid}/history owner-only, ทุกอย่างอื่น deny
+- [x] **`test/history-cache.test.js`:** 7 tests สำหรับ `mergeHistorySnapshot`
+- [x] **`test/translations.test.js`** ผ่าน (4 ภาษา ครบ)
+- [x] `npm test` 112 pass, `npm run build` clean
+- [x] **Bump version 1.20.0** (src/version.js, public/sw.js, package.json, index.html footer — enforced by version.test.js)
+
+### 🔧 คุณต้องทำใน Firebase Console (ผมทำแทนไม่ได้)
+
+- [ ] Firebase Console → เปิด Authentication → Sign-in method → **Email/Password** provider
+- [ ] Firestore Database → Create database (production mode) ถ้ายังไม่มี
+- [ ] Firestore → **Rules** → วางเนื้อจาก `firestore.rules` → Publish
+  (หรือรัน `firebase deploy --only firestore:rules` ถ้าติดตั้ง firebase CLI แล้ว)
+- [ ] Authentication → Settings → **Authorized domains** → เพิ่ม `localhost` (dev)
+  (`*.vercel.app` + custom domain ค่อยเพิ่มตอน Phase 4)
+- [ ] Authentication → Users → **Add user** ทีละคน: email `<code>@ie-calc.internal`, password `<code>` (ค่าเดียวกัน)
+  - ⚠ พยายามใช้รหัสที่ไม่เรียงกันเป๊ะ (68020001, 02, 03…) เพราะเดาได้ง่าย
+
+### 🧪 Manual E2E (บน http://localhost — user test เอง ผมไม่เปิด preview)
+
+- [ ] รหัสผิด → error ตรงภาษา (`login_err_invalid`)
+- [ ] รหัสถูก → เข้าแอป, snapshot มา, history render
+- [ ] Save entry → เห็น doc ใน `/users/{uid}/history` (Firebase Console)
+- [ ] Reload → เข้าตรง (session ค้าง IndexedDB, ไม่ผ่าน overlay)
+- [ ] Sign out (Settings หรือ header menu) → กลับหน้า login, reload
+- [ ] Login user คนที่ 2 → history ว่าง; user #1 ไม่เห็นของ user #2 (ยิงจาก Rules Playground ยืนยัน cross-uid reject)
+- [ ] Reload หลัง migration → ไม่ migrate ซ้ำ (Network tab: ไม่มี batch write เพิ่ม)
+- [ ] Offline (DevTools) → save ได้ (แค่ cache) → กลับ online → sync ขึ้น
+- [ ] Language switcher บน login card → text update ทันที
+- [ ] Eye toggle → บู๊ตขึ้น = password, กดตา = text, กดอีก = password
+
+### 🚀 หลัง E2E ผ่าน
+
+- [ ] Merge `phase-2-firebase` → `main` (**รอ user สั่ง push ก่อนเสมอ** — deploy ทันที)
 
 ---
 

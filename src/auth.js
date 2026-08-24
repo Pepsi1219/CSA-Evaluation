@@ -1,3 +1,5 @@
+// Copyright (c) 2025 Pongsathon. All rights reserved.
+// Proprietary — see LICENSE. Do not copy, redistribute, or reverse engineer.
 // ============================================================
 // AUTH — Firebase Auth (email+password) + per-user Firestore history.
 //

@@ -1,3 +1,5 @@
+// Copyright (c) 2025 Pongsathon. All rights reserved.
+// Proprietary — see LICENSE. Do not copy, redistribute, or reverse engineer.
 // ============================================================
 // APP — the rest of the app (UI wiring, calculateAll pipeline,
 // stopwatch, feedback, PWA install, onboarding, theme, etc.)

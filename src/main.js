@@ -1,3 +1,5 @@
+// Copyright (c) 2025 Pongsathon. All rights reserved.
+// Proprietary — see LICENSE. Do not copy, redistribute, or reverse engineer.
 // ============================================================
 // MAIN — entry point. Loaded as the single <script type="module">
 // in index.html. Three-phase boot:

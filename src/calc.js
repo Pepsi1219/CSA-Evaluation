@@ -1,3 +1,5 @@
+// Copyright (c) 2025 Pongsathon. All rights reserved.
+// Proprietary — see LICENSE. Do not copy, redistribute, or reverse engineer.
 // ============================================================
 // CALC — pure calculation functions, no DOM dependencies.
 // Loaded before script.js in the browser; also require()-able

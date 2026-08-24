@@ -8,6 +8,27 @@
 
 ---
 
+## 📊 สถานะโปรเจกต์ปัจจุบัน (2026-08-24)
+
+**Live:** https://csa-evaluation.vercel.app — v1.21.0 (main HEAD)
+
+| Phase | Status | รายละเอียด |
+|---|---|---|
+| **1** Vite + ESM | ✅ merged main | 4 commits (1a toolchain, 1b ESM, 1c wiring, 1d public/+CLAUDE.md) |
+| **2** Firebase Auth + Firestore | ✅ merged main + tested | employee-code login (`<code>@ie-calc.internal`), password+eye, lang switcher, sign out, migration |
+| **3** Obfuscation | ✅ merged main | controlFlow + stringArray(base64) + deadCode — **debugProtection/selfDefending OFF** (freezes UI) |
+| **4** Vercel + PWA | ✅ live production | `vite-plugin-pwa` injectManifest, `vercel.json` cache-control, deploy from `main` branch |
+| **Post-deploy hotfixes** | ✅ live | 3 fixes: obfuscator freeze, boot splash, dev pre-bundle firebase |
+
+**Firebase Console:** Rules published, Authorized domain `csa-evaluation.vercel.app` added, Users add by admin manually
+
+**เหลือทำ (ผู้ใช้ตัดสินใจว่าจะทำเมื่อไร):**
+- Custom domain (ถ้าจะย้ายจาก `csa-evaluation.vercel.app`)
+- ปิด GitHub Pages (ถ้าเลิกใช้ — Vercel รับช่วงแล้ว)
+- Code-split Firebase → chunk แยก (ลด initial bundle 962→~500KB) — เป็น perf tuning ไม่ใช่ blocker
+
+---
+
 ## Pre-flight (ตัดสินก่อนเริ่ม)
 
 - [x] เลือก branch strategy: แยก `phase-1-vite-esm` (แนะนำ) หรือทำบน main
@@ -235,50 +256,45 @@
 
 ### 🔧 คุณต้องทำใน Vercel + Firebase Console (ผมทำแทนไม่ได้)
 
-- [ ] **Vercel dashboard** — Add New Project → Import จาก GitHub repo `Pepsi1219/CSA-Evaluation`
-  - Root Directory: `.` (default)
-  - Framework Preset: Vite (auto-detected)
-  - Build Command: `npm run build` (default)
-  - Output Directory: `dist` (default)
-- [ ] **Vercel → Settings → Environment Variables** เพิ่มทุกตัว (Production + Preview + Development):
-  - `VITE_FIREBASE_API_KEY`
-  - `VITE_FIREBASE_AUTH_DOMAIN`
-  - `VITE_FIREBASE_PROJECT_ID`
-  - `VITE_FIREBASE_STORAGE_BUCKET`
-  - `VITE_FIREBASE_MESSAGING_SENDER_ID`
-  - `VITE_FIREBASE_APP_ID`
-
-  (ค่าเดียวกับ `.env` — ก็อปมาวาง)
-- [ ] Deploy — Vercel จะ build ตัวแรกอัตโนมัติ ดู URL `<project>.vercel.app`
-- [ ] **Firebase Console → Authentication → Settings → Authorized domains** เพิ่ม:
-  - `<your-vercel-project>.vercel.app`
-  - (custom domain ถ้ามี)
-- [ ] เข้า URL แล้วทดสอบ login/save/reload/sign out
-- [ ] Custom domain (ถ้ามี) — Vercel → Settings → Domains → Add + ตั้ง DNS ตามที่ Vercel บอก
+- [x] **Vercel dashboard** — Project เชื่อมกับ GitHub repo `Pepsi1219/CSA-Evaluation`, framework=Vite auto-detected
+- [x] **Vercel → Settings → Environment Variables** เพิ่มทั้ง 6 `VITE_FIREBASE_*` ครบ (All Environments)
+- [x] Deploy สำเร็จ → **https://csa-evaluation.vercel.app** (live)
+- [x] **Firebase Console → Authorized domains** เพิ่ม `csa-evaluation.vercel.app`
+- [x] Manual E2E บน production URL: login, save, reload, sign out — ผ่านทั้งหมด
+- [ ] Custom domain (ถ้าจะทำ) — Vercel → Settings → Domains + Firebase Authorized domains
 - [ ] เอา GitHub Pages ออก (ถ้าเลิกใช้)
 
-### 🚀 สำหรับ Vercel deploy → คุณต้อง push ก่อน
+### 🔧 Post-deploy hotfixes (main branch)
 
-- [ ] Merge `phase-1-vite-esm` + `phase-2-firebase` + `phase-3-protect` + `phase-4-vercel` → `main`
-- [ ] Push `main` → Vercel auto-deploy
-  (**รอ user สั่งเสมอ** — deploy production ทันที)
+หลัง merge phase-4-vercel เข้า main แล้ว deploy บน Vercel ค้นพบ 3 ปัญหา — แก้แล้วทั้งหมด:
+
+- [x] **`72a62ae` fix: turn off debugProtection + selfDefending**
+  Phase 3 obfuscator เปิด `debugProtection: true` + interval 2000 → ยัด infinite `debugger;` loop เข้าโค้ด → หน้าเว็บ freeze คลิก/right-click ไม่ได้ ปิดถาวรพร้อมคอมเมนต์เตือน "Do NOT turn back on"
+- [x] **`b0d3e82` fix: boot splash**
+  HTML paint หน้า calc form ก่อน → ผู้ใช้เห็นแอปประมาณ 5 วิ ก่อน login overlay โผล่ทับ (bait-and-switch)
+  แก้: `<body class="booting">` + `#bootSplash` (brand + spinner) ซ่อนทุกอย่างด้วย `visibility: hidden`
+  `main.js` เรียก `endBoot()` เมื่อ decision resolves (login หรือ enterApp) + safety timeout 10s กัน splash ค้าง
+- [x] **`6770d61` perf(dev): pre-bundle firebase**
+  Local `npm run dev` boot ช้า ~5s เพราะ Vite serve firebase SDK เป็นหลายร้อย ESM module แยกไฟล์
+  แก้: `optimizeDeps.include` ['firebase/app','firebase/auth','firebase/firestore'] → Vite pre-bundle ให้ตอน dev สตาร์ต · production ไม่กระทบ
 
 ---
 
 ## เช็คก่อนปิดโปรเจกต์
 
-- [ ] `CLAUDE.md` ตรงกับสถานะจริง 100% (build model, layout, commands, deploy)
-- [ ] `docs/plan-backend-firebase.md` ยังคงเป็น strategic doc; `docs/plan.md` (ไฟล์นี้) อัพเดตทุกรอบ commit
-- [ ] Firebase Console: rules published, API key restricted, authorized domains ครบ
-- [ ] `.env` ไม่โผล่ใน git history (ตรวจ `git log --all -- .env`)
-- [ ] ทุกฟีเจอร์ offline: calc, stopwatch, history save (queued sync), tutorial, chart
-- [ ] Login user #2 ไม่เห็นข้อมูล user #1 (Rules Playground + manual)
+- [x] `CLAUDE.md` ตรงกับสถานะจริง (build model + src/ layout + Vite commands) — อัพเดตช่วง Phase 1d
+- [x] `docs/plan-backend-firebase.md` = strategic; `docs/plan.md` (ไฟล์นี้) = execution
+- [x] Firebase Console: Rules published, Authorized domains มี `localhost` + `csa-evaluation.vercel.app`
+- [x] `.env` ไม่โผล่ใน git history (ยืนยัน: `git log --all -- .env` ว่างเปล่า, .gitignore ครอบ)
+- [x] Live URL ทำงาน: login, save, sign out, reload — E2E ผ่าน
+- [ ] Login user #2 ไม่เห็นข้อมูล user #1 (Rules Playground หรือ manual — user ยังไม่ได้เช็ค 2 users)
+- ~~API key restricted~~ (ข้ามโดยผู้ใช้ตัดสินใจ — Rules ป้องกันข้อมูลแล้ว)
 
 ---
 
 ## Rollback plan (กรณีอะไรพัง)
 
-- Phase 1 พัง → revert branch, main ยังเป็น no-build (GitHub Pages ปกติ)
-- Phase 2 พัง → toggle `FIREBASE_ENABLED = false` ใน main.js → history fallback localStorage เดิม
-- Phase 3 พัง (obfuscation หนักไป) → ลด threshold หรือปิด `selfDefending`/`debugProtection`
-- Phase 4 พัง → Vercel rollback previous deploy; DNS ชี้กลับ GitHub Pages ชั่วคราว
+- Vercel → Deployments → **⋮ → Instant Rollback** ไป deploy ก่อนหน้าที่ Ready — ~10 วิ, ไม่ต้อง touch git
+- ถ้าพังลึก (bad commit บน main) → local `git revert <sha>` + push → Vercel deploy revert ทับ
+- Firebase หยุดทำงาน → เอาค่า `VITE_FIREBASE_API_KEY` ออกจาก Vercel env vars + Redeploy → แอปกลับไปเป็นโหมด localStorage (Phase 1 behaviour) ชั่วคราว
+- ต้องกลับไป GitHub Pages ชั่วคราว → เปิด Pages ที่ Settings + revert main กลับ commit ก่อน Phase 1a (`c2645eb` "Move language + theme...")

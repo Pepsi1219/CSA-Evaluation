@@ -65,15 +65,13 @@ function calcTrainingDay(currentEff, gap, duration, day, sam) {
     return { day, eff, pcs };
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        parseNum,
-        pcsFromEff,
-        calcAvgMin,
-        calcActualEff,
-        newSamFromEff,
-        calcActualPcsPerHr,
-        calcPassRate,
-        calcTrainingDay,
-    };
-}
+export {
+    parseNum,
+    pcsFromEff,
+    calcAvgMin,
+    calcActualEff,
+    newSamFromEff,
+    calcActualPcsPerHr,
+    calcPassRate,
+    calcTrainingDay,
+};

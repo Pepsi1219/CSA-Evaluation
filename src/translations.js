@@ -11,7 +11,7 @@
 //   3) Update LANG_META in script.js so the flag / name shows.
 // ============================================================
 
-const translations = {
+export const translations = {
     'th': {
         'brand_sub': 'เครื่องมือประเมินประสิทธิภาพ',
         'header1': 'การตั้งเป้าหมาย',
@@ -610,6 +610,3 @@ const translations = {
     }
 };
 
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = translations;
-}

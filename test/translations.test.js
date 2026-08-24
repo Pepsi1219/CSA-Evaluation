@@ -1,6 +1,6 @@
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const translations = require('../translations.js');
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { translations } from '../src/translations.js';
 
 // ---------------------------------------------------------------
 // The runtime lookup used in script.js — mirrored here for testing.

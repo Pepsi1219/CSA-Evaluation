@@ -13,6 +13,8 @@
 //   currentLang (script.js), t() (script.js), gaTrack() (script.js).
 // ============================================================
 
+import { currentLang, gaTrack } from './state.js';
+
 const TUT_IMG = 'assets/tutorial/';
 const STORAGE_KEY_TUT = 'csa_tutorial_v1';
 const QUIZ_PASS_PCT = 80;   // ≥ 80% to pass
@@ -214,20 +216,20 @@ function _tg(id) { return document.getElementById(id); }
 function _esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 // ---- Open / close ----
-function openTutorial() {
+export function openTutorial() {
     _tut.view = 'home';
     _tg('tutorialModal').style.display = 'flex';
     document.body.style.overflow = 'hidden';
     if (typeof gaTrack === 'function') gaTrack('tutorial_open');
     renderTutorial();
 }
-function closeTutorial() {
+export function closeTutorial() {
     _tg('tutorialModal').style.display = 'none';
     document.body.style.overflow = '';
     updateTutProgressBadge();
 }
 // Top-bar back: step-back inside a lesson, otherwise return to the category home.
-function tutBack() {
+export function tutBack() {
     if (_tut.view === 'lesson' && _tut.step > 0) { _tut.step--; renderTutorial(); return; }
     if (_tut.view === 'home') { closeTutorial(); return; }
     _tut.view = 'home';
@@ -329,7 +331,7 @@ function _renderHome(p) {
     </div>`;
 }
 
-function tutOpenLesson(catId, lessonId) {
+export function tutOpenLesson(catId, lessonId) {
     _tut.view = 'lesson'; _tut.catId = catId; _tut.lessonId = lessonId; _tut.step = 0;
     if (typeof gaTrack === 'function') gaTrack('tutorial_lesson', { lesson: lessonId });
     renderTutorial();
@@ -370,7 +372,7 @@ function _renderLesson(p) {
     return { html, progress: Math.round(((i + 1) / n) * 100) };
 }
 
-function tutStep(dir) {
+export function tutStep(dir) {
     const les = _findLesson(_tut.lessonId);
     if (!les) return;
     const n = les.steps.length;
@@ -394,7 +396,7 @@ function _shuffle(arr) {
     for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
     return a;
 }
-function tutStartQuiz() {
+export function tutStartQuiz() {
     // Shuffle question order and, per question, the option order (tracking the
     // new index of the correct answer).
     const order = _shuffle(QUIZ_DATA.map((_, i) => i));
@@ -431,11 +433,11 @@ function _renderQuiz() {
     </div>`;
     return { html, progress: Math.round(((q.idx) / q.questions.length) * 100) };
 }
-function tutPick(pos) {
+export function tutPick(pos) {
     _tut.quiz.questions[_tut.quiz.idx].picked = pos;
     renderTutorial();
 }
-function tutQuizNav(dir) {
+export function tutQuizNav(dir) {
     const q = _tut.quiz;
     if (dir > 0 && q.idx === q.questions.length - 1) { _tutGradeQuiz(); return; }
     q.idx = Math.max(0, Math.min(q.questions.length - 1, q.idx + dir));
@@ -472,10 +474,10 @@ function _renderResult(p) {
         </div>
     </div>`;
 }
-function tutGoHome() { _tut.view = 'home'; renderTutorial(); }
+export function tutGoHome() { _tut.view = 'home'; renderTutorial(); }
 
 // ---- CERTIFICATE ----
-function tutOpenCert() {
+export function tutOpenCert() {
     const p = loadTutProgress();
     if (!(p.quiz && p.quiz.passed)) { _tut.view = 'home'; renderTutorial(); return; }
     _tut.view = 'cert';
@@ -507,7 +509,7 @@ function _initCertView(p) {
     // If a certificate already exists, render its preview immediately.
     if (p.cert && p.cert.name) { _drawCertificate(p.cert); _showCertPreview(); }
 }
-function tutGenerateCert() {
+export function tutGenerateCert() {
     const nameEl = _tg('certNameInput');
     const name = (nameEl && nameEl.value.trim()) || '';
     if (!name) { nameEl && nameEl.focus(); return; }
@@ -534,7 +536,7 @@ function _showCertPreview() {
         wrap.style.display = 'flex';
     }
 }
-function tutDownloadCert() {
+export function tutDownloadCert() {
     const canvas = _tg('certCanvas');
     if (!canvas) return;
     canvas.toBlob(blob => {
@@ -654,7 +656,7 @@ function _fmtDate(ts) {
 }
 
 // ---- Settings card progress badge ----
-function updateTutProgressBadge() {
+export function updateTutProgressBadge() {
     const badge = _tg('tutProgressBadge');
     if (!badge) return;
     const p = loadTutProgress();
@@ -665,11 +667,10 @@ function updateTutProgressBadge() {
 }
 
 // Re-render the open tutorial when the language changes (called from script.js).
-function tutorialOnLangChange() {
+export function tutorialOnLangChange() {
     if (_tg('tutorialModal') && _tg('tutorialModal').style.display === 'flex') renderTutorial();
     updateTutProgressBadge();
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { TUTORIAL_DATA, QUIZ_DATA, QUIZ_PASS_PCT, _letterSpace, _stepImgSrc };
-}
+// Exports for tests (also used internally):
+export { TUTORIAL_DATA, QUIZ_DATA, QUIZ_PASS_PCT, _letterSpace, _stepImgSrc };

@@ -1,4 +1,33 @@
 // ============================================================
+// APP — the rest of the app (UI wiring, calculateAll pipeline,
+// stopwatch, feedback, PWA install, onboarding, theme, etc.)
+// Init/boot moved to main.js; language state + t()/gaTrack() moved
+// to state.js so chart/history/tutorial can import them without a
+// circular dependency on this file.
+// ============================================================
+import { APP_VERSION } from './version.js';
+import {
+    parseNum, pcsFromEff, calcAvgMin, calcActualEff,
+    newSamFromEff, calcActualPcsPerHr, calcPassRate, calcTrainingDay,
+} from './calc.js';
+import {
+    fmtSw, fmtSec2, fmtSec4, snapLapMs,
+    T_TABLE, tsTValue, computeSampleSize,
+    csvEscape, csvRow, csvBuild,
+} from './timeutil.js';
+import { translations } from './translations.js';
+import {
+    currentLang, setCurrentLang, t, gaTrack,
+    pcsPerHr, GA4_ENABLED, GA4_MEASUREMENT_ID,
+} from './state.js';
+import { setChartCache, resetChartAnimation, renderChartFromCache } from './chart.js';
+import {
+    HISTORY_MAX, saveCurrentToHistory, loadHistory,
+    handleHistorySave, openCompareView, closeHistoryModal, historyModal,
+} from './history.js';
+import { updateTutProgressBadge, tutorialOnLangChange, tutBack, closeTutorial } from './tutorial.js';
+
+// ============================================================
 // GOOGLE FORMS CONFIG
 // ============================================================
 const GFORM = {
@@ -12,18 +41,12 @@ const GFORM = {
 const GFORM_ENABLED = true;
 
 // ============================================================
-// GOOGLE ANALYTICS 4 CONFIG
-// ============================================================
-const GA4_MEASUREMENT_ID = 'G-9M9C6NZJ6Y';
-const GA4_ENABLED        = true;
-
-// ============================================================
 // CONFIG
 // ============================================================
 const MAX_TRAINING_DAYS = 18;
 
 // ============================================================
-// PERSISTENCE (localStorage) — form auto-save + history
+// PERSISTENCE (localStorage) — form auto-save
 // ============================================================
 const STORAGE_KEY_FORM    = 'csa_form_v1';
 const STORAGE_KEY_SW      = 'csa_stopwatch_v1';
@@ -32,8 +55,7 @@ const SW_LAPS_MAX         = 1000;   // hard ceiling on restored lap count (anti-
 const STORAGE_KEY_THEME   = 'csa_theme';
 const FORM_FIELD_IDS = ['samInput','effTargetInput','totalMin','totalTime','totalCount','passQty','failQty','duration'];
 
-// --- 1. Global State ---
-let currentLang = 'th';
+// --- 1. Local State (currentLang lives in state.js) ---
 let samUnit = 'min'; // unit the user types SAM in: 'min' or 'sec'
 
 // Session tracking flags (track each feature only once per session)
@@ -72,7 +94,7 @@ function saveStopwatchState() {
     } catch (_) { /* private browsing / quota — skip silently */ }
 }
 
-function restoreStopwatchState() {
+export function restoreStopwatchState() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY_SW);
         if (!raw) return;
@@ -160,7 +182,7 @@ function resetTimer() {
 }
 
 // ---- Stopwatch Modal ----
-function openStopwatchModal() {
+export function openStopwatchModal() {
     gaTrack('open_stopwatch');
     document.getElementById('swModal').style.display = 'flex';
     document.body.style.overflow = 'hidden';
@@ -169,7 +191,7 @@ function openStopwatchModal() {
     swSetupKeyboardWatch();
 }
 
-function closeStopwatchModal() {
+export function closeStopwatchModal() {
     if (sw.running) {
         // Freeze the clock and mark as paused (not finalized). On reopen the
         // user resumes the same lap instead of silently losing the in-progress time.
@@ -210,7 +232,7 @@ function swTeardownKeyboardWatch() {
     sw._kbHandler = null;
 }
 
-function swSetMode(mode) {
+export function swSetMode(mode) {
     if (sw.elapsed > 0) return; // cannot change mode after timing has started
     sw.mode = mode;
     document.getElementById('swTabLap').classList.toggle('active', mode === 'lap');
@@ -219,7 +241,7 @@ function swSetMode(mode) {
     saveStopwatchState();
 }
 
-function swStartStop() {
+export function swStartStop() {
     if (!sw.running && !sw.paused) {
         // Start (or resume after a finalized Stop) — use monotonic time so
         // NTP corrections mid-lap can't jump the clock.
@@ -251,7 +273,7 @@ function swStartStop() {
 
 // Pause freezes the clock without ending the current lap or showing results;
 // Resume continues the same lap from where it left off.
-function swPauseResume() {
+export function swPauseResume() {
     if (sw.running) {
         // Pause
         swCancelTick();
@@ -270,7 +292,7 @@ function swPauseResume() {
     saveStopwatchState();
 }
 
-function swLapOrReset() {
+export function swLapOrReset() {
     if (sw.running) {
         // Record lap — snap to 10 ms so stored value == displayed value
         const lapMs = snapLapMs(sw.elapsed - sw.lapStart);
@@ -428,7 +450,7 @@ function swRenderLaps() {
 
 // Remove one completed lap. Available during running / paused / stopped.
 // If the stats panel is already visible (post-Stop), recompute it.
-function swDeleteLap(idx) {
+export function swDeleteLap(idx) {
     if (idx < 0 || idx >= sw.laps.length) return;
     showConfirm(t('sw_delete_lap'), t('sw_delete_lap_confirm'), () => _swDeleteLapConfirmed(idx));
 }
@@ -503,7 +525,7 @@ function swCloseStatInfo() {
 }
 
 // Toggle the explanation panel under a tapped stat (accordion: one open at a time)
-function swToggleStatInfo(key) {
+export function swToggleStatInfo(key) {
     const desc = document.getElementById('swInfo_' + key);
     if (!desc) return;
     const willOpen = !desc.classList.contains('sw-show');
@@ -516,7 +538,7 @@ function swToggleStatInfo(key) {
     }
 }
 
-function swSaveToForm() {
+export function swSaveToForm() {
     gaTrack('save_stopwatch', { mode: sw.mode, laps: sw.laps.length });
     let totalMs, rounds;
     if (sw.mode === 'lap') {
@@ -548,7 +570,7 @@ function swSaveToForm() {
 // the current user-chosen confidence + acceptable-error inputs.
 const _ts = { confidence: 95, error: 5 };
 
-function tsSetConfidence(c) {
+export function tsSetConfidence(c) {
     _ts.confidence = c;
     document.querySelectorAll('.sw-ts-pill').forEach(p => {
         p.classList.toggle('active', parseInt(p.dataset.conf) === c);
@@ -557,7 +579,7 @@ function tsSetConfidence(c) {
     gaTrack('ts_change_confidence', { confidence: c });
 }
 
-function tsRecalculate() {
+export function tsRecalculate() {
     const errorInput = document.getElementById('tsErrorInput');
     let e = parseNum(errorInput?.value);
     if (!isFinite(e) || e <= 0) e = 5;
@@ -659,7 +681,7 @@ function tsRecalculate() {
 // Prepare stopwatch for more laps after Stop → preserves existing laps
 // and elapsed time. Does NOT auto-start — the user presses Start themselves
 // so they're ready when the clock begins.
-function swContinueTiming() {
+export function swContinueTiming() {
     gaTrack('sw_continue_timing', { laps_so_far: sw.laps.length });
     // Hide summary + save panels; keep controls visible so Start is reachable
     const el = id => document.getElementById(id);
@@ -670,14 +692,14 @@ function swContinueTiming() {
     swUpdateUI();  // ensure Start button is in the correct resumable state
 }
 
-function openTsConfigModal() {
+export function openTsConfigModal() {
     gaTrack('open_ts_config');
     renderTTable();
     const m = document.getElementById('tsConfigModal');
     if (m) m.style.display = 'flex';
 }
 
-function closeTsConfigModal() {
+export function closeTsConfigModal() {
     const m = document.getElementById('tsConfigModal');
     if (m) m.style.display = 'none';
 }
@@ -700,7 +722,7 @@ function renderTTable() {
 }
 
 // ---- Export / Print ----
-function printReport() {
+export function printReport() {
     gaTrack('print_report');
 
     const now = new Date();
@@ -735,7 +757,7 @@ function printReport() {
 
 // Export current evaluation as bilingual CSV (TH + EN column headers).
 // Opens in Excel with Thai characters intact (UTF-8 BOM is prepended by csvBuild).
-function exportCSV() {
+export function exportCSV() {
     gaTrack('export_csv');
 
     const g   = id => document.getElementById(id);
@@ -819,12 +841,11 @@ const LANG_META = {
     la: { flag: FLAG_SVG.la, name: 'ລາວ' },
 };
 
-const pcsPerHr = { th: 'ชิ้น/ชม.', en: 'pcs/hr', vn: 'SP/giờ', la: 'ຊິ້ນ/ຊມ' };
+// pcsPerHr + t() live in state.js so chart.js / history.js / tutorial.js can
+// import them without a circular dependency on this file.
 
 // Chart state + renderer live in chart.js — see that file for _chartCache,
 // _chartAnimated, chartMode, setChartMode, renderChartFromCache, renderSVGChart.
-
-const t = key => translations[currentLang]?.[key] ?? translations.th[key] ?? key;
 
 function setResultUnit(id, value, unit) {
     const el = document.getElementById(id);
@@ -839,10 +860,10 @@ function setResultUnit(id, value, unit) {
 // --- 4. Training Grid: generated dynamically inside calculateAll() ---
 
 // --- 5. Language ---
-function changeLanguage(lang) {
+export function changeLanguage(lang) {
     if (!translations[lang]) return;
     gaTrack('change_language', { language: lang });
-    currentLang = lang;
+    setCurrentLang(lang);
     try { localStorage.setItem('csa_lang', lang); } catch {}
     document.documentElement.lang = lang;
 
@@ -880,7 +901,7 @@ function changeLanguage(lang) {
     if (document.getElementById('swStatsPanel')?.style.display === 'block') tsRecalculate();
     if (document.getElementById('tsConfigModal')?.style.display === 'flex') renderTTable();
     // Tutorial content is rendered from JS (L() picks the language) — re-render if open.
-    if (typeof tutorialOnLangChange === 'function') tutorialOnLangChange();
+    tutorialOnLangChange();
 }
 
 // ---- Actions overflow menu ----
@@ -888,18 +909,18 @@ function changeLanguage(lang) {
 // history / install / theme / reset). Opens on tap, closes on outside tap
 // or Escape. Language pills stay OPEN after switching (so the user can see
 // which flag became active); everything else auto-closes on selection.
-function toggleActionsMenu() {
+export function toggleActionsMenu() {
     const m = document.getElementById('actionsMenu');
     const open = m.classList.toggle('open');
     document.getElementById('actionsTrigger')?.setAttribute('aria-expanded', open);
 }
-function closeActionsMenu() {
+export function closeActionsMenu() {
     const m = document.getElementById('actionsMenu');
     m?.classList.remove('open');
     document.getElementById('actionsTrigger')?.setAttribute('aria-expanded', 'false');
 }
 
-function resetForm() {
+export function resetForm() {
     ['samInput','effTargetInput','passQty','failQty','duration'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
@@ -922,7 +943,7 @@ function saveFormState() {
     } catch (_) { /* private browsing / quota exceeded — skip silently */ }
 }
 
-function restoreFormState() {
+export function restoreFormState() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY_FORM);
         if (!raw) return;
@@ -947,7 +968,7 @@ function trimNum(n) {
 }
 
 // SAM value in minutes, regardless of the unit the user is typing in.
-function getSamMinutes() {
+export function getSamMinutes() {
     const raw = parseNum(document.getElementById('samInput').value) || 0;
     return samUnit === 'sec' ? raw / 60 : raw;
 }
@@ -955,7 +976,7 @@ function getSamMinutes() {
 // Switch the SAM input between minutes and seconds. When `convert` is true
 // (a user click) the typed value is converted so the underlying SAM is
 // unchanged; on restore we pass false to keep the already-stored value.
-function setSamUnit(unit, convert = true) {
+export function setSamUnit(unit, convert = true) {
     if (unit !== 'min' && unit !== 'sec') return;
     if (convert && unit !== samUnit) {
         const el  = document.getElementById('samInput');
@@ -976,7 +997,7 @@ function updateSamUnitUI() {
 }
 
 // --- 6. Core Calculation ---
-function calculateAll() {
+export function calculateAll() {
     const getValue = id => parseNum(document.getElementById(id).value) || 0;
 
     const sam        = getSamMinutes();
@@ -1071,7 +1092,7 @@ function _scheduleHeavyUpdate(args) {
 
 // Flush immediately — used at init/language-change (so the page paints complete)
 // and on page-hide (so the last keystroke is never lost to the debounce).
-function _flushHeavyUpdate() {
+export function _flushHeavyUpdate() {
     if (_heavyTimer) { clearTimeout(_heavyTimer); _heavyTimer = null; }
     if (_heavyPending) _runHeavyUpdate();
 }
@@ -1110,18 +1131,18 @@ function _runHeavyUpdate() {
 
             tGrid.innerHTML = cardsHtml;
 
-            _chartCache = {
+            setChartCache({
                 data:       chartData,
                 targetPcs:  pcsFromEff(sam, effTarget),
                 effTarget,
                 currentEff: currentActualEff,
                 currentPcs: pcsFromEff(sam, currentActualEff),
-            };
+            });
             renderChartFromCache();
         } else {
             tGrid.innerHTML = '';
-            _chartCache = { data: [], targetPcs: 0, effTarget: 0 };
-            _chartAnimated = false;  // arm the draw-in animation for the next time
+            setChartCache({ data: [], targetPcs: 0, effTarget: 0 });
+            resetChartAnimation();  // arm the draw-in animation for the next time
             if (tChart) tChart.style.display = 'none';
         }
     }
@@ -1169,7 +1190,7 @@ function queueFeedback(entry) {
     saveFeedbackQueue(q);
     gaTrack('feedback_queued');
 }
-async function drainFeedbackQueue() {
+export async function drainFeedbackQueue() {
     if (!navigator.onLine) return;
     const q = loadFeedbackQueue();
     if (!q.length) return;
@@ -1194,7 +1215,7 @@ window.addEventListener('online', drainFeedbackQueue);
 let _pwaPrompt = null;
 const SESSION_COUNT_KEY = 'csa_session_count';
 
-function _bumpSessionCount() {
+export function _bumpSessionCount() {
     try {
         const n = (parseInt(localStorage.getItem(SESSION_COUNT_KEY)) || 0) + 1;
         localStorage.setItem(SESSION_COUNT_KEY, String(n));
@@ -1223,7 +1244,7 @@ window.addEventListener('appinstalled', () => {
     if (btn) btn.style.display = 'none';
 });
 
-async function pwaInstall() {
+export async function pwaInstall() {
     if (!_pwaPrompt) return;
     gaTrack('pwa_install_click');
     _pwaPrompt.prompt();
@@ -1238,7 +1259,7 @@ async function pwaInstall() {
 const ONBOARDED_KEY = 'csa_onboarded_v1';
 let _onboardStep = 0;
 
-function showOnboardingIfNeeded() {
+export function showOnboardingIfNeeded() {
     try { if (localStorage.getItem(ONBOARDED_KEY)) return; } catch { return; }
     const ov = document.getElementById('onboardingOverlay');
     if (!ov) return;
@@ -1261,14 +1282,14 @@ function _renderOnboardStep() {
     label.setAttribute('data-key', key);
     label.textContent = t(key);
 }
-function onboardNext() {
+export function onboardNext() {
     const screens = document.querySelectorAll('.onboard-screen');
     if (_onboardStep >= screens.length - 1) { finishOnboarding(); return; }
     _onboardStep++;
     _renderOnboardStep();
     gaTrack('onboarding_next', { step: _onboardStep });
 }
-function finishOnboarding() {
+export function finishOnboarding() {
     try { localStorage.setItem(ONBOARDED_KEY, '1'); } catch {}
     const ov = document.getElementById('onboardingOverlay');
     if (ov) ov.style.display = 'none';
@@ -1326,11 +1347,11 @@ function hideConfirm() {
     _confirmCallback = null;
 }
 
-function openFeedbackModal() {
+export function openFeedbackModal() {
     feedbackModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 }
-function closeFeedbackModal() {
+export function closeFeedbackModal() {
     feedbackModal.style.display = 'none';
     document.body.style.overflow = '';
     resetFormFeedback();
@@ -1501,7 +1522,7 @@ const FORMULA_DEFS = {
     },
 };
 
-function openFormulaModal(key) {
+export function openFormulaModal(key) {
     const def = FORMULA_DEFS[key];
     if (!def) return;
     const modal = document.getElementById('formulaModal');
@@ -1529,7 +1550,7 @@ function openFormulaModal(key) {
     gaTrack('open_formula', { key });
 }
 
-function closeFormulaModal() {
+export function closeFormulaModal() {
     const modal = document.getElementById('formulaModal');
     if (!modal) return;
     modal.style.display = 'none';
@@ -1559,14 +1580,14 @@ function applyTheme(theme) {
     updateThemeIcon();
 }
 
-function toggleTheme() {
+export function toggleTheme() {
     const next = getEffectiveTheme() === 'dark' ? 'light' : 'dark';
     try { localStorage.setItem(STORAGE_KEY_THEME, next); } catch (_) { /* skip silently */ }
     applyTheme(next);
     gaTrack('toggle_theme', { theme: next });
 }
 
-function initTheme() {
+export function initTheme() {
     let stored = null;
     try { stored = localStorage.getItem(STORAGE_KEY_THEME); } catch (_) { /* skip silently */ }
     if (stored === 'light' || stored === 'dark') applyTheme(stored);
@@ -1589,7 +1610,7 @@ function initTheme() {
 // on-screen one), so desktop entry is unaffected.
 const _numpad = { field: null, buffer: '', decimal: false };
 
-function openNumpad(field) {
+export function openNumpad(field) {
     const modal = document.getElementById('numpadModal');
     if (!field || !modal) return;
     _numpad.field   = field;
@@ -1608,7 +1629,7 @@ function openNumpad(field) {
     gaTrack('open_numpad', { field: field.id || '' });
 }
 
-function closeNumpad() {
+export function closeNumpad() {
     const modal = document.getElementById('numpadModal');
     if (!modal) return;
     // Drop a dangling trailing dot on commit so "5." is stored as "5".
@@ -1628,13 +1649,13 @@ function _renderNumpad() {
 
 // Write the buffer back to the field and re-fire its input handler so the whole
 // calc pipeline reacts live, exactly as if the user had typed the character.
-function _commitNumpad() {
+export function _commitNumpad() {
     if (!_numpad.field) return;
     _numpad.field.value = _numpad.buffer;
     _numpad.field.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
-function numpadPress(key) {
+export function numpadPress(key) {
     if (!_numpad.field) return;
     if (key === 'back') {
         _numpad.buffer = _numpad.buffer.slice(0, -1);
@@ -1649,7 +1670,7 @@ function numpadPress(key) {
     _commitNumpad();
 }
 
-function numpadClear() {
+export function numpadClear() {
     if (!_numpad.field) return;
     _numpad.buffer = '';
     _renderNumpad();
@@ -1676,7 +1697,7 @@ document.getElementById('numpadModal')?.addEventListener('click', e => {
 // Hosts the tutorial launcher only (labelled "ระบบฝึกสอนการใช้งาน"). Theme +
 // language live back in the header overflow menu, so this sheet is purely the
 // entry point into the learning centre.
-function openSettingsModal() {
+export function openSettingsModal() {
     const m = document.getElementById('settingsModal');
     if (!m) return;
     updateTutProgressBadge();
@@ -1684,7 +1705,7 @@ function openSettingsModal() {
     document.body.style.overflow = 'hidden';
     gaTrack('open_settings');
 }
-function closeSettingsModal() {
+export function closeSettingsModal() {
     const m = document.getElementById('settingsModal');
     if (!m) return;
     m.style.display = 'none';
@@ -1750,14 +1771,7 @@ if (_backToTopBtn) {
     updateBackToTop();  // set correct initial state (in case page loads scrolled)
 }
 
-closeHistoryBtn?.addEventListener('click', closeHistoryModal);
-historyCloseBtn?.addEventListener('click', closeHistoryModal);
-historySaveBtn?.addEventListener('click', handleHistorySave);
-historyCompareBtn?.addEventListener('click', openCompareView);
-compareBackBtn?.addEventListener('click', showHistoryListView);
-historyModal?.addEventListener('click', e => {
-    if (e.target === historyModal) closeHistoryModal();
-});
+// History-modal wiring moved into history.js (it owns those DOM refs).
 
 // Formula modal — event delegation on labels with data-fx
 document.addEventListener('click', e => {
@@ -1810,13 +1824,9 @@ document.addEventListener('keydown', e => {
     }
 });
 
-// --- 10. Google Analytics 4 ---
-function gaTrack(eventName, params = {}) {
-    if (!GA4_ENABLED || typeof gtag === 'undefined') return;
-    gtag('event', eventName, params);
-}
-
-function initGA4() {
+// --- 10. Google Analytics 4 (gaTrack lives in state.js so all modules share
+// one dispatcher; only the lazy loader stays here.) ---
+export function initGA4() {
     if (!GA4_ENABLED || !GA4_MEASUREMENT_ID || GA4_MEASUREMENT_ID === 'G-XXXXXXXXXX') return;
 
     // Inject GA4 script dynamically (non-blocking)
@@ -1833,7 +1843,7 @@ function initGA4() {
 }
 
 // --- 11. Async Web Fonts (non-blocking; system font shows instantly) ---
-function loadWebFonts() {
+export function loadWebFonts() {
     const href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800'
                + '&family=Noto+Sans+Thai:wght@400;500;600;700;800'
                + '&family=Noto+Sans+Lao:wght@400;500;600;700&display=swap';
@@ -1844,51 +1854,7 @@ function loadWebFonts() {
     document.head.appendChild(link);
 }
 
-// --- 11. Init ---
-
-// Register PWA Service Worker
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
-    });
-}
-
-// Stamp the footer from the single source of truth so it can never drift from
-// the CSV export (both read APP_VERSION from version.js).
-const _appVersionEl = document.getElementById('appVersion');
-if (_appVersionEl) _appVersionEl.textContent = 'v' + APP_VERSION;
-
-// Native-app feel: no zoom. The viewport meta (maximum-scale=1, user-scalable=no)
-// plus `touch-action: pan-x pan-y` (style.css) block pinch/double-tap zoom on
-// Android, but iOS Safari ignores both — so also swallow its pinch gesture
-// events here. Single-finger scrolling is untouched; desktop browser zoom
-// (Ctrl +/- / Ctrl-wheel) is deliberately left working.
-['gesturestart', 'gesturechange', 'gestureend'].forEach(evt =>
-    document.addEventListener(evt, e => e.preventDefault(), { passive: false })
-);
-
-initGA4(); // Google Analytics 4
-initTheme();
-restoreFormState();
-restoreStopwatchState();
-_bumpSessionCount();  // used by _shouldOfferInstall()
-// Retry any feedback captured while previously offline (fire-and-forget)
-drainFeedbackQueue();
-// Show 3-screen tour on first launch only (persisted in localStorage)
-showOnboardingIfNeeded();
-// Reflect tutorial progress on the Settings launcher badge
-if (typeof updateTutProgressBadge === 'function') updateTutProgressBadge();
-// Restore last chosen language (falls back to Thai if unset or invalid)
-const _savedLang = (() => { try { return localStorage.getItem('csa_lang'); } catch { return null; } })();
-changeLanguage(_savedLang && translations[_savedLang] ? _savedLang : 'th');
-calculateAll();
-_flushHeavyUpdate();   // paint the training grid + chart immediately on first load
-if (document.readyState === 'complete') loadWebFonts();
-else window.addEventListener('load', loadWebFonts);
-
-// Never lose the last keystroke to the debounce: flush the pending save when
-// the tab is hidden or the app is being closed.
-window.addEventListener('pagehide', _flushHeavyUpdate);
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') _flushHeavyUpdate();
-});
+// --- 11. Init moved to main.js (entry point). This file exports the
+// functions main.js and inline handlers still need — no side effects at
+// import time (aside from the top-level DOM ref caches, which are safe
+// because <script type="module"> defers until after DOM parse).

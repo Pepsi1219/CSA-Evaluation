@@ -1,26 +1,32 @@
 // ============================================================
 // HISTORY — saved evaluations + compare table.
-// Depends on globals from earlier scripts: t(), currentLang,
-// pcsPerHr (i18n), gaTrack (analytics), calcAvgMin / pcsFromEff /
-// calcActualEff / calcActualPcsPerHr / calcPassRate (calc.js),
-// getSamMinutes (script.js).
 //
-// Kept as a browser-global module (not ES-module) to stay
-// consistent with the other split files and to allow the future
-// Firestore backend to swap loadHistory/persistHistory without
-// touching consumers.
+// This file is intentionally the "seam" — loadHistory / persistHistory /
+// saveCurrentToHistory / deleteHistoryEntry / setHistoryNote will branch
+// to Firestore in Phase 2. Consumers (app.js) must go through these
+// exports, not localStorage directly.
 // ============================================================
+import {
+    parseNum,
+    pcsFromEff,
+    calcAvgMin,
+    calcActualEff,
+    calcActualPcsPerHr,
+    calcPassRate,
+} from './calc.js';
+import { t, currentLang, pcsPerHr, gaTrack } from './state.js';
+import { getSamMinutes } from './app.js';
 
-const STORAGE_KEY_HISTORY = 'csa_history_v1';
-const HISTORY_MAX         = 100;
+export const STORAGE_KEY_HISTORY = 'csa_history_v1';
+export const HISTORY_MAX         = 100;
 
-function escapeHtml(str) {
+export function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g,
         c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 // ---- Storage ----
-function loadHistory() {
+export function loadHistory() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY_HISTORY);
         const parsed = raw ? JSON.parse(raw) : [];
@@ -28,12 +34,12 @@ function loadHistory() {
         return Array.isArray(parsed) ? parsed : [];
     } catch (_) { return []; }
 }
-function persistHistory(list) {
+export function persistHistory(list) {
     try { localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(list)); }
     catch (_) { /* private browsing / quota exceeded — skip silently */ }
 }
 
-function saveCurrentToHistory(label) {
+export function saveCurrentToHistory(label) {
     const getValue = id => parseNum(document.getElementById(id).value) || 0;
     const inputs = {
         sam:        getSamMinutes(),
@@ -68,14 +74,14 @@ function saveCurrentToHistory(label) {
     return entry;
 }
 
-function deleteHistoryEntry(id) {
+export function deleteHistoryEntry(id) {
     const list = loadHistory().filter(e => e.id !== id);
     persistHistory(list);
     gaTrack('delete_history');
 }
 
 // Update / write the free-text handover note on a specific entry.
-function setHistoryNote(id, note) {
+export function setHistoryNote(id, note) {
     const list = loadHistory();
     const entry = list.find(e => e.id === id);
     if (!entry) return;
@@ -85,7 +91,7 @@ function setHistoryNote(id, note) {
 }
 
 // ---- DOM refs — resolved once at defer-time (DOM already parsed) ----
-const historyModal        = document.getElementById('historyModal');
+export const historyModal = document.getElementById('historyModal');
 const closeHistoryBtn     = document.getElementById('closeHistoryBtn');
 const historyCloseBtn     = document.getElementById('historyCloseBtn');
 const historySaveBtn      = document.getElementById('historySaveBtn');
@@ -109,14 +115,14 @@ function fmtHistoryTs(ts) {
          + `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function openHistoryModal() {
+export function openHistoryModal() {
     gaTrack('open_history');
     renderHistoryList();
     showHistoryListView();
     historyModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 }
-function closeHistoryModal() {
+export function closeHistoryModal() {
     historyModal.style.display = 'none';
     document.body.style.overflow = '';
 }
@@ -202,7 +208,7 @@ function updateCompareButtonState() {
     if (historyCompareBtn) historyCompareBtn.disabled = historySelected.size < 2;
 }
 
-function handleHistorySave() {
+export function handleHistorySave() {
     saveCurrentToHistory(historyLabelInput.value);
     historyLabelInput.value = '';
     renderHistoryList();
@@ -235,17 +241,20 @@ function renderCompareTable() {
         </table>`;
 }
 
-function openCompareView() {
+export function openCompareView() {
     if (historySelected.size < 2) return;
     gaTrack('compare_history', { count: historySelected.size });
     renderCompareTable();
     showHistoryCompareView();
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        STORAGE_KEY_HISTORY, HISTORY_MAX,
-        escapeHtml, loadHistory, persistHistory,
-        saveCurrentToHistory, deleteHistoryEntry, setHistoryNote,
-    };
-}
+// ---- Event wiring (owns the modal's DOM refs, so wire here not in app.js) ----
+closeHistoryBtn?.addEventListener('click', closeHistoryModal);
+historyCloseBtn?.addEventListener('click', closeHistoryModal);
+historySaveBtn?.addEventListener('click', handleHistorySave);
+historyCompareBtn?.addEventListener('click', openCompareView);
+compareBackBtn?.addEventListener('click', showHistoryListView);
+historyModal?.addEventListener('click', e => {
+    if (e.target === historyModal) closeHistoryModal();
+});
+

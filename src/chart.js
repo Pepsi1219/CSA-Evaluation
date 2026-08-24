@@ -14,19 +14,24 @@
 //                     Reset when the training grid clears.
 //   chartMode       — 'pcs' | 'eff' toggle
 //
-// Depends on globals: currentLang, pcsPerHr (i18n metadata).
 // ============================================================
+import { currentLang, pcsPerHr, t } from './state.js';
 
 let chartMode      = 'pcs'; // 'pcs' | 'eff'
 let _chartCache    = { data: [], targetPcs: 0, effTarget: 0 };
 let _chartAnimated = false;
 
-function setChartMode(mode) {
+// Setters/getter (app.js needs to reassign the cache wholesale on each
+// calculateAll(); the one-shot animation flag resets when the grid clears).
+export function setChartCache(next) { _chartCache = next; }
+export function resetChartAnimation() { _chartAnimated = false; }
+
+export function setChartMode(mode) {
     chartMode = mode;
     renderChartFromCache();
 }
 
-function renderChartFromCache() {
+export function renderChartFromCache() {
     const tChart = document.getElementById('learningChart');
     if (!tChart) return;
     if (!_chartCache.data.length) { tChart.style.display = 'none'; return; }
@@ -56,7 +61,7 @@ function renderChartFromCache() {
     ${renderSVGChart(values, target, unit)}`;
 }
 
-function renderSVGChart(values, target, unit) {
+export function renderSVGChart(values, target, unit) {
     const n = values.length;
     if (n === 0) return '';
 
@@ -148,9 +153,8 @@ function renderSVGChart(values, target, unit) {
               stroke="var(--border-strong)" stroke-width="1.5"/>`;
 
     // Accessible name for screen readers — the chart is otherwise a wall of
-    // decorative <path>/<text> nodes with no semantic meaning. t() is a global
-    // from script.js, resolved at render time (always after script.js has run).
-    const ariaLabel = (typeof t === 'function' ? t('chart_aria') : 'Learning-curve chart');
+    // decorative <path>/<text> nodes with no semantic meaning.
+    const ariaLabel = t('chart_aria');
     return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;"
                  role="img" aria-label="${ariaLabel}">
         <title>${ariaLabel}</title>

@@ -1,9 +1,11 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const { APP_VERSION } = require('../version.js');
+import { APP_VERSION } from '../src/version.js';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
 const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 
@@ -21,7 +23,7 @@ test('sw.js CACHE matches APP_VERSION', () => {
     // The SW runs in its own context and cannot import the page global, so its
     // literal is kept in sync here instead. A byte change in sw.js is also what
     // forces old clients to re-install, so this literal must move every release.
-    const m = read('sw.js').match(/const CACHE\s*=\s*'csa-v([\d.]+)'/);
+    const m = read('public/sw.js').match(/const CACHE\s*=\s*'csa-v([\d.]+)'/);
     assert.ok(m, 'could not find `const CACHE = \'csa-vX.Y.Z\'` in sw.js');
     assert.equal(m[1], APP_VERSION);
 });

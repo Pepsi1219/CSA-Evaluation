@@ -1,6 +1,6 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const {
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
     parseNum,
     pcsFromEff,
     calcAvgMin,
@@ -9,7 +9,7 @@ const {
     calcActualPcsPerHr,
     calcPassRate,
     calcTrainingDay,
-} = require('../calc.js');
+} from '../src/calc.js';
 
 test('parseNum', async (t) => {
     await t.test('parses a plain decimal string', () => {

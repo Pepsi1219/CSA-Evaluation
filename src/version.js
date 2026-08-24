@@ -6,13 +6,12 @@
 //   - test/version.test.js → fails `npm test` if package.json / sw.js drift
 //
 // Bump APP_VERSION on every deploy that changes shipped assets, and bump the
-// matching `csa-vX.Y.Z` literal in sw.js so old clients drop their stale cache
-// (see CLAUDE.md). The version test guarantees the two never disagree again.
-// Loaded first (before every other script) in index.html so the global exists
-// for all consumers; also require()-able from Node for the test.
+// matching `csa-vX.Y.Z` literal in public/sw.js so old clients drop their stale
+// cache (see CLAUDE.md). The version test guarantees the two never disagree.
+// Imported by main.js (footer), app.js (CSV row); test/version.test.js reads it.
 // ============================================================
 
-export const APP_VERSION = '1.18.0';
+export const APP_VERSION = '1.19.0';
 
 // Also expose as a global on the SW's self object so the service worker
 // (which is not an ES module here) can reference it. No-op in Node tests

@@ -4,7 +4,7 @@
 // caches (some older browsers don't re-check importScripts'd files, so the
 // canonical value is duplicated here on purpose). test/version.test.js fails
 // the build if this drifts from version.js.
-const CACHE  = 'csa-v1.18.0';  // ← bump on every deploy; must match version.js
+const CACHE  = 'csa-v1.19.0';  // ← bump on every deploy; must match version.js
 const ASSETS = [
     './',
     './index.html',

@@ -2614,6 +2614,37 @@ label {
     display: flex; flex-direction: column;
     overflow-y: auto;
     animation: slideUp 0.34s var(--ease-spring);
+    position: relative;   /* anchor for the .login-lang top-right cluster */
+}
+
+/* Language switcher — 4 tiny flag chips at the top-right of the card */
+.login-lang {
+    position: absolute;
+    top: var(--sp-3);
+    right: var(--sp-3);
+    display: flex;
+    gap: 6px;
+}
+.login-lang-btn {
+    width: 28px; height: 20px;
+    padding: 0;
+    background: transparent;
+    border: 1.5px solid transparent;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.12s var(--ease-out), border-color 0.15s var(--ease-out), opacity 0.15s var(--ease-out);
+    opacity: 0.55;
+    display: grid; place-items: stretch;
+}
+.login-lang-btn svg { width: 100%; height: 100%; display: block; }
+.login-lang-btn:hover  { opacity: 0.85; }
+.login-lang-btn:active { transform: scale(0.94); }
+.login-lang-btn.active {
+    opacity: 1;
+    border-color: var(--accent-500);
+    box-shadow: 0 0 0 2px var(--accent-100);
 }
 .login-brand {
     width: 56px; height: 56px;

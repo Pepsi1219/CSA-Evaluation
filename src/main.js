@@ -18,8 +18,9 @@ import {
     initGA4, initTheme, restoreFormState, restoreStopwatchState,
     _bumpSessionCount, drainFeedbackQueue, showOnboardingIfNeeded,
     changeLanguage, calculateAll, _flushHeavyUpdate, loadWebFonts,
+    FLAG_SVG,
 } from './app.js';
-import { t } from './state.js';
+import { t, currentLang } from './state.js';
 import { updateTutProgressBadge } from './tutorial.js';
 import {
     FIREBASE_ENABLED, initFirebase, onAuthChange, subscribeHistory,
@@ -80,6 +81,29 @@ loginCodeToggle?.addEventListener('click', () => {
     const reveal = loginCode.type === 'password';
     loginCode.type = reveal ? 'text' : 'password';
     loginCodeToggle.setAttribute('aria-pressed', reveal ? 'true' : 'false');
+});
+
+// ---- Language switcher on the login card ----
+// The main header is hidden behind the overlay; operators need a way to change
+// language before signing in, so we render a compact 4-flag row at the top-right
+// of the card. Uses FLAG_SVG from app.js so it stays in sync with LANG_META.
+const loginLang = document.getElementById('loginLang');
+function renderLoginLang() {
+    if (!loginLang) return;
+    const codes = ['th', 'en', 'vn', 'la'];
+    loginLang.innerHTML = codes.map(c => `
+        <button type="button" class="login-lang-btn ${c === currentLang ? 'active' : ''}"
+                data-lang="${c}" aria-label="${c.toUpperCase()}"
+                aria-pressed="${c === currentLang}">
+            ${FLAG_SVG[c]}
+        </button>`).join('');
+}
+renderLoginLang();
+loginLang?.addEventListener('click', e => {
+    const btn = e.target.closest('[data-lang]');
+    if (!btn) return;
+    changeLanguage(btn.dataset.lang);
+    renderLoginLang();
 });
 function hideLoginOverlay() {
     if (!loginOverlay) return;

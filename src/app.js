@@ -827,7 +827,7 @@ export function exportCSV() {
 // Inline SVG flags render identically on every platform — Chrome on Windows
 // falls back to text pairs (TH / US / VN / LA) for the regional-indicator
 // emojis because the system emoji font lacks flag glyphs.
-const FLAG_SVG = {
+export const FLAG_SVG = {
     th: '<svg viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect fill="#A51931" width="60" height="6.7"/><rect fill="#F4F5F8" y="6.7" width="60" height="6.6"/><rect fill="#2D2A4A" y="13.3" width="60" height="13.4"/><rect fill="#F4F5F8" y="26.7" width="60" height="6.6"/><rect fill="#A51931" y="33.3" width="60" height="6.7"/></svg>',
     en: '<svg viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect fill="#B22234" width="60" height="40"/><g fill="#fff"><rect y="3.08" width="60" height="3.08"/><rect y="9.23" width="60" height="3.08"/><rect y="15.38" width="60" height="3.08"/><rect y="21.54" width="60" height="3.08"/><rect y="27.69" width="60" height="3.08"/><rect y="33.85" width="60" height="3.08"/></g><rect fill="#3C3B6E" width="24" height="21.54"/></svg>',
     vn: '<svg viewBox="0 0 60 40" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect fill="#DA251D" width="60" height="40"/><polygon fill="#FF0" points="30,10 33.53,20.85 44.94,20.85 35.71,27.55 39.24,38.4 30,31.7 20.76,38.4 24.29,27.55 15.06,20.85 26.47,20.85"/></svg>',

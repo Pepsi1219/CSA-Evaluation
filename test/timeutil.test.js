@@ -1,10 +1,10 @@
-const { test } = require('node:test');
-const assert = require('node:assert/strict');
-const {
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
     fmtSw, fmtSec2, fmtSec4, snapLapMs,
     T_TABLE, tsTValue, computeSampleSize,
     csvEscape, csvRow, csvBuild,
-} = require('../timeutil.js');
+} from '../src/timeutil.js';
 
 // ---------------------------------------------------------------
 // fmtSw — MM:SS.cs display

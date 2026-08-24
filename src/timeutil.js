@@ -96,10 +96,8 @@ function csvBuild(rows) {
     return '﻿' + rows.map(csvRow).join('\r\n');
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        fmtSw, fmtSec2, fmtSec4, snapLapMs,
-        T_TABLE, tsTValue, computeSampleSize,
-        csvEscape, csvRow, csvBuild,
-    };
-}
+export {
+    fmtSw, fmtSec2, fmtSec4, snapLapMs,
+    T_TABLE, tsTValue, computeSampleSize,
+    csvEscape, csvRow, csvBuild,
+};

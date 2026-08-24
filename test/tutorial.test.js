@@ -1,10 +1,12 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const { TUTORIAL_DATA, QUIZ_DATA, QUIZ_PASS_PCT, _letterSpace, _stepImgSrc } = require('../tutorial.js');
-const IMG_DIR = path.join(__dirname, '..', 'assets', 'tutorial');
+import { TUTORIAL_DATA, QUIZ_DATA, QUIZ_PASS_PCT, _letterSpace, _stepImgSrc } from '../src/tutorial.js';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const IMG_DIR = path.join(__dirname, '..', 'public', 'assets', 'tutorial');
 
 // Every localized content object must at least carry a non-empty Thai string
 // (the L() fallback language). Missing `th` would render blank in the app.

@@ -1,3 +1,5 @@
+// Copyright (c) 2025 Pongsathon. All rights reserved.
+// Proprietary — see LICENSE. Do not copy, redistribute, or reverse engineer.
 // ============================================================
 // CALC — pure calculation functions, no DOM dependencies.
 // Loaded before script.js in the browser; also require()-able
@@ -65,15 +67,13 @@ function calcTrainingDay(currentEff, gap, duration, day, sam) {
     return { day, eff, pcs };
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        parseNum,
-        pcsFromEff,
-        calcAvgMin,
-        calcActualEff,
-        newSamFromEff,
-        calcActualPcsPerHr,
-        calcPassRate,
-        calcTrainingDay,
-    };
-}
+export {
+    parseNum,
+    pcsFromEff,
+    calcAvgMin,
+    calcActualEff,
+    newSamFromEff,
+    calcActualPcsPerHr,
+    calcPassRate,
+    calcTrainingDay,
+};

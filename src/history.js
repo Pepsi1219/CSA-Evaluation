@@ -1,26 +1,44 @@
 // ============================================================
 // HISTORY — saved evaluations + compare table.
-// Depends on globals from earlier scripts: t(), currentLang,
-// pcsPerHr (i18n), gaTrack (analytics), calcAvgMin / pcsFromEff /
-// calcActualEff / calcActualPcsPerHr / calcPassRate (calc.js),
-// getSamMinutes (script.js).
 //
-// Kept as a browser-global module (not ES-module) to stay
-// consistent with the other split files and to allow the future
-// Firestore backend to swap loadHistory/persistHistory without
-// touching consumers.
+// This file is intentionally the "seam" — loadHistory / persistHistory /
+// saveCurrentToHistory / deleteHistoryEntry / setHistoryNote will branch
+// to Firestore in Phase 2. Consumers (app.js) must go through these
+// exports, not localStorage directly.
 // ============================================================
+import {
+    parseNum,
+    pcsFromEff,
+    calcAvgMin,
+    calcActualEff,
+    calcActualPcsPerHr,
+    calcPassRate,
+} from './calc.js';
+import { t, currentLang, pcsPerHr, gaTrack, HISTORY_MAX } from './state.js';
+import { getSamMinutes } from './app.js';
+import {
+    FIREBASE_ENABLED, isSignedIn, getHistoryCache,
+    fsSaveEntry, fsDeleteEntry, fsSetNote, subscribeHistoryChange,
+} from './auth.js';
 
-const STORAGE_KEY_HISTORY = 'csa_history_v1';
-const HISTORY_MAX         = 100;
+export const STORAGE_KEY_HISTORY = 'csa_history_v1';
+export { HISTORY_MAX };  // re-export for app.js's existing import
 
-function escapeHtml(str) {
+// True when history reads/writes should route to Firestore instead of
+// localStorage: the backend is configured AND a user is signed in.
+function _useCloud() { return FIREBASE_ENABLED && isSignedIn(); }
+
+export function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g,
         c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 // ---- Storage ----
-function loadHistory() {
+// loadHistory() stays synchronous (every consumer calls it inline). When signed
+// in it returns the in-memory Firestore cache (kept fresh by auth.js's
+// onSnapshot); otherwise it reads localStorage. Only the localStorage path
+// persists via persistHistory — cloud writes go through the fs* helpers.
+export function loadLocalHistory() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY_HISTORY);
         const parsed = raw ? JSON.parse(raw) : [];
@@ -28,12 +46,15 @@ function loadHistory() {
         return Array.isArray(parsed) ? parsed : [];
     } catch (_) { return []; }
 }
-function persistHistory(list) {
+export function loadHistory() {
+    return _useCloud() ? getHistoryCache() : loadLocalHistory();
+}
+export function persistHistory(list) {
     try { localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(list)); }
     catch (_) { /* private browsing / quota exceeded — skip silently */ }
 }
 
-function saveCurrentToHistory(label) {
+export function saveCurrentToHistory(label) {
     const getValue = id => parseNum(document.getElementById(id).value) || 0;
     const inputs = {
         sam:        getSamMinutes(),
@@ -60,32 +81,47 @@ function saveCurrentToHistory(label) {
         inputs,
         computed,
     };
-    const list = loadHistory();
-    list.unshift(entry);
-    if (list.length > HISTORY_MAX) list.length = HISTORY_MAX;
-    persistHistory(list);
+    if (_useCloud()) {
+        // Fire-and-forget: onSnapshot updates the cache + re-renders. Offline
+        // writes are queued by the SDK and synced on reconnect.
+        fsSaveEntry(entry);
+    } else {
+        const list = loadLocalHistory();
+        list.unshift(entry);
+        if (list.length > HISTORY_MAX) list.length = HISTORY_MAX;
+        persistHistory(list);
+    }
     gaTrack('save_history', { has_label: !!entry.label });
     return entry;
 }
 
-function deleteHistoryEntry(id) {
-    const list = loadHistory().filter(e => e.id !== id);
-    persistHistory(list);
+export function deleteHistoryEntry(id) {
+    if (_useCloud()) {
+        fsDeleteEntry(id);
+    } else {
+        persistHistory(loadLocalHistory().filter(e => e.id !== id));
+    }
     gaTrack('delete_history');
 }
 
 // Update / write the free-text handover note on a specific entry.
-function setHistoryNote(id, note) {
-    const list = loadHistory();
+export function setHistoryNote(id, note) {
+    const clipped = String(note || '').slice(0, 200);
+    if (_useCloud()) {
+        fsSetNote(id, clipped);
+        gaTrack('history_note_saved', { has_note: !!clipped });
+        return;
+    }
+    const list = loadLocalHistory();
     const entry = list.find(e => e.id === id);
     if (!entry) return;
-    entry.note = String(note || '').slice(0, 200);
+    entry.note = clipped;
     persistHistory(list);
     gaTrack('history_note_saved', { has_note: !!entry.note });
 }
 
 // ---- DOM refs — resolved once at defer-time (DOM already parsed) ----
-const historyModal        = document.getElementById('historyModal');
+export const historyModal = document.getElementById('historyModal');
 const closeHistoryBtn     = document.getElementById('closeHistoryBtn');
 const historyCloseBtn     = document.getElementById('historyCloseBtn');
 const historySaveBtn      = document.getElementById('historySaveBtn');
@@ -109,14 +145,14 @@ function fmtHistoryTs(ts) {
          + `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function openHistoryModal() {
+export function openHistoryModal() {
     gaTrack('open_history');
     renderHistoryList();
     showHistoryListView();
     historyModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 }
-function closeHistoryModal() {
+export function closeHistoryModal() {
     historyModal.style.display = 'none';
     document.body.style.overflow = '';
 }
@@ -202,7 +238,7 @@ function updateCompareButtonState() {
     if (historyCompareBtn) historyCompareBtn.disabled = historySelected.size < 2;
 }
 
-function handleHistorySave() {
+export function handleHistorySave() {
     saveCurrentToHistory(historyLabelInput.value);
     historyLabelInput.value = '';
     renderHistoryList();
@@ -235,17 +271,30 @@ function renderCompareTable() {
         </table>`;
 }
 
-function openCompareView() {
+export function openCompareView() {
     if (historySelected.size < 2) return;
     gaTrack('compare_history', { count: historySelected.size });
     renderCompareTable();
     showHistoryCompareView();
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        STORAGE_KEY_HISTORY, HISTORY_MAX,
-        escapeHtml, loadHistory, persistHistory,
-        saveCurrentToHistory, deleteHistoryEntry, setHistoryNote,
-    };
-}
+// ---- Event wiring (owns the modal's DOM refs, so wire here not in app.js) ----
+closeHistoryBtn?.addEventListener('click', closeHistoryModal);
+historyCloseBtn?.addEventListener('click', closeHistoryModal);
+historySaveBtn?.addEventListener('click', handleHistorySave);
+historyCompareBtn?.addEventListener('click', openCompareView);
+compareBackBtn?.addEventListener('click', showHistoryListView);
+historyModal?.addEventListener('click', e => {
+    if (e.target === historyModal) closeHistoryModal();
+});
+
+// Re-render the list live when a Firestore snapshot changes the cache (another
+// device saved/deleted, or our own optimistic write round-tripped) — but only
+// while the list view is actually on screen.
+subscribeHistoryChange(() => {
+    if (historyModal?.style.display === 'flex' &&
+        historyListView?.style.display !== 'none') {
+        renderHistoryList();
+    }
+});
+

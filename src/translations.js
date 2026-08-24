@@ -11,7 +11,7 @@
 //   3) Update LANG_META in script.js so the flag / name shows.
 // ============================================================
 
-const translations = {
+export const translations = {
     'th': {
         'brand_sub': 'เครื่องมือประเมินประสิทธิภาพ',
         'header1': 'การตั้งเป้าหมาย',
@@ -57,6 +57,18 @@ const translations = {
         'set_appearance': 'การแสดงผล',
         'set_language': 'ภาษา',
         'set_learning': 'การเรียนรู้',
+        'set_account': 'บัญชี',
+        'account_signed_in_as': 'รหัสพนักงาน',
+        'account_signout': 'ออกจากระบบ',
+        'login_title': 'เข้าสู่ระบบ',
+        'login_subtitle': 'ใส่รหัสพนักงานของคุณเพื่อเข้าใช้งาน',
+        'login_code_label': 'รหัสพนักงาน',
+        'login_signin_btn': 'เข้าสู่ระบบ',
+        'login_signing_in': 'กำลังเข้าสู่ระบบ…',
+        'login_err_invalid': 'รหัสพนักงานไม่ถูกต้อง',
+        'login_err_toomany': 'พยายามเข้าสู่ระบบบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่',
+        'login_err_network': 'เชื่อมต่ออินเทอร์เน็ตไม่ได้ กรุณาตรวจสอบเครือข่าย',
+        'login_err_generic': 'เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
         'tut_open': 'เปิดบทเรียนการใช้งาน',
         'tut_subtitle': 'เรียนรู้ทีละขั้น พร้อมทำแบบทดสอบรับใบรับรอง',
         'send': 'ส่งความคิดเห็น',
@@ -206,6 +218,18 @@ const translations = {
         'set_appearance': 'Appearance',
         'set_language': 'Language',
         'set_learning': 'Learning',
+        'set_account': 'Account',
+        'account_signed_in_as': 'Employee code',
+        'account_signout': 'Sign out',
+        'login_title': 'Sign in',
+        'login_subtitle': 'Enter your employee code to continue',
+        'login_code_label': 'Employee code',
+        'login_signin_btn': 'Sign in',
+        'login_signing_in': 'Signing in…',
+        'login_err_invalid': 'Employee code not recognized.',
+        'login_err_toomany': 'Too many attempts. Please wait a moment and try again.',
+        'login_err_network': 'No internet connection. Please check your network.',
+        'login_err_generic': 'Sign-in failed. Please try again.',
         'tut_open': 'Open tutorial',
         'tut_subtitle': 'Learn step by step, then take the quiz for a certificate',
         'send': 'Send Feedback',
@@ -355,6 +379,18 @@ const translations = {
         'set_appearance': 'Hiển thị',
         'set_language': 'Ngôn ngữ',
         'set_learning': 'Học tập',
+        'set_account': 'Tài khoản',
+        'account_signed_in_as': 'Mã nhân viên',
+        'account_signout': 'Đăng xuất',
+        'login_title': 'Đăng nhập',
+        'login_subtitle': 'Nhập mã nhân viên của bạn để tiếp tục',
+        'login_code_label': 'Mã nhân viên',
+        'login_signin_btn': 'Đăng nhập',
+        'login_signing_in': 'Đang đăng nhập…',
+        'login_err_invalid': 'Mã nhân viên không hợp lệ.',
+        'login_err_toomany': 'Quá nhiều lần thử. Vui lòng đợi một lát rồi thử lại.',
+        'login_err_network': 'Không có kết nối Internet. Vui lòng kiểm tra mạng.',
+        'login_err_generic': 'Đăng nhập thất bại. Vui lòng thử lại.',
         'tut_open': 'Mở hướng dẫn',
         'tut_subtitle': 'Học từng bước, rồi làm bài kiểm tra để nhận chứng chỉ',
         'send': 'Gửi phản hồi',
@@ -504,6 +540,18 @@ const translations = {
         'set_appearance': 'ການສະແດງຜົນ',
         'set_language': 'ພາສາ',
         'set_learning': 'ການຮຽນຮູ້',
+        'set_account': 'ບັນຊີ',
+        'account_signed_in_as': 'ລະຫັດພະນັກງານ',
+        'account_signout': 'ອອກຈາກລະບົບ',
+        'login_title': 'ເຂົ້າສູ່ລະບົບ',
+        'login_subtitle': 'ໃສ່ລະຫັດພະນັກງານຂອງທ່ານເພື່ອເຂົ້າໃຊ້ງານ',
+        'login_code_label': 'ລະຫັດພະນັກງານ',
+        'login_signin_btn': 'ເຂົ້າສູ່ລະບົບ',
+        'login_signing_in': 'ກຳລັງເຂົ້າສູ່ລະບົບ…',
+        'login_err_invalid': 'ລະຫັດພະນັກງານບໍ່ຖືກຕ້ອງ',
+        'login_err_toomany': 'ພະຍາຍາມຫຼາຍເກີນໄປ ກະລຸນາລໍຖ້າແລ້ວລອງໃໝ່',
+        'login_err_network': 'ບໍ່ມີການເຊື່ອມຕໍ່ອິນເຕີເນັດ ກະລຸນາກວດເບິ່ງເຄືອຂ່າຍ',
+        'login_err_generic': 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ ກະລຸນາລອງໃໝ່',
         'tut_open': 'ເປີດບົດຮຽນ',
         'tut_subtitle': 'ຮຽນເທື່ອລະຂັ້ນ ແລ້ວເຮັດແບບທົດສອບເພື່ອຮັບໃບຮັບຮອງ',
         'send': 'ສົ່ງຄໍາຄິດເຫັນ',
@@ -610,6 +658,3 @@ const translations = {
     }
 };
 
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = translations;
-}

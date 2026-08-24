@@ -28,6 +28,19 @@ export default defineConfig({
         emptyOutDir: true,
         sourcemap: false,   // never ship source maps — they undo every layer below
     },
+    // Pre-bundle Firebase's tree-shakeable ESM entrypoints so `npm run dev`
+    // serves the SDK as a handful of chunks instead of dozens of individual
+    // module requests. Without this, cold-starting dev on this project takes
+    // several seconds to boot into the login card because each nested Firebase
+    // module round-trips through the dev server. Prod isn't affected (Rollup
+    // bundles regardless of this option).
+    optimizeDeps: {
+        include: [
+            'firebase/app',
+            'firebase/auth',
+            'firebase/firestore',
+        ],
+    },
     plugins: [
         // Service worker — injectManifest strategy so we keep the hand-tuned
         // network-first + timeout logic in src/sw.js and just let the plugin

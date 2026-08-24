@@ -2659,16 +2659,40 @@ label {
     box-shadow: 0 0 0 3px var(--accent-100);
     background: var(--surface);
 }
-/* Employee code: prominent, monospace-numeric, centered so it reads like a keypad entry */
-.login-input-code {
-    font-size: 1.35rem;
-    font-weight: 700;
-    text-align: center;
-    letter-spacing: 0.08em;
-    font-variant-numeric: tabular-nums;
-    caret-color: transparent;   /* the field is populated by the in-app numpad, not typing */
-    cursor: pointer;
+/* Employee code — password-styled field with a reveal (eye) button on the right. */
+.login-input-wrap {
+    position: relative;
+    margin-bottom: var(--sp-4);
 }
+.login-input-wrap .login-input {
+    margin-bottom: 0;
+    padding-right: 44px;   /* room for the eye button */
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+}
+.login-reveal-btn {
+    position: absolute;
+    top: 50%;
+    right: var(--sp-2);
+    transform: translateY(-50%);
+    width: 36px; height: 36px;
+    display: grid; place-items: center;
+    background: transparent;
+    border: none;
+    border-radius: var(--r-md);
+    color: var(--text-3);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: color 0.15s var(--ease-out), background 0.15s var(--ease-out);
+}
+.login-reveal-btn:hover  { color: var(--text-2); background: var(--surface-2); }
+.login-reveal-btn:active { transform: translateY(-50%) scale(0.94); }
+/* Default view: eye shown, eye-off hidden. Flip when the code is revealed. */
+.login-reveal-icon.login-reveal-eye-off { display: none; }
+.login-reveal-btn[aria-pressed="true"] .login-reveal-eye     { display: none; }
+.login-reveal-btn[aria-pressed="true"] .login-reveal-eye-off { display: block; }
 .login-error {
     min-height: 1.2em;
     margin: 0 0 var(--sp-3);

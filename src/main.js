@@ -59,21 +59,28 @@ document.addEventListener('visibilitychange', () => {
 // ============================================================
 // Login overlay helpers
 // ============================================================
-const loginOverlay   = document.getElementById('loginOverlay');
-const loginForm      = document.getElementById('loginForm');
-const loginCode      = document.getElementById('loginCode');
-const loginError     = document.getElementById('loginError');
-const loginSubmitBtn = document.getElementById('loginSubmitBtn');
+const loginOverlay      = document.getElementById('loginOverlay');
+const loginForm         = document.getElementById('loginForm');
+const loginCode         = document.getElementById('loginCode');
+const loginCodeToggle   = document.getElementById('loginCodeToggle');
+const loginError        = document.getElementById('loginError');
+const loginSubmitBtn    = document.getElementById('loginSubmitBtn');
 
 function showLoginOverlay() {
     if (!loginOverlay) return;
     loginOverlay.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     if (loginError) loginError.textContent = '';
-    // Do NOT auto-focus loginCode — that would pop the OS keyboard on mobile.
-    // The field carries inputmode="none" + data-numpad so tapping it opens the
-    // in-app numpad (same UX as every other numeric field in the app).
 }
+
+// Eye-icon toggle for the employee-code field. Starts as type="password"
+// (masked bullets); pressing the eye reveals the digits as plain text.
+loginCodeToggle?.addEventListener('click', () => {
+    if (!loginCode) return;
+    const reveal = loginCode.type === 'password';
+    loginCode.type = reveal ? 'text' : 'password';
+    loginCodeToggle.setAttribute('aria-pressed', reveal ? 'true' : 'false');
+});
 function hideLoginOverlay() {
     if (!loginOverlay) return;
     loginOverlay.style.display = 'none';

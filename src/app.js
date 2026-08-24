@@ -1313,7 +1313,6 @@ function showToast(message) {
 
 // --- 8. Feedback Modal ---
 const feedbackModal     = document.getElementById('feedbackModal');
-const feedbackBtn       = document.getElementById('feedbackBtn');
 const closeModalBtn     = document.getElementById('closeModalBtn');
 const cancelFeedbackBtn = document.getElementById('cancelFeedbackBtn');
 const submitFeedbackBtn = document.getElementById('submitFeedbackBtn');
@@ -1726,7 +1725,8 @@ document.getElementById('tutorialModal')?.addEventListener('click', e => {
 });
 
 // --- 9. Event Wiring ---
-feedbackBtn?.addEventListener('click', openFeedbackModal);
+// Feedback button moved into the actions menu (data-action="feedback") —
+// wired via src/wiring.js delegation; no direct button reference here.
 closeModalBtn?.addEventListener('click', closeFeedbackModal);
 cancelFeedbackBtn?.addEventListener('click', closeFeedbackModal);
 submitFeedbackBtn?.addEventListener('click', submitFeedback);

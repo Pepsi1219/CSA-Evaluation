@@ -14,7 +14,7 @@ import {
     openStopwatchModal, closeStopwatchModal, swSetMode, swStartStop,
     swPauseResume, swLapOrReset, swToggleStatInfo, swContinueTiming,
     swSaveToForm, swDeleteLap, openTsConfigModal, closeTsConfigModal,
-    tsSetConfidence, finishOnboarding, onboardNext,
+    tsSetConfidence, finishOnboarding, onboardNext, openFeedbackModal,
 } from './app.js';
 import { openHistoryModal } from './history.js';
 import { setChartMode } from './chart.js';
@@ -66,6 +66,8 @@ const ACTIONS = {
     'onboard-next':   () => onboardNext(),
     // settings → tutorial launcher
     'tutorial-open': () => openTutorial(),
+    // feedback (moved from the floating footer button into the actions menu)
+    feedback:       () => { openFeedbackModal(); closeActionsMenu(); },
     // account sign-out (onAuthChange → main.js reloads the page).
     // Close the actions menu first so the click doesn't leave it visibly open
     // during the reload transition — matches other menu items' behaviour.

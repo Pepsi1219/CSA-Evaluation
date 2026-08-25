@@ -146,7 +146,28 @@ export async function signInWithCode(code) {
 
 export async function signOutUser() {
     if (!_auth) return;
+    clearCachedUserMarker();
     await signOut(_auth);
+}
+
+// ---- Cached-user marker ----
+// Sync hint written to localStorage after auth resolves to a real user, cleared
+// on sign-out. Read at boot to decide whether to reveal the login card
+// immediately (marker absent → user almost certainly signed out; don't make
+// them wait for Firebase's SDK to load) or keep the splash briefly (marker
+// present → we expect onAuthChange to hand back a user and swap in the app).
+// Marker can go stale (signed out on another device, cache wiped, etc.); the
+// boot flow handles that by revealing the login card when onAuthChange
+// eventually reports null.
+const CACHED_USER_KEY = 'csa_seen_user';
+export function hasCachedUserMarker() {
+    try { return localStorage.getItem(CACHED_USER_KEY) === '1'; } catch { return false; }
+}
+export function setCachedUserMarker() {
+    try { localStorage.setItem(CACHED_USER_KEY, '1'); } catch {}
+}
+export function clearCachedUserMarker() {
+    try { localStorage.removeItem(CACHED_USER_KEY); } catch {}
 }
 
 export function getCurrentUser() { return _currentUser; }

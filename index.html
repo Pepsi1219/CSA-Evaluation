@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="th" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -16,21 +16,39 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Firebase endpoints hit on boot (Firestore snapshot + Auth token check).
+         preconnect burns the DNS/TLS handshake in parallel with the bundle
+         download so the first request lands ~150 ms sooner on mobile 4G/5G. -->
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+    <link rel="dns-prefetch" href="https://ie-calc.firebaseapp.com">
 
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="booting">
+<body>
 
-<!-- Boot splash — visible from the very first paint. main.js removes the
-     .booting class from <body> after the auth gate resolves (login shown OR
-     app entered), so the user never sees a flash of the calc form before
-     the login overlay appears. -->
-<div id="bootSplash" aria-hidden="true">
-    <div class="boot-brand">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="28" height="28"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/></svg>
-    </div>
-    <div class="boot-spinner" aria-hidden="true"></div>
-</div>
+<!-- Sync gate — runs during HTML parse, before the browser paints anything.
+     Reads the cached-user marker and theme from localStorage and stamps the
+     body/root so CSS can reveal the right UI (login card or app) from the
+     very first frame. The deferred main.js module attaches JS behavior once
+     it finishes loading; by then the correct UI has already painted, so the
+     user never sees a spinner. Kept tiny + defensive (try/catch) so it can't
+     block the page. -->
+<script>
+(function(){
+    try {
+        var t = localStorage.getItem('csa_theme');
+        if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+    try {
+        var seen = localStorage.getItem('csa_seen_user') === '1';
+        document.body.classList.add(seen ? 'boot-app' : 'boot-login');
+    } catch (e) {
+        document.body.classList.add('boot-login');
+    }
+})();
+</script>
 
 
 <div class="container">
@@ -355,7 +373,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · <span id="appVersion">v1.22.0</span></p>
+    <p>© CSA Evaluation · <span id="appVersion">v1.23.0</span></p>
 </footer>
 
 <!-- ============ Back-to-Top Button ============ -->
@@ -702,7 +720,7 @@
 </div>
 
 <!-- ============ Login gate (Firebase Auth) ============ -->
-<div id="loginOverlay" class="login-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+<div id="loginOverlay" class="login-overlay" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
     <div class="login-card">
         <!-- Language switcher (top-right of the card). Populated by main.js so it
              stays in sync with LANG_META. Buttons carry data-lang="<code>". -->

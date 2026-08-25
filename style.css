@@ -2776,46 +2776,12 @@ label {
     .login-overlay, .login-card { animation: none; }
 }
 
-/* ---- 23. Boot splash (kills the flash-of-app-before-auth) --- */
-/* Hide every child of <body> while booting EXCEPT the splash itself.
-   visibility: hidden keeps layout so nothing reflows when we reveal.
-   Uses !important so it wins against inline `style="display:flex"` on
-   modals that the app opens later. */
-body.booting > *:not(#bootSplash) { visibility: hidden !important; }
-
-#bootSplash {
-    position: fixed;
-    inset: 0;
-    z-index: 9500;   /* above every overlay including the login card */
-    display: none;   /* revealed only while <body> is .booting */
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 20px;
-    background: var(--bg);
-    color: var(--accent-600);
-}
-body.booting #bootSplash { display: flex; }
-
-.boot-brand {
-    width: 64px; height: 64px;
-    border-radius: 18px;
-    background: var(--accent-grad);
-    color: #fff;
-    display: grid; place-items: center;
-    box-shadow: var(--sh-lg);
-}
-.boot-brand svg { width: 30px; height: 30px; }
-
-/* Two-ring spinner in accent color. Reduced-motion falls back to a dot. */
-.boot-spinner {
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    border: 2.5px solid var(--accent-100);
-    border-top-color: var(--accent-500);
-    animation: boot-spin 0.85s linear infinite;
-}
-@keyframes boot-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) {
-    .boot-spinner { animation: none; background: var(--accent-500); border-color: transparent; }
-}
+/* ---- 23. Boot gate (paint the right UI on frame #1, no spinner) --- */
+/* The inline sync script in <body> stamps body.boot-login or body.boot-app
+   from the cached-user marker in localStorage, BEFORE the deferred main.js
+   module runs. CSS below hides the wrong half so the user never sees a flash
+   of app-then-login (or vice versa). Once main.js is ready and auth resolves,
+   it swaps the class if reality differs from the optimistic guess. */
+#loginOverlay { display: none; }
+body.boot-login #loginOverlay { display: flex; }
+body.boot-login .container { visibility: hidden; }

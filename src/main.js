@@ -28,7 +28,8 @@ import {
     FIREBASE_ENABLED, initFirebase, onAuthChange, subscribeHistory,
     subscribeTutorial, reconcileTutorial,
     migrateLocalHistory, _setCurrentUser, signInWithCode, authErrorKey,
-    emailToCode,
+    emailToCode, hasCachedUserMarker, setCachedUserMarker,
+    clearCachedUserMarker,
 } from './auth.js';
 import { loadLocalHistory } from './history.js';
 import { loadLocalTutProgress } from './tutorial.js';
@@ -71,17 +72,17 @@ const loginCodeToggle   = document.getElementById('loginCodeToggle');
 const loginError        = document.getElementById('loginError');
 const loginSubmitBtn    = document.getElementById('loginSubmitBtn');
 
-// Dismiss the boot splash + reveal whatever's underneath (login or app).
-// Idempotent — safe to call from both auth paths (unauthed → login shown,
-// authed → app entered).
-function endBoot() { document.body.classList.remove('booting'); }
-
+// Toggle body class so CSS reveals the login card + hides the app container.
+// The inline sync script in index.html already stamps `boot-login`/`boot-app`
+// from the cached-user marker at HTML-parse time, so first paint is already
+// correct — these helpers only run when auth resolution changes the truth
+// (marker was stale, or a fresh login just succeeded).
 function showLoginOverlay() {
     if (!loginOverlay) return;
-    loginOverlay.style.display = 'flex';
+    document.body.classList.remove('boot-app');
+    document.body.classList.add('boot-login');
     document.body.style.overflow = 'hidden';
     if (loginError) loginError.textContent = '';
-    endBoot();
 }
 
 // Eye-icon toggle for the employee-code field. Starts as type="password"
@@ -117,7 +118,8 @@ loginLang?.addEventListener('click', e => {
 });
 function hideLoginOverlay() {
     if (!loginOverlay) return;
-    loginOverlay.style.display = 'none';
+    document.body.classList.remove('boot-login');
+    document.body.classList.add('boot-app');
     document.body.style.overflow = '';
 }
 
@@ -138,35 +140,53 @@ function runAppInit() {
     else window.addEventListener('load', loadWebFonts);
 }
 
-async function enterApp(user) {
-    if (_appStarted) return;      // guard: only the first sign-in boots the app
+let _cloudAttached = false;
+
+// Reveal + init the app UI. No cloud sync — that's attachCloudSync's job,
+// called separately once Firebase auth resolves. Splitting these two lets
+// us optimistically run app init BEFORE Firebase finishes cold-loading
+// (cached-user marker path), so the user sees usable UI at first paint.
+function enterAppOptimistic() {
+    if (_appStarted) return;
     _appStarted = true;
-    if (user) {
-        try {
-            // Await first snapshots in parallel so both history and tutorial
-            // caches are populated before the app renders. Cross-device tutorial
-            // completion needs this — otherwise the launcher badge would flash
-            // 0% then jump to the cloud state.
-            await Promise.all([
-                subscribeHistory(user.uid),
-                subscribeTutorial(user.uid),
-            ]);
-            await migrateLocalHistory(user.uid, loadLocalHistory());
-            await reconcileTutorial(user.uid, loadLocalTutProgress());
-        } catch (_) { /* proceed with whatever cache exists */ }
-        // Reveal the account row in Settings and the header sign-out entry.
-        // Show the employee code (strip the synthetic @ie-calc.internal suffix —
-        // operators recognize the code, not the fake email).
-        const accountSection = document.getElementById('accountSection');
-        const accountEmail   = document.getElementById('accountEmail');
-        const menuSignout    = document.getElementById('menuSignoutItem');
-        if (accountEmail) accountEmail.textContent = emailToCode(user.email);
-        if (accountSection) accountSection.style.display = '';
-        if (menuSignout)    menuSignout.style.display  = '';
-    }
     hideLoginOverlay();
     runAppInit();
-    endBoot();
+}
+
+// Attach Firebase cloud sync + reveal account UI. Called once auth resolves
+// to a real user — either directly after enterAppOptimistic() (cached-user
+// case) or from enterApp() (fresh sign-in / stale-marker recovery).
+function attachCloudSync(user) {
+    if (_cloudAttached || !user) return;
+    _cloudAttached = true;
+    setCachedUserMarker();
+    // Kick off cloud sync in the background. Awaiting the first snapshots
+    // used to add 300–800 ms to the mobile cold-start; the app doesn't
+    // need history/tutorial data to render — both consumers (Settings
+    // launcher badge, history modal) use the subscribe*Change callbacks
+    // to re-render whenever the cache updates, so a lazy fill is fine.
+    // Reconcile runs on the first-snapshot resolve so it merges against
+    // real cloud state, not an empty cache.
+    subscribeHistory(user.uid)
+        .then(() => migrateLocalHistory(user.uid, loadLocalHistory()))
+        .catch(() => {});
+    subscribeTutorial(user.uid)
+        .then(() => reconcileTutorial(user.uid, loadLocalTutProgress()))
+        .catch(() => {});
+    // Reveal the account row in Settings and the header sign-out entry.
+    // Show the employee code (strip the synthetic @ie-calc.internal suffix —
+    // operators recognize the code, not the fake email).
+    const accountSection = document.getElementById('accountSection');
+    const accountEmail   = document.getElementById('accountEmail');
+    const menuSignout    = document.getElementById('menuSignoutItem');
+    if (accountEmail) accountEmail.textContent = emailToCode(user.email);
+    if (accountSection) accountSection.style.display = '';
+    if (menuSignout)    menuSignout.style.display  = '';
+}
+
+function enterApp(user) {
+    enterAppOptimistic();
+    if (user) attachCloudSync(user);
 }
 
 // ============================================================
@@ -175,30 +195,47 @@ async function enterApp(user) {
 async function boot() {
     if (!FIREBASE_ENABLED) {
         // No backend configured → Phase 1 behaviour, no login gate.
-        hideLoginOverlay();
         enterApp(null);
         return;
     }
+    // Optimistic reveal based on the cached-user marker (set on successful
+    // sign-in, cleared on sign-out). Runs BEFORE Firebase's SDK finishes
+    // cold-loading (~2–5 s on cheap phones) so the user sees usable UI at
+    // first paint instead of a spinner. The inline sync script in
+    // index.html already stamped the matching body class for CSS; here we
+    // wire up the JS-side state (run app init, or reveal the login form).
+    if (hasCachedUserMarker()) enterAppOptimistic();
+    else showLoginOverlay();
+
     initFirebase();
-    let _sawUser = false;
-    // Safety: if Firebase never fires onAuthChange (network dies before
-    // init resolves) the splash would hang forever. Cap it at 10 s and
-    // force the login card so the user can at least see and retry.
+    // Safety: if Firebase never fires onAuthChange (network dies before init
+    // resolves) and we optimistically revealed the app for a cached user, they
+    // couldn't sign out or reach the login card. Cap the wait and force the
+    // login card so at least there's an escape hatch. Short (4 s) because
+    // signed-out users are already served by the optimistic path above.
     const _bootTimeout = setTimeout(() => {
-        if (!_sawUser && !_appStarted) showLoginOverlay();
-    }, 10000);
+        if (!_cloudAttached) showLoginOverlay();
+    }, 4000);
     onAuthChange(user => {
         _setCurrentUser(user);
+        clearTimeout(_bootTimeout);
         if (user) {
-            _sawUser = true;
-            clearTimeout(_bootTimeout);
-            enterApp(user);
-        } else if (_sawUser) {
-            // Signed out mid-session — hard reload so no per-user cache lingers.
+            // Attach cloud sync. If the optimistic path already revealed the
+            // app, this just wires the account UI + subscriptions on top; if
+            // we were showing the login card (marker was wiped but session
+            // survived in Firebase's IDB cache), enterApp() reveals the app.
+            if (_appStarted) attachCloudSync(user);
+            else enterApp(user);
+        } else if (_appStarted || _cloudAttached) {
+            // Signed out mid-session OR optimistic reveal was wrong (marker
+            // was stale, session actually gone). Hard reload so we start
+            // fresh at the login card with no per-user cache lingering.
+            clearCachedUserMarker();
             window.location.reload();
         } else {
-            // No stored session — show the login gate.
-            clearTimeout(_bootTimeout);
+            // No stored session — show the login gate. Clear any stale marker
+            // so the next cold boot's optimistic path picks the right UI.
+            clearCachedUserMarker();
             showLoginOverlay();
         }
     });

@@ -1591,13 +1591,13 @@ export function toggleTheme() {
 export function initTheme() {
     let stored = null;
     try { stored = localStorage.getItem(STORAGE_KEY_THEME); } catch (_) { /* skip silently */ }
-    if (stored === 'light' || stored === 'dark') applyTheme(stored);
-    else updateThemeIcon();
-
-    // Keep the icon accurate if the OS theme changes while no explicit choice is set.
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        if (!document.documentElement.dataset.theme) updateThemeIcon();
-    });
+    // Light is the locked default for the app; only the user toggling to
+    // dark (persisted in localStorage) opts in. We ignore the OS
+    // prefers-color-scheme signal on purpose so a dark-mode phone doesn't
+    // silently flip the shop-floor UI. The CSS `@media (prefers-color-scheme:
+    // dark) :root:not([data-theme="light"])` gate means setting
+    // data-theme="light" here also locks light on cold start.
+    applyTheme(stored === 'dark' ? 'dark' : 'light');
 }
 
 // --- 8d. In-app Numpad ---------------------------------------------------

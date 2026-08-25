@@ -70,32 +70,30 @@ export default defineConfig({
             exclude: [/node_modules/],
             apply: 'build',   // dev preserves readable source for HMR + debugging
             options: {
-                // Kept:
-                //   controlFlowFlattening + deadCodeInjection + stringArray(base64)
-                //   are the real deterrence and cost nothing at runtime.
-                //   disableConsoleOutput silences prod logs.
-                // Removed:
-                //   debugProtection — its infinite `debugger;` loop froze the
-                //     Vercel deploy so users couldn't click ANYTHING (an anti-
-                //     debug measure that also breaks real users on mobile
-                //     browsers). Never turn this back on for this app.
-                //   selfDefending — kept off; it also interacts badly with
-                //     minifiers/CDN transforms and offers little over the
-                //     stringArray+flattening we already run.
+                // Light preset — the previous heavy config (controlFlowFlattening,
+                // deadCodeInjection, base64 stringArray, transformObjectKeys) made
+                // the shipped bundle noticeably sluggish on the first tap after a
+                // cold start; every string lookup and every hot path paid a
+                // constant tax. We keep only the cheap transforms:
+                //   - identifier renaming (hexadecimal names) — deterrence with
+                //     zero runtime cost after the JIT primes
+                //   - stringArray without encoding — a modest string-hiding pass
+                //     that doesn't decode on every read
+                //   - disableConsoleOutput — silences prod logs
+                // debugProtection / selfDefending remain off (they freeze users);
+                // renameGlobals must remain off (breaks DOM id / document refs).
                 compact: true,
-                controlFlowFlattening: true,
-                controlFlowFlatteningThreshold: 0.75,
-                deadCodeInjection: true,
-                deadCodeInjectionThreshold: 0.4,
+                controlFlowFlattening: false,
+                deadCodeInjection: false,
                 debugProtection: false,
                 disableConsoleOutput: true,
                 identifierNamesGenerator: 'hexadecimal',
-                renameGlobals: false,   // MUST stay false — see note at top
+                renameGlobals: false,
                 selfDefending: false,
                 stringArray: true,
-                stringArrayEncoding: ['base64'],
-                stringArrayThreshold: 0.75,
-                transformObjectKeys: true,
+                stringArrayEncoding: ['none'],
+                stringArrayThreshold: 0.5,
+                transformObjectKeys: false,
                 unicodeEscapeSequence: false,
             },
         }),

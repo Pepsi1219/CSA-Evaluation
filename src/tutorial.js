@@ -246,7 +246,27 @@ export function openTutorial() {
     _tg('tutorialModal').style.display = 'flex';
     document.body.style.overflow = 'hidden';
     if (typeof gaTrack === 'function') gaTrack('tutorial_open');
+    // Kick off image preloads in parallel so navigating between steps is
+    // instant. Browser caches each fetch; the <img> tags rendered later
+    // hit the memory cache instead of round-tripping. Runs once per session.
+    _preloadTutorialImages();
     renderTutorial();
+}
+
+let _preloaded = false;
+function _preloadTutorialImages() {
+    if (_preloaded) return;
+    _preloaded = true;
+    const seen = new Set();
+    for (const cat of TUTORIAL_DATA) {
+        for (const lesson of cat.lessons) {
+            for (const step of lesson.steps) {
+                if (!step.img || seen.has(step.img)) continue;
+                seen.add(step.img);
+                new Image().src = _stepImgSrc(step.img);
+            }
+        }
+    }
 }
 export function closeTutorial() {
     _tg('tutorialModal').style.display = 'none';
@@ -383,7 +403,8 @@ function _renderLesson(p) {
     <div class="tut-lesson">
         <h2 class="tut-lesson-heading">${_esc(L(les.title))}</h2>
         <div class="tut-shot-frame">
-            <img class="tut-shot" src="${_stepImgSrc(st.img)}" alt="${_esc(L(les.title))}" loading="lazy"
+            <img class="tut-shot" src="${_stepImgSrc(st.img)}" alt="${_esc(L(les.title))}"
+                 loading="eager" decoding="async" fetchpriority="high"
                  onerror="this.onerror=null;this.src='${TUT_IMG}${st.img}'">
         </div>
         <p class="tut-caption">${_esc(L(st.cap))}</p>

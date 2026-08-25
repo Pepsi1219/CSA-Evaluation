@@ -8,17 +8,21 @@
 
 ---
 
-## 📊 สถานะโปรเจกต์ปัจจุบัน (2026-08-24)
+## 📊 สถานะโปรเจกต์ปัจจุบัน (2026-08-25)
 
 **Live:** https://csa-evaluation.vercel.app — v1.21.0 (main HEAD)
+
+### 🔒 กฎผลิตภัณฑ์ (LOCKED)
+
+**Speed > Safety, ลำดับที่ 1 คือความเร็ว** — แอปนี้รันบนมือถือชาวโรงงานกับ Wi-Fi ที่ไม่นิ่ง user reject การป้องกันโค้ดที่แลกกับ perf แล้ว (obfuscator หนักไป → freeze/หมุนนาน) รายละเอียดเต็มอยู่ใน `CLAUDE.md` → "Product priorities (LOCKED)"
 
 | Phase | Status | รายละเอียด |
 |---|---|---|
 | **1** Vite + ESM | ✅ merged main | 4 commits (1a toolchain, 1b ESM, 1c wiring, 1d public/+CLAUDE.md) |
-| **2** Firebase Auth + Firestore | ✅ merged main + tested | employee-code login (`<code>@ie-calc.internal`), password+eye, lang switcher, sign out, migration |
-| **3** Obfuscation | ✅ merged main | controlFlow + stringArray(base64) + deadCode — **debugProtection/selfDefending OFF** (freezes UI) |
-| **4** Vercel + PWA | ✅ live production | `vite-plugin-pwa` injectManifest, `vercel.json` cache-control, deploy from `main` branch |
-| **Post-deploy hotfixes** | ✅ live | 3 fixes: obfuscator freeze, boot splash, dev pre-bundle firebase |
+| **2** Firebase Auth + Firestore | ✅ merged main + tested | employee-code login (`<code>@ie-calc.internal`), password+eye, lang switcher, sign out, migration + tutorial cross-device sync |
+| **3** Obfuscation | ✅ merged main | **Light preset** — identifier rename + stringArray(none) + minify · หนักไปทั้งหมดปิด (controlFlow/deadCode/transformObjectKeys/base64/debugProtection/selfDefending) |
+| **4** Vercel + PWA | ✅ live production | `vite-plugin-pwa` injectManifest, `vercel.json` cache-control, auto-deploy จาก `main` |
+| **Post-deploy fixes** | ✅ live | obfuscator freeze fix, boot splash, dev pre-bundle firebase, feedback→menu move, tutorial Firestore sync, perf tune (obfuscator light + image preload) |
 
 **Firebase Console:** Rules published, Authorized domain `csa-evaluation.vercel.app` added, Users add by admin manually
 
@@ -200,24 +204,28 @@
 
 **Branch:** `phase-3-protect`
 
-### Code tasks — ✅ ทำเสร็จหมด
+### Config ปัจจุบัน — **Light preset** (ปรับ 2026-08-25 หลัง user บ่นว่าช้า)
 
 - [x] `vite.config.js`: `build.sourcemap: false` (ยืนยัน `.map` 0 ไฟล์ใน `dist/`)
-- [x] `vite-plugin-javascript-obfuscator` ที่ `apply: 'build'` (dev/HMR ยังอ่านง่าย):
-  - [x] `controlFlowFlattening` 0.75
-  - [x] `deadCodeInjection` 0.4
-  - [x] `stringArray` + `base64` + threshold 0.75
-  - [x] `selfDefending: true`
-  - [x] `debugProtection: true` + interval 2000
-  - [x] `disableConsoleOutput: true`
-  - [x] `renameGlobals: false` (สำคัญ — ถ้า true จะพังเพราะ DOM ids)
-  - [x] `include: ['src/**/*.js']`, `exclude: [/node_modules/]` (Firebase ห้ามแตะ)
-- [x] Bundle size: **742 KB → 968 KB** (+30% raw, +50% gzip) — อยู่ในเกณฑ์ที่ยอมรับได้
-  ต่ำกว่าเพดาน 2× ที่แผนตั้งไว้ · SW cache กลบผลกระทบหลังโหลดแรก
-- [x] ตรวจ obfuscation จริง: 937 unique `_0x` hex ids, 5 ฟังก์ชันสำคัญ leak = 0
+- [x] `vite-plugin-javascript-obfuscator` ที่ `apply: 'build'` (dev/HMR ยังอ่านง่าย)
+- [x] **เปิดอยู่** (cost ต่ำ, deterrence พอเพียง):
+  - `identifierNamesGenerator: 'hexadecimal'` — rename identifier
+  - `stringArray: true` + `stringArrayEncoding: ['none']` + threshold 0.5 — hide string ไม่ decode ตอน read
+  - `compact: true` + `disableConsoleOutput: true`
+  - `include: ['src/**/*.js']`, `exclude: [/node_modules/]` (Firebase ห้ามแตะ)
+- [x] **ปิดถาวร** — อย่าเปิดกลับ (perf-first rule):
+  - `controlFlowFlattening: false` — flattening ทำให้ JIT inline ไม่ได้
+  - `deadCodeInjection: false` — โค้ดปลอมยัด bundle + parse ช้า
+  - `transformObjectKeys: false` — obj.prop → obj["_0x..."] ทุก call
+  - `debugProtection: false` — infinite `debugger;` freeze browser
+  - `selfDefending: false` — เปราะกับ minifier/CDN
+  - base64 stringArray encoding — decode ทุก string read
+  - `renameGlobals: false` (ต้อง false เสมอ — พัง DOM ids)
+- [x] Bundle size: **742 KB → 766 KB** (+3% raw, +7% gzip) — น้อยกว่าเก่ามาก
+- [x] ตรวจ obfuscation จริง: 5 ฟังก์ชันสำคัญ leak = 0, identifier renamed สั้น
 - [x] `LICENSE` — Proprietary/All rights reserved
 - [x] Copyright header ใน `src/main.js`, `src/app.js`, `src/calc.js`, `src/auth.js`
-- [x] `npm test` 112 pass, `npm run build` clean, build time 2 s (was 250 ms)
+- [x] `npm test` 121 pass, `npm run build` clean, build time ~5 s
 
 ### ⏭ ข้ามโดยผู้ใช้ตัดสินใจ — 2026-08-24
 
@@ -227,14 +235,14 @@
   quota Spark หมด → แอปดาวน์ชั่วคราว **ไม่มีบิลเข้ามา** เพราะไม่ผูกบัตร)
   สำหรับ shop-floor scale ความเสี่ยงต่ำ ถ้าอนาคตเจอ quota abuse ค่อยกลับมาตั้ง
 
-### ⚠ Perf note
+### ⚠ Perf note (LOCKED)
 
-- `debugProtection` loop รันทุก 2 วินาที — สังเกตบนมือถือกลาง ถ้าหนักลด threshold
-- `disableConsoleOutput` ทำให้ console.* เงียบใน production — GA4 tracking ยังทำงาน
+- Speed-first rule: heavy passes ปิดถาวรตามที่ list ข้างบน · เอกสาร CLAUDE.md → "Product priorities (LOCKED)"
+- `disableConsoleOutput` ทำให้ console.* เงียบใน production — GA4 tracking ยังทำงานผ่าน `gtag`
 
-### 🚀 พร้อม merge
+### 🚀 Merged แล้ว
 
-- [ ] Merge `phase-3-protect` → `main` (รอ user สั่งเสมอ)
+- [x] Merged to `main` (PR #8) · live at csa-evaluation.vercel.app
 
 ---
 

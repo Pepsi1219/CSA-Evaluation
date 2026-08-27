@@ -14,7 +14,8 @@ import {
     openStopwatchModal, closeStopwatchModal, swSetMode, swStartStop,
     swPauseResume, swLapOrReset, swToggleStatInfo, swContinueTiming,
     swSaveToForm, swDeleteLap, openTsConfigModal, closeTsConfigModal,
-    tsSetConfidence, finishOnboarding, onboardNext, openFeedbackModal,
+    tsSetConfidence, tsApplyPreset, finishOnboarding, onboardNext, openFeedbackModal,
+    setTrainCurve,
 } from './app.js';
 import { openHistoryModal } from './history.js';
 import { setChartMode } from './chart.js';
@@ -61,6 +62,7 @@ const ACTIONS = {
     'ts-open':      () => openTsConfigModal(),
     'ts-close':     () => closeTsConfigModal(),
     'ts-conf':      arg => tsSetConfidence(Number(arg)),
+    'ts-preset':    arg => tsApplyPreset(arg),
     // onboarding
     'onboard-finish': () => finishOnboarding(),
     'onboard-next':   () => onboardNext(),
@@ -74,6 +76,8 @@ const ACTIONS = {
     signout:        () => { closeActionsMenu(); signOutUser(); },
     // chart mode toggle (generated markup in chart.js)
     'chart-mode':   arg => setChartMode(arg),
+    // Training-plan curve shape toggle (static markup in index.html)
+    'train-curve':  arg => setTrainCurve(arg),
     // tutorial (generated markup in tutorial.js)
     'tut-lesson':   (arg, el) => tutOpenLesson(el.dataset.cat, el.dataset.lesson),
     'tut-step':     arg => tutStep(Number(arg)),

@@ -20,7 +20,7 @@
 // The byte change is what forces old clients to drop stale caches, so it can't
 // be derived from an import (this file is not an ES module). test/version.test.js
 // fails the build if this literal drifts.
-const CACHE = 'csa-v1.24.0';
+const CACHE = 'csa-v1.25.0';
 const NET_TIMEOUT_MS = 3000;
 
 // Injected at build time by vite-plugin-pwa. In dev the manifest is empty,

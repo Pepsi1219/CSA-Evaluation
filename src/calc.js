@@ -61,10 +61,33 @@ function calcPassRate(passQty, failQty) {
 }
 
 // One day/hour of the training (learning-curve) plan.
-function calcTrainingDay(currentEff, gap, duration, day, sam) {
-    const eff = Math.round(currentEff + (gap / duration * day));
-    const pcs = pcsFromEff(sam, eff);
-    return { day, eff, pcs };
+//
+// `curve` picks the interpolation shape between anchor (currentEff) and
+// global target (currentEff + gap):
+//   'scurve'  — Hermite smoothstep progress = 3t² − 2t³.
+//               Rises slowly at first, fastest in the middle, plateaus at
+//               the end. Matches how operators actually pick up a task
+//               (warm-up → peak learning → plateau near mastery).
+//   'linear'  — flat rate = gap / duration per day. Simple / conservative.
+// Default is 'scurve' so first-time users see the realistic shape without
+// having to pick anything; the UI exposes a toggle to switch to 'linear'.
+function calcTrainingDay(currentEff, gap, duration, day, sam, curve = 'scurve') {
+    if (!(duration > 0) || !(day > 0)) {
+        return { day, eff: currentEff, pcs: pcsFromEff(sam, currentEff) };
+    }
+    const globalEff = currentEff + gap;
+    let eff;
+    if (curve === 'linear') {
+        eff = Math.round(currentEff + (gap / duration * day));
+    } else {
+        const t = Math.min(day / duration, 1);
+        const progress = t * t * (3 - 2 * t);  // Hermite smoothstep
+        eff = Math.round(currentEff + gap * progress);
+    }
+    // Floating-point drift can overshoot the target by 1 in the last day;
+    // cap to global so a "day = duration" row never reads N+1%.
+    if (gap > 0 && eff > globalEff) eff = globalEff;
+    return { day, eff, pcs: pcsFromEff(sam, eff) };
 }
 
 export {

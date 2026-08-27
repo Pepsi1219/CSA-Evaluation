@@ -816,6 +816,18 @@ label {
     font-variant-numeric: tabular-nums;
 }
 /* ---- 12. Training Grid ------------------------------------ */
+/* Section-title row: places the h3 heading on the left and an optional
+   right-side control (curve-shape pill) on the same baseline. Wraps on
+   narrow phones so the pill drops below the title instead of squashing it.
+   The h3 itself keeps its own margin — this wrapper only lays out the row. */
+.section-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+}
+.section-title-row .section-title { margin-bottom: 0; }
 .training-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -1743,6 +1755,54 @@ label {
     box-shadow: var(--sh-xs);
 }
 .sw-ts-pills-lg .sw-ts-pill { min-height: 44px; padding: 12px 22px; font-size: 15px; }
+
+/* Preset grid at the top of the Time-Study config modal.
+   Three side-by-side cards on wider phones; stack vertically on narrow
+   screens so long labels never squash. Each card shows a short name + the
+   underlying values (e.g. "95% / ±5%") so operators see exactly what
+   tapping does. `.active` is set by _renderTsPresetActive() whenever the
+   current confidence+error matches the card's data-arg. */
+.ts-preset-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+@media (max-width: 480px) {
+    .ts-preset-grid { grid-template-columns: 1fr; }
+}
+.ts-preset-btn {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 12px 10px;
+    background: var(--surface-2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--r-md);
+    color: var(--text-1); font-family: var(--font);
+    cursor: pointer;
+    transition: border-color 0.18s, background 0.18s, color 0.18s, transform 0.06s;
+    min-height: 60px;
+}
+.ts-preset-btn:hover:not(.active) {
+    border-color: var(--accent-300);
+    background: var(--surface);
+}
+.ts-preset-btn:active { transform: scale(0.98); }
+.ts-preset-btn.active {
+    border-color: var(--accent-500);
+    background: var(--accent-50);
+    color: var(--accent-700);
+}
+.ts-preset-name {
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 1.2;
+    text-align: center;
+}
+.ts-preset-values {
+    font-size: 12px;
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+}
+.ts-preset-btn.active .ts-preset-values { color: var(--accent-600); }
 
 .sw-ts-error-input {
     width: 100px; text-align: center;

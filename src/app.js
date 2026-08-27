@@ -54,11 +54,41 @@ const STORAGE_KEY_FORM    = 'csa_form_v1';
 const STORAGE_KEY_SW      = 'csa_stopwatch_v1';
 const SW_LAPS_MAX         = 1000;   // hard ceiling on restored lap count (anti-corruption)
 // STORAGE_KEY_HISTORY + HISTORY_MAX moved to history.js (their consumers live there)
-const STORAGE_KEY_THEME   = 'csa_theme';
+const STORAGE_KEY_THEME       = 'csa_theme';
+const STORAGE_KEY_TRAIN_CURVE = 'csa_train_curve';
 const FORM_FIELD_IDS = ['samInput','effTargetInput','totalMin','totalTime','totalCount','passQty','failQty','duration'];
 
 // --- 1. Local State (currentLang lives in state.js) ---
 let samUnit = 'min'; // unit the user types SAM in: 'min' or 'sec'
+
+// Training-plan curve shape: 'scurve' (default — Hermite smoothstep, realistic
+// learning curve) or 'linear' (flat rate/day). Persisted per user via
+// localStorage; consumed by the calcTrainingDay call in _runHeavyUpdate.
+let trainCurve = (() => {
+    try {
+        const v = localStorage.getItem(STORAGE_KEY_TRAIN_CURVE);
+        return v === 'linear' ? 'linear' : 'scurve';
+    } catch { return 'scurve'; }
+})();
+export function getTrainCurve() { return trainCurve; }
+export function setTrainCurve(mode) {
+    const next = mode === 'linear' ? 'linear' : 'scurve';
+    if (next === trainCurve) return;
+    trainCurve = next;
+    try { localStorage.setItem(STORAGE_KEY_TRAIN_CURVE, trainCurve); } catch {}
+    gaTrack('set_train_curve', { curve: trainCurve });
+    renderTrainCurveToggle();
+    // Recompute the plan + chart immediately so the switch is visible.
+    if (_heavyPending) _runHeavyUpdate();
+    else calculateAll();
+}
+function renderTrainCurveToggle() {
+    const g = document.getElementById('trainCurveToggle');
+    if (!g) return;
+    g.querySelectorAll('.chart-toggle-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.arg === trainCurve);
+    });
+}
 
 // Session tracking flags (track each feature only once per session)
 const _tracked = { quality: false, training: false };
@@ -577,8 +607,41 @@ export function tsSetConfidence(c) {
     document.querySelectorAll('.sw-ts-pill').forEach(p => {
         p.classList.toggle('active', parseInt(p.dataset.conf) === c);
     });
+    _renderTsPresetActive();
     tsRecalculate();
     gaTrack('ts_change_confidence', { confidence: c });
+}
+
+// Common IE presets: `<confidence>:<error>` pairs.
+// - 95/5  : classic Niebel/Barnes standard for line time-studies.
+// - 95/10 : quick pilot / preliminary sample when SD isn't known yet.
+// - 99/3  : high-precision (audit / certification / benchmark work).
+// Preset button reflects whatever pair the current state matches; if the user
+// then tweaks either pill or the error input away from a preset, no button is
+// active (they're on a custom combo).
+export function tsApplyPreset(arg) {
+    const [c, e] = String(arg).split(':').map(n => parseInt(n, 10));
+    if (!(c > 0) || !(e > 0)) return;
+    _ts.confidence = c;
+    document.querySelectorAll('.sw-ts-pill').forEach(p => {
+        p.classList.toggle('active', parseInt(p.dataset.conf) === c);
+    });
+    const errorInput = document.getElementById('tsErrorInput');
+    if (errorInput) errorInput.value = String(e);
+    // tsRecalculate reads tsErrorInput + writes _ts.error, then we mark the
+    // matching preset. Order matters: recalc first so _ts.error is fresh.
+    tsRecalculate();
+    _renderTsPresetActive();
+    gaTrack('ts_apply_preset', { confidence: c, error: e });
+}
+
+function _renderTsPresetActive() {
+    const grid = document.getElementById('tsPresetGrid');
+    if (!grid) return;
+    const key = `${_ts.confidence}:${_ts.error}`;
+    grid.querySelectorAll('.ts-preset-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.arg === key);
+    });
 }
 
 export function tsRecalculate() {
@@ -587,6 +650,9 @@ export function tsRecalculate() {
     if (!isFinite(e) || e <= 0) e = 5;
     if (e > 50) e = 50;
     _ts.error = e;
+    // Keep the preset row in sync with whatever the numpad / conf pill last did.
+    // Cheap DOM toggle — safe to call every recalc.
+    _renderTsPresetActive();
 
     const reqnRow    = document.querySelector('.sw-stat.sw-stat-reqn');
     const reqnVal    = document.getElementById('swStatReqN');
@@ -959,6 +1025,9 @@ export function restoreFormState() {
         }
         updateSamUnitUI();
     } catch (_) { /* corrupt/unavailable storage — start fresh */ }
+    // Reflect the persisted train-curve pick in the pill toggle. Cheap to call
+    // regardless of whether the storage read above succeeded.
+    renderTrainCurveToggle();
 }
 
 // --- 5c. History Storage moved to history.js ---
@@ -1119,7 +1188,7 @@ function _runHeavyUpdate() {
             let   cardsHtml = '';
 
             for (let i = 1; i <= days; i++) {
-                const { eff: dayEff, pcs: dayPcs } = calcTrainingDay(currentActualEff, gap, duration, i, sam);
+                const { eff: dayEff, pcs: dayPcs } = calcTrainingDay(currentActualEff, gap, duration, i, sam, trainCurve);
                 chartData.push({ day: i, eff: dayEff, pcs: dayPcs });
                 cardsHtml += `
                 <div class="day-card filled">

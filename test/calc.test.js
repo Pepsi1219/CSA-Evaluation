@@ -113,12 +113,69 @@ test('calcPassRate', async (t) => {
 });
 
 test('calcTrainingDay', async (t) => {
-    await t.test('interpolates efficiency linearly across the training duration', () => {
+    await t.test("linear ('linear'): flat rate across the training duration", () => {
         // current 60%, target 100% (gap 40), over 4 days → +10%/day
-        assert.deepEqual(calcTrainingDay(60, 40, 4, 1, 0.5), { day: 1, eff: 70, pcs: pcsFromEff(0.5, 70) });
-        assert.deepEqual(calcTrainingDay(60, 40, 4, 4, 0.5), { day: 4, eff: 100, pcs: pcsFromEff(0.5, 100) });
+        assert.deepEqual(
+            calcTrainingDay(60, 40, 4, 1, 0.5, 'linear'),
+            { day: 1, eff: 70, pcs: pcsFromEff(0.5, 70) },
+        );
+        assert.deepEqual(
+            calcTrainingDay(60, 40, 4, 4, 0.5, 'linear'),
+            { day: 4, eff: 100, pcs: pcsFromEff(0.5, 100) },
+        );
     });
-    await t.test('pcs is 0 when sam is invalid', () => {
-        assert.deepEqual(calcTrainingDay(60, 40, 4, 1, 0), { day: 1, eff: 70, pcs: 0 });
+
+    await t.test('pcs is 0 when sam is invalid (linear)', () => {
+        assert.deepEqual(
+            calcTrainingDay(60, 40, 4, 1, 0, 'linear'),
+            { day: 1, eff: 70, pcs: 0 },
+        );
+    });
+
+    await t.test("s-curve ('scurve') is the default when no curve arg is passed", () => {
+        // Default (no 6th arg) must equal explicit 'scurve'.
+        assert.deepEqual(
+            calcTrainingDay(40, 35, 14, 5, 0.5),
+            calcTrainingDay(40, 35, 14, 5, 0.5, 'scurve'),
+        );
+    });
+
+    await t.test('s-curve: starts slow, peaks in the middle, ends at target', () => {
+        // Hermite smoothstep 3t² − 2t³ on start=40, target=75 (gap=35), 14 days.
+        // Endpoint pinning + monotonicity are the load-bearing properties.
+        const start = 40, gap = 35, dur = 14, sam = 0.5;
+        const last  = calcTrainingDay(start, gap, dur, dur, sam);
+        assert.equal(last.eff, start + gap, 'last day must hit the target exactly');
+
+        const d1 = calcTrainingDay(start, gap, dur, 1,  sam).eff;
+        const d7 = calcTrainingDay(start, gap, dur, 7,  sam).eff;
+        const dN = last.eff;
+        // Day 1 rises slowly (< linear's step of 2.5), day 7 sits near midpoint.
+        assert.ok(d1 - start <= 2, `day 1 should barely move (got +${d1 - start})`);
+        assert.ok(d7 >= 55 && d7 <= 61, `day 7 should be near midpoint (got ${d7})`);
+        assert.equal(dN, 75, 'day N equals target');
+
+        // Monotone non-decreasing across the whole plan.
+        let prev = -Infinity;
+        for (let i = 1; i <= dur; i++) {
+            const e = calcTrainingDay(start, gap, dur, i, sam).eff;
+            assert.ok(e >= prev, `eff must never decrease (day ${i}: ${e} < ${prev})`);
+            prev = e;
+        }
+    });
+
+    await t.test('s-curve: matches user spec sample (anchor 7.1%, target 80%, 15 days)', () => {
+        // Values from the S-curve spec table the user provided (rounded to
+        // integer %). anchor rounded to 7 in our int-eff model.
+        const day = (d) => calcTrainingDay(7, 73, 15, d, 0.5).eff;
+        assert.equal(day(15), 80, 'day 15 hits target');
+        // Rough shape checks — s-curve, not linear.
+        assert.ok(day(1) < 15, 'day 1 still near anchor');
+        assert.ok(day(8) > 40 && day(8) < 55, 'day 8 well past midpoint');
+    });
+
+    await t.test('degenerate inputs (day 0 / duration 0) return the anchor', () => {
+        assert.equal(calcTrainingDay(60, 40, 0, 1, 0.5).eff, 60);
+        assert.equal(calcTrainingDay(60, 40, 4, 0, 0.5).eff, 60);
     });
 });

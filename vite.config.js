@@ -23,6 +23,11 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig({
     root: '.',
     publicDir: 'public',
+    // Dev server on a fresh port (not vite's default 5173) so any leftover
+    // service worker from a prod visit — which is scoped to the origin it was
+    // registered on — cannot intercept requests here. Origin is (host, port);
+    // moving to :5199 gives dev a clean origin no SW is registered against.
+    server: { port: 5199, strictPort: true },
     build: {
         outDir: 'dist',
         emptyOutDir: true,

@@ -40,6 +40,8 @@ export const translations = {
         'header4': 'วางแผนการฝึก',
         'training_duration': 'ระยะเวลาการฝึก (วัน/ชม)',
         'day_unit': 'วัน/ชม.ที่',
+        'train_curve_scurve': 'S-Curve',
+        'train_curve_linear': 'เชิงเส้น',
 
         'feedback_btn': 'Feedback',
         'feedback_title': 'ส่งความคิดเห็น',
@@ -117,6 +119,11 @@ export const translations = {
         'history_note_prompt': 'บันทึกส่งงาน / กะ (สูงสุด 200 ตัวอักษร)',
 
         'ts_config_title': 'ตั้งค่า Time Study',
+        'ts_preset': 'ค่าเริ่มต้นที่ใช้บ่อย',
+        'ts_preset_std': 'มาตรฐาน IE',
+        'ts_preset_pilot': 'เก็บเบื้องต้น',
+        'ts_preset_audit': 'ตรวจสอบ / Audit',
+        'ts_preset_help': 'แตะเพื่อตั้งค่าทั้ง 2 ค่าล่างพร้อมกัน · ปรับเองได้ (จะกลายเป็น "กำหนดเอง")',
         'ts_confidence': 'ระดับความเชื่อมั่น',
         'ts_confidence_help': 'ยิ่งสูง → ต้องการรอบมากขึ้นเพื่อให้มั่นใจว่าค่าเฉลี่ยที่วัดได้ถูกต้อง (มาตรฐานอุตสาหกรรมใช้ 95%)',
         'ts_error': 'ค่าคลาดเคลื่อนที่ยอมรับได้ (±%)',
@@ -201,6 +208,8 @@ export const translations = {
         'header4': 'Training Plan',
         'training_duration': 'Training Duration (Days/Hrs)',
         'day_unit': 'Day/Hr.',
+        'train_curve_scurve': 'S-Curve',
+        'train_curve_linear': 'Linear',
 
         'feedback_btn': 'Feedback',
         'feedback_title': 'Send Feedback',
@@ -278,6 +287,11 @@ export const translations = {
         'history_note_prompt': 'Handover / shift note (max 200 chars)',
 
         'ts_config_title': 'Time Study Settings',
+        'ts_preset': 'Common presets',
+        'ts_preset_std': 'IE Standard',
+        'ts_preset_pilot': 'Quick pilot',
+        'ts_preset_audit': 'Audit / Certification',
+        'ts_preset_help': 'Tap to set both values below at once · adjust manually to switch to "Custom"',
         'ts_confidence': 'Confidence Level',
         'ts_confidence_help': 'Higher → needs more cycles to be sure the measured mean is correct (industry standard: 95%)',
         'ts_error': 'Acceptable Error (±%)',
@@ -362,6 +376,8 @@ export const translations = {
         'header4': 'Kế hoạch đào tạo',
         'training_duration': 'Thời lượng đào tạo (ngày/giờ)',
         'day_unit': 'Ngày/Giờ',
+        'train_curve_scurve': 'Đường cong S',
+        'train_curve_linear': 'Tuyến tính',
 
         'feedback_btn': 'Phản hồi',
         'feedback_title': 'Gửi phản hồi',
@@ -439,6 +455,11 @@ export const translations = {
         'history_note_prompt': 'Ghi chú bàn giao / ca (tối đa 200 ký tự)',
 
         'ts_config_title': 'Cài đặt Time Study',
+        'ts_preset': 'Cấu hình thông dụng',
+        'ts_preset_std': 'Chuẩn IE',
+        'ts_preset_pilot': 'Khảo sát nhanh',
+        'ts_preset_audit': 'Kiểm định / Audit',
+        'ts_preset_help': 'Chạm để đặt cả 2 giá trị bên dưới cùng lúc · chỉnh tay sẽ chuyển sang "Tuỳ chỉnh"',
         'ts_confidence': 'Mức độ tin cậy',
         'ts_confidence_help': 'Càng cao → cần nhiều vòng hơn để đảm bảo giá trị trung bình chính xác (chuẩn công nghiệp: 95%)',
         'ts_error': 'Sai số cho phép (±%)',
@@ -523,6 +544,8 @@ export const translations = {
         'header4': 'ແຜນການຝຶກອົບຮົມ',
         'training_duration': 'ໄລຍະເວລາການຝຶກ (ມື້/ຊມ)',
         'day_unit': 'ມື້/ຊມ.',
+        'train_curve_scurve': 'S-Curve',
+        'train_curve_linear': 'ເສັ້ນຊື່',
 
         'feedback_btn': 'ຄໍາຄິດເຫັນ',
         'feedback_title': 'ສົ່ງຄໍາຄິດເຫັນ',
@@ -600,6 +623,11 @@ export const translations = {
         'history_note_prompt': 'ບັນທຶກສົ່ງກະ (ສູງສຸດ 200 ຕົວອັກສອນ)',
 
         'ts_config_title': 'ຕັ້ງຄ່າ Time Study',
+        'ts_preset': 'ຄ່າຕັ້ງຕົ້ນທີ່ໃຊ້ບ່ອຍ',
+        'ts_preset_std': 'ມາດຕະຖານ IE',
+        'ts_preset_pilot': 'ເກັບເບື້ອງຕົ້ນ',
+        'ts_preset_audit': 'ກວດສອບ / Audit',
+        'ts_preset_help': 'ແຕະເພື່ອຕັ້ງທັງ 2 ຄ່າຂ້າງລຸ່ມພ້ອມກັນ · ປັບເອງໄດ້ (ຈະກາຍເປັນ "ກຳນົດເອງ")',
         'ts_confidence': 'ລະດັບຄວາມເຊື່ອໝັ້ນ',
         'ts_confidence_help': 'ຍິ່ງສູງ → ຕ້ອງການຮອບຫຼາຍຂຶ້ນເພື່ອຮັບປະກັນຄ່າສະເລ່ຍທີ່ວັດໄດ້ຖືກຕ້ອງ (ມາດຕະຖານອຸດສາຫະກຳ: 95%)',
         'ts_error': 'ຄ່າຄາດເຄື່ອນທີ່ຍອມຮັບໄດ້ (±%)',

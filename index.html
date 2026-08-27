@@ -345,17 +345,27 @@
 
     <!-- ============ Section 4: Training ============ -->
     <div class="panel eff-section">
-        <h3 class="section-title">
-            <span class="section-badge" aria-hidden="true">
-                <!-- Staircase climbing to a filled summit dot — reads as "learning curve" -->
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 20 3 16 8 16 8 12 13 12 13 8 18 8 18 4"/>
-                    <line x1="3" y1="20.5" x2="21" y2="20.5"/>
-                    <circle cx="18" cy="4" r="1.75" fill="currentColor" stroke="none"/>
-                </svg>
-            </span>
-            <span class="lang-text" data-key="header4">วางแผนการฝึก</span>
-        </h3>
+        <div class="section-title-row">
+            <h3 class="section-title">
+                <span class="section-badge" aria-hidden="true">
+                    <!-- Staircase climbing to a filled summit dot — reads as "learning curve" -->
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 20 3 16 8 16 8 12 13 12 13 8 18 8 18 4"/>
+                        <line x1="3" y1="20.5" x2="21" y2="20.5"/>
+                        <circle cx="18" cy="4" r="1.75" fill="currentColor" stroke="none"/>
+                    </svg>
+                </span>
+                <span class="lang-text" data-key="header4">วางแผนการฝึก</span>
+            </h3>
+            <div id="trainCurveToggle" class="chart-toggle-group" role="group" aria-label="Training curve shape">
+                <button type="button" class="chart-toggle-btn active" data-action="train-curve" data-arg="scurve">
+                    <span class="lang-text" data-key="train_curve_scurve">S-Curve</span>
+                </button>
+                <button type="button" class="chart-toggle-btn" data-action="train-curve" data-arg="linear">
+                    <span class="lang-text" data-key="train_curve_linear">Linear</span>
+                </button>
+            </div>
+        </div>
 
         <div class="input-group">
             <label class="lang-text" data-key="training_duration">ระยะเวลาการฝึก (วัน/ชม)</label>
@@ -373,7 +383,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · <span id="appVersion">v1.24.0</span></p>
+    <p>© CSA Evaluation · <span id="appVersion">v1.25.0</span></p>
 </footer>
 
 <!-- ============ Back-to-Top Button ============ -->
@@ -673,6 +683,26 @@
         </div>
 
         <div class="sw-config-body">
+            <!-- Preset picker — one tap sets both confidence + error to a common combo. -->
+            <div class="sw-config-section">
+                <div class="sw-config-label lang-text" data-key="ts_preset">ค่าเริ่มต้นที่ใช้บ่อย</div>
+                <div class="ts-preset-grid" id="tsPresetGrid" role="group" aria-label="Time Study presets">
+                    <button type="button" class="ts-preset-btn active" data-action="ts-preset" data-arg="95:5">
+                        <span class="ts-preset-name lang-text" data-key="ts_preset_std">มาตรฐาน IE</span>
+                        <span class="ts-preset-values">95% / ±5%</span>
+                    </button>
+                    <button type="button" class="ts-preset-btn" data-action="ts-preset" data-arg="95:10">
+                        <span class="ts-preset-name lang-text" data-key="ts_preset_pilot">เก็บเบื้องต้น</span>
+                        <span class="ts-preset-values">95% / ±10%</span>
+                    </button>
+                    <button type="button" class="ts-preset-btn" data-action="ts-preset" data-arg="99:3">
+                        <span class="ts-preset-name lang-text" data-key="ts_preset_audit">ตรวจสอบ / Audit</span>
+                        <span class="ts-preset-values">99% / ±3%</span>
+                    </button>
+                </div>
+                <p class="sw-config-help lang-text" data-key="ts_preset_help">แตะเพื่อตั้งค่าทั้ง 2 ค่าล่างพร้อมกัน · ปรับเองด้านล่างได้ (จะกลายเป็น "กำหนดเอง")</p>
+            </div>
+
             <!-- Confidence level -->
             <div class="sw-config-section">
                 <div class="sw-config-label lang-text" data-key="ts_confidence">ระดับความเชื่อมั่น</div>

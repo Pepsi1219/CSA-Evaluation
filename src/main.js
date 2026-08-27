@@ -38,10 +38,21 @@ import './wiring.js';
 // ============================================================
 // Phase A — runs unconditionally, before any auth.
 // ============================================================
+// Only register the SW in production builds. In `npm run dev` a leftover SW
+// from an earlier prod visit (or a previous localhost session) would intercept
+// requests and serve stale HTML/JS — this manifests as "why does localhost show
+// an old version". Unregister anything that's already there when we're in dev,
+// so refreshing localhost always shows the current source.
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
-    });
+    if (import.meta.env.PROD) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+    } else {
+        navigator.serviceWorker.getRegistrations().then(rs => {
+            rs.forEach(r => r.unregister());
+        }).catch(() => {});
+    }
 }
 
 const _appVersionEl = document.getElementById('appVersion');
@@ -160,6 +171,10 @@ function attachCloudSync(user) {
     if (_cloudAttached || !user) return;
     _cloudAttached = true;
     setCachedUserMarker();
+    // Belt-and-braces: if the boot timeout (or any earlier code path) put the
+    // login card back up while Firebase was still resolving, kill it now.
+    // Auth resolved to a real user → the card must not be visible.
+    hideLoginOverlay();
     // Kick off cloud sync in the background. Awaiting the first snapshots
     // used to add 300–800 ms to the mobile cold-start; the app doesn't
     // need history/tutorial data to render — both consumers (Settings
@@ -209,13 +224,17 @@ async function boot() {
 
     initFirebase();
     // Safety: if Firebase never fires onAuthChange (network dies before init
-    // resolves) and we optimistically revealed the app for a cached user, they
-    // couldn't sign out or reach the login card. Cap the wait and force the
-    // login card so at least there's an escape hatch. Short (4 s) because
-    // signed-out users are already served by the optimistic path above.
+    // resolves) AND we didn't optimistically reveal the app (no cached marker),
+    // fall back to the login card so there's an escape hatch. If the optimistic
+    // path already revealed the app for a cached user, DO NOT clobber it — on
+    // cheap shop-floor phones + factory Wi-Fi, Firebase Auth SDK cold-load
+    // routinely takes 4–10 s to restore the IndexedDB session, and stamping
+    // boot-login here would hide the app and force a spurious re-login.
+    // 12 s is generous enough that a real dead-network case still resolves
+    // eventually, without racing a slow-but-alive network.
     const _bootTimeout = setTimeout(() => {
-        if (!_cloudAttached) showLoginOverlay();
-    }, 4000);
+        if (!_cloudAttached && !_appStarted) showLoginOverlay();
+    }, 12000);
     onAuthChange(user => {
         _setCurrentUser(user);
         clearTimeout(_bootTimeout);

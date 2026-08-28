@@ -383,7 +383,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · <span id="appVersion">v1.25.1</span></p>
+    <p>© CSA Evaluation · <span id="appVersion">v1.27.0</span></p>
 </footer>
 
 <!-- ============ Back-to-Top Button ============ -->
@@ -563,6 +563,7 @@
             <div class="sw-mode-tabs">
                 <button class="sw-mode-tab active" id="swTabLap" data-action="sw-mode" data-arg="lap">Lap</button>
                 <button class="sw-mode-tab" id="swTabSingle" data-action="sw-mode" data-arg="single">Single</button>
+                <button class="sw-mode-tab" id="swTabIE" data-action="sw-mode" data-arg="ie">IE</button>
             </div>
             <button class="sw-config-btn" data-action="ts-open" title="Config" aria-label="Config">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -662,6 +663,156 @@
             </button>
         </div>
 
+        <!-- ============ IE mode: Setup ============ -->
+        <div class="ie-panel" id="ieSetupPanel" style="display:none;">
+            <div class="ie-panel-title lang-text" data-key="ie_setup_title">ตั้งค่า Time Study (IE)</div>
+            <p class="ie-panel-desc lang-text" data-key="ie_setup_desc">Continuous Timing: กด Start ครั้งเดียว แล้วแตะที่จุดตัด Element แต่ละจุด</p>
+
+            <div class="ie-setup-row">
+                <label class="ie-setup-label lang-text" data-key="ie_rounds_label">จำนวนรอบที่จะจับ</label>
+                <input type="text" id="ieRoundsInput" class="ie-num-input" inputmode="none" pattern="[0-9]*" value="10"
+                       data-numpad="int" data-numpad-label="ie_rounds_label">
+            </div>
+            <div class="ie-setup-row">
+                <label class="ie-setup-label lang-text" data-key="ie_elem_count_label">จำนวน Element ต่อรอบ</label>
+                <input type="text" id="ieElemCountInput" class="ie-num-input" inputmode="none" pattern="[0-9]*" value="4"
+                       data-numpad="int" data-numpad-label="ie_elem_count_label">
+            </div>
+
+            <div class="ie-elem-list-header">
+                <span class="lang-text" data-key="ie_elem_list_title">รายการ Element และ Performance Rating</span>
+                <button type="button" class="ie-add-btn lang-text" data-action="ie-elem-add" data-key="ie_add_elem">+ เพิ่ม Element</button>
+            </div>
+            <div class="ie-elem-list" id="ieElemList"></div>
+
+            <div class="ie-alw-title lang-text" data-key="ie_allowance_title">ค่าเผื่อ (Allowances) — ใช้ทุก element เท่ากัน</div>
+            <div class="ie-setup-row">
+                <label class="ie-setup-label lang-text" data-key="ie_allowance_personal">ส่วนตัว %</label>
+                <input type="text" id="ieAlwPersonal" class="ie-num-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="5"
+                       data-numpad="decimal" data-numpad-label="ie_allowance_personal">
+            </div>
+            <div class="ie-setup-row">
+                <label class="ie-setup-label lang-text" data-key="ie_allowance_fatigue">ความล้า %</label>
+                <input type="text" id="ieAlwFatigue" class="ie-num-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="5"
+                       data-numpad="decimal" data-numpad-label="ie_allowance_fatigue">
+            </div>
+            <div class="ie-setup-row">
+                <label class="ie-setup-label lang-text" data-key="ie_allowance_delay">Delay %</label>
+                <input type="text" id="ieAlwDelay" class="ie-num-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="5"
+                       data-numpad="decimal" data-numpad-label="ie_allowance_delay">
+            </div>
+            <div class="ie-alw-total">
+                <span class="lang-text" data-key="ie_allowance_total">รวม Allowance</span>
+                <span id="ieAlwTotal">15%</span>
+            </div>
+
+            <div class="ie-setup-error" id="ieSetupError" style="display:none;"></div>
+
+            <button type="button" class="ie-cta-btn lang-text" data-action="ie-start" data-key="ie_start_capture">เริ่มจับเวลา</button>
+        </div>
+
+        <!-- ============ IE mode: Capture ============ -->
+        <div class="ie-panel" id="ieCapturePanel" style="display:none;">
+            <div class="ie-capture-timer">
+                <div class="sw-timer" id="ieDisplay">00:00.00</div>
+                <div class="ie-capture-header" id="ieCaptureHeader"></div>
+                <div class="ie-progress-label" id="ieProgressLabel"></div>
+            </div>
+
+            <button type="button" class="ie-tap-btn" id="ieTapBtn" data-action="ie-tap">
+                <span class="lang-text" data-key="ie_tap_btn">แตะที่จุดตัด Element</span>
+            </button>
+
+            <div class="ie-capture-controls">
+                <button type="button" class="sw-modal-btn sw-btn-secondary" id="ieUndoBtn" data-action="ie-undo">
+                    <span class="lang-text" data-key="ie_undo_btn">ถอนครั้งล่าสุด</span>
+                </button>
+                <button type="button" class="sw-modal-btn sw-btn-secondary" data-action="ie-back-to-setup">
+                    <span class="lang-text" data-key="ie_back_to_setup">แก้ไขการตั้งค่า</span>
+                </button>
+                <button type="button" class="sw-modal-btn sw-btn-start" id="ieStartStopBtn" data-action="ie-startstop">
+                    <span class="lang-text" data-key="sw_start">เริ่ม</span>
+                </button>
+            </div>
+
+            <div class="ie-live-table-wrap">
+                <table class="ie-live-table" id="ieLiveTable"></table>
+            </div>
+        </div>
+
+        <!-- ============ IE mode: Result ============ -->
+        <div class="ie-panel" id="ieResultPanel" style="display:none;">
+            <div class="ie-panel-title lang-text" data-key="ie_result_title">สรุป Time Study</div>
+            <div class="ie-result-wrap">
+                <table class="ie-result-table" id="ieResultTable"></table>
+            </div>
+            <div class="ie-result-warnings" id="ieResultWarnings"></div>
+            <div class="ie-result-totals" id="ieResultTotals"></div>
+            <div class="ie-result-actions">
+                <button type="button" class="sw-modal-btn sw-btn-secondary" data-action="ie-back-to-setup">
+                    <span class="lang-text" data-key="ie_back_to_setup">แก้ไขการตั้งค่า</span>
+                </button>
+                <button type="button" class="ie-cta-btn" data-action="ie-save">
+                    <span class="lang-text" data-key="ie_save_sam_btn">บันทึกเป็น SAM</span>
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ============ IE Rating Picker Modal ============ -->
+<div id="ieRatingModal" class="sw-overlay" style="display:none;" role="dialog" aria-modal="true">
+    <div class="sw-page">
+        <div class="sw-header">
+            <button class="sw-back-btn" data-action="ie-rating-close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                    <path d="M15 18l-6-6 6-6"/>
+                </svg>
+                <span class="lang-text" data-key="sw_back">กลับ</span>
+            </button>
+            <div class="sw-mode-tabs">
+                <span class="sw-tt-title" id="ieRatingTitle">Rating</span>
+            </div>
+            <div class="sw-header-spacer"></div>
+        </div>
+
+        <div class="ie-rating-body">
+            <button type="button" class="ie-rating-none-btn" data-action="ie-rating-none">
+                <span class="lang-text" data-key="ie_rating_no_rating">ไม่ระบุ Rating (ใช้ 100%)</span>
+            </button>
+
+            <div class="ie-rating-grid">
+                <section class="ie-rating-section">
+                    <h4 class="ie-rating-h lang-text" data-key="ie_rating_section_skill">Skills Ratings</h4>
+                    <div class="ie-rating-list" id="ieRatingList_ws"></div>
+                </section>
+                <section class="ie-rating-section">
+                    <h4 class="ie-rating-h lang-text" data-key="ie_rating_section_effort">Effort Ratings</h4>
+                    <div class="ie-rating-list" id="ieRatingList_we"></div>
+                </section>
+                <section class="ie-rating-section">
+                    <h4 class="ie-rating-h lang-text" data-key="ie_rating_section_cond">Condition Ratings</h4>
+                    <div class="ie-rating-list" id="ieRatingList_wc"></div>
+                </section>
+                <section class="ie-rating-section">
+                    <h4 class="ie-rating-h lang-text" data-key="ie_rating_section_cons">Consistency Ratings</h4>
+                    <div class="ie-rating-list" id="ieRatingList_wcon"></div>
+                </section>
+            </div>
+
+            <div class="ie-rating-summary">
+                <span class="lang-text" data-key="ie_rating_composite">Composite Rating</span>
+                <strong id="ieRatingSummary">100%</strong>
+            </div>
+        </div>
+
+        <div class="ie-rating-actions">
+            <button type="button" class="ie-cta-btn" data-action="ie-rating-close">
+                <span class="lang-text" data-key="ie_rating_done">เสร็จสิ้น</span>
+            </button>
+        </div>
     </div>
 </div>
 

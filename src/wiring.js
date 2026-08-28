@@ -16,6 +16,9 @@ import {
     swSaveToForm, swDeleteLap, openTsConfigModal, closeTsConfigModal,
     tsSetConfidence, tsApplyPreset, finishOnboarding, onboardNext, openFeedbackModal,
     setTrainCurve,
+    ieElemAdd, ieElemDel, ieStart, ieBackToSetup, ieStartStop,
+    ieTap, ieUndo, ieSaveToForm,
+    openIeRatingModal, closeIeRatingModal, ieRatingNone,
 } from './app.js';
 import { openHistoryModal } from './history.js';
 import { setChartMode } from './chart.js';
@@ -63,6 +66,18 @@ const ACTIONS = {
     'ts-close':     () => closeTsConfigModal(),
     'ts-conf':      arg => tsSetConfidence(Number(arg)),
     'ts-preset':    arg => tsApplyPreset(arg),
+    // IE Time Study mode
+    'ie-elem-add':      () => ieElemAdd(),
+    'ie-elem-del':      arg => ieElemDel(Number(arg)),
+    'ie-start':         () => ieStart(),
+    'ie-back-to-setup': () => ieBackToSetup(),
+    'ie-startstop':     () => ieStartStop(),
+    'ie-tap':           () => ieTap(),
+    'ie-undo':          () => ieUndo(),
+    'ie-save':          () => ieSaveToForm(),
+    'ie-rating-open':   arg => openIeRatingModal(Number(arg)),
+    'ie-rating-close':  () => closeIeRatingModal(),
+    'ie-rating-none':   () => ieRatingNone(),
     // onboarding
     'onboard-finish': () => finishOnboarding(),
     'onboard-next':   () => onboardNext(),

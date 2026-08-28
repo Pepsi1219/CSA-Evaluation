@@ -17,7 +17,7 @@
 import { APP_VERSION } from './version.js';
 import { translations } from './translations.js';
 import {
-    initGA4, initTheme, restoreFormState, restoreStopwatchState,
+    initGA4, initTheme, restoreFormState, restoreStopwatchState, restoreIEState,
     _bumpSessionCount, drainFeedbackQueue, showOnboardingIfNeeded,
     changeLanguage, calculateAll, _flushHeavyUpdate, loadWebFonts,
     FLAG_SVG,
@@ -141,6 +141,7 @@ let _appStarted = false;
 function runAppInit() {
     restoreFormState();
     restoreStopwatchState();
+    restoreIEState();
     _bumpSessionCount();
     drainFeedbackQueue();
     showOnboardingIfNeeded();

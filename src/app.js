@@ -17,6 +17,10 @@ import {
     T_TABLE, tsTValue, computeSampleSize,
     csvEscape, csvRow, csvBuild,
 } from './timeutil.js';
+import {
+    WESTINGHOUSE, WESTINGHOUSE_LABELS, ratingFactor,
+    elementTimesFromReadings, computeStudy,
+} from './ie.js';
 import { translations } from './translations.js';
 import {
     currentLang, setCurrentLang, t, gaTrack,
@@ -156,6 +160,7 @@ function swSyncDomFromState() {
     // Mode tabs
     if (el('swTabLap'))    el('swTabLap').classList.toggle('active',    sw.mode === 'lap');
     if (el('swTabSingle')) el('swTabSingle').classList.toggle('active', sw.mode === 'single');
+    if (el('swTabIE'))     el('swTabIE').classList.toggle('active',     sw.mode === 'ie');
     // Main display
     if (el('swDisplay')) el('swDisplay').textContent = fmtSw(sw.elapsed);
     // Laps list + section visibility
@@ -220,6 +225,8 @@ export function openStopwatchModal() {
     document.body.style.overflow = 'hidden';
     swSyncDomFromState();   // restore display, laps, mode tabs, stats from persisted state
     swUpdateUI();
+    // Reflect current mode's panel visibility (also renders IE panels when active)
+    _swSyncModePanels();
     swSetupKeyboardWatch();
 }
 
@@ -232,6 +239,16 @@ export function closeStopwatchModal() {
         sw.running = false;
         sw.paused  = true;
         swUpdateUI();
+    }
+    if (ie.running) {
+        // Same policy for IE: freeze the continuous clock; the user resumes
+        // from the same tap count on reopen. Do NOT auto-finalize — the
+        // operator hasn't seen the last element they were about to tap yet.
+        ieCancelTick();
+        ie.elapsed = performance.now() - ie.startTs;
+        ie.running = false;
+        ie.paused  = true;
+        saveIEState();
     }
     document.getElementById('swModal').style.display = 'none';
     document.body.style.overflow = '';
@@ -265,12 +282,51 @@ function swTeardownKeyboardWatch() {
 }
 
 export function swSetMode(mode) {
-    if (sw.elapsed > 0) return; // cannot change mode after timing has started
+    if (mode !== 'lap' && mode !== 'single' && mode !== 'ie') return;
+    // Guard: while a timer is actively counting, don't let a stray tab-tap wipe
+    // it. Stopwatch guard = sw.elapsed>0; IE guard = readings recorded.
+    if (mode !== 'ie' && sw.elapsed > 0) return;
+    if (mode === 'ie'  && ie.running) return;
+
     sw.mode = mode;
-    document.getElementById('swTabLap').classList.toggle('active', mode === 'lap');
-    document.getElementById('swTabSingle').classList.toggle('active', mode === 'single');
-    swUpdateUI();
-    saveStopwatchState();
+    document.getElementById('swTabLap')?.classList.toggle('active',    mode === 'lap');
+    document.getElementById('swTabSingle')?.classList.toggle('active', mode === 'single');
+    document.getElementById('swTabIE')?.classList.toggle('active',     mode === 'ie');
+    _swSyncModePanels();
+    if (mode !== 'ie') {
+        swUpdateUI();
+        saveStopwatchState();
+    }
+}
+
+// Show/hide the top-level panels that belong to each mode. Lap/Single reuse
+// the classic stopwatch chrome; IE swaps in one of three IE panels driven by
+// ie.setupDone / ie.finalized.
+function _swSyncModePanels() {
+    const g = id => document.getElementById(id);
+    const stopwatchEls = [
+        g('swTimerWrap') || document.querySelector('.sw-timer-wrap'),
+        document.querySelector('.sw-controls'),
+    ];
+    const isIE = sw.mode === 'ie';
+    stopwatchEls.forEach(el => { if (el) el.style.display = isIE ? 'none' : ''; });
+    // Stats/lap/save panels only reveal themselves in stopwatch flow; hide
+    // hard when we swap to IE regardless of their prior state.
+    if (isIE) {
+        ['swStatsPanel', 'swLapSection', 'swSavePanel'].forEach(id => {
+            const el = g(id); if (el) el.style.display = 'none';
+        });
+    }
+    // IE panels
+    g('ieSetupPanel')  && (g('ieSetupPanel').style.display   = isIE && !ie.setupDone  ? 'block' : 'none');
+    g('ieCapturePanel')&& (g('ieCapturePanel').style.display = isIE &&  ie.setupDone && !ie.finalized ? 'block' : 'none');
+    g('ieResultPanel') && (g('ieResultPanel').style.display  = isIE &&  ie.finalized ? 'block' : 'none');
+
+    if (isIE) {
+        if (!ie.setupDone) ieRenderSetup();
+        else if (ie.finalized) ieRenderResult();
+        else ieRenderCapture();
+    }
 }
 
 export function swStartStop() {
@@ -792,6 +848,730 @@ function renderTTable() {
     }).join('');
 }
 
+// ============================================================
+// IE — Time Study mode: Continuous Timing + Westinghouse rating +
+// P/F/D allowances → per-element Standard Time → Total ST → SAM.
+// Setup / capture / result each live in their own panel inside
+// #swModal; _swSyncModePanels() decides which is visible.
+// ============================================================
+const STORAGE_KEY_IE = 'csa_ie_v1';
+const IE_ELEM_MAX = 20;
+const IE_ROUNDS_MAX = 200;
+const IE_READINGS_MAX = IE_ELEM_MAX * IE_ROUNDS_MAX;
+const IE_DEFAULT_RANK = { ws:'D', we:'D', wc:'D', wcon:'D' };
+// Preset element names — the 4 garment-line staples for the shop-floor
+// operator. `__custom__` reveals a text input for anything else. The
+// preset key doubles as the translation-key suffix (`ie_preset_<key>`).
+export const IE_PRESET_KEYS = ['pick', 'place', 'sew', 'inspect'];
+export const IE_PRESET_CUSTOM = '__custom__';
+
+// Each element carries `rated: false` by default — user has not opened the
+// Rating picker yet, so we treat the observed time as Normal Time (RF = 1.00).
+// The stored rank codes are only consumed when `rated === true`.
+// `preset` is one of IE_PRESET_KEYS or IE_PRESET_CUSTOM. When custom, `name`
+// holds the user-typed label; otherwise `name` is unused and the label is
+// resolved through t() so it re-translates on language switch.
+const _ieMakeElem = (preset = IE_PRESET_CUSTOM, name = '') => ({
+    preset, name, rated: false, ...IE_DEFAULT_RANK,
+});
+
+// Reverse-lookup: given a display string (from an old record that only
+// stored `name`), return the matching preset key if any language's label
+// matches, else null. Used only on restore to keep old data snapping to
+// presets rather than falling through to custom.
+function _ieMatchPreset(displayName) {
+    const s = (displayName || '').trim();
+    if (!s) return null;
+    for (const key of IE_PRESET_KEYS) {
+        for (const lang of Object.keys(translations)) {
+            if (translations[lang]?.[`ie_preset_${key}`] === s) return key;
+        }
+    }
+    return null;
+}
+
+// Resolve an element's display label — translated preset, or the user's
+// custom text, or an "#N" fallback so the row is never nameless.
+function _ieElemLabel(e, idx1based) {
+    if (!e) return `#${idx1based}`;
+    if (e.preset && e.preset !== IE_PRESET_CUSTOM && IE_PRESET_KEYS.includes(e.preset)) {
+        return t(`ie_preset_${e.preset}`);
+    }
+    const custom = (e.name || '').trim();
+    return custom || `#${idx1based}`;
+}
+
+const ie = {
+    // setup
+    setupDone: false,
+    rounds:    10,
+    elements:  IE_PRESET_KEYS.map(k => _ieMakeElem(k)),
+    allowance: { personal: 5, fatigue: 5, delay: 5 },
+    // capture
+    running:   false,
+    paused:    false,
+    finalized: false,
+    startTs:   null,
+    elapsed:   0,
+    readings:  [],   // cumulative ms per tap
+};
+
+// rAF ticker refs (separate from stopwatch's — the two clocks are mutually
+// exclusive via mode, but keeping the refs apart avoids accidental cross-wire).
+let _ieRafId = null;
+let _ieRafLast = 0;
+let _ieDispEl = null;
+
+function saveIEState() {
+    try {
+        // Nothing meaningful to persist yet → clear so a stale entry can't
+        // resurrect an empty setup after reset.
+        if (!ie.setupDone && ie.readings.length === 0
+            && !ie.elements.some(e => (e.name || '').trim() !== '')
+            && ie.rounds === 10) {
+            localStorage.removeItem(STORAGE_KEY_IE);
+            return;
+        }
+        localStorage.setItem(STORAGE_KEY_IE, JSON.stringify({
+            setupDone: !!ie.setupDone,
+            rounds:    ie.rounds,
+            elements:  ie.elements.slice(),
+            allowance: { ...ie.allowance },
+            finalized: !!ie.finalized,
+            elapsed:   ie.elapsed,
+            readings:  ie.readings.slice(),
+        }));
+    } catch (_) { /* private / quota — silent */ }
+}
+
+export function restoreIEState() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY_IE);
+        if (!raw) return;
+        const s = JSON.parse(raw);
+        if (!s || typeof s !== 'object') return;
+        ie.setupDone = !!s.setupDone;
+        ie.rounds    = Number.isFinite(s.rounds) && s.rounds > 0
+            ? Math.min(IE_ROUNDS_MAX, Math.floor(s.rounds)) : 10;
+        ie.elements  = Array.isArray(s.elements) && s.elements.length
+            ? s.elements.slice(0, IE_ELEM_MAX).map(e => {
+                // Migrate old records that stored only `name`. If the name
+                // matches one of the preset translations in any language we
+                // treat it as that preset; otherwise it stays custom.
+                let preset = e?.preset;
+                if (!preset) preset = _ieMatchPreset(e?.name) || IE_PRESET_CUSTOM;
+                if (preset !== IE_PRESET_CUSTOM && !IE_PRESET_KEYS.includes(preset)) {
+                    preset = IE_PRESET_CUSTOM;
+                }
+                return {
+                    preset,
+                    name:  String(e?.name ?? ''),
+                    rated: !!e?.rated,
+                    ws:    String(e?.ws   ?? 'D'),
+                    we:    String(e?.we   ?? 'D'),
+                    wc:    String(e?.wc   ?? 'D'),
+                    wcon:  String(e?.wcon ?? 'D'),
+                };
+              })
+            : IE_PRESET_KEYS.map(k => _ieMakeElem(k));
+        ie.allowance = {
+            personal: Number(s.allowance?.personal) || 0,
+            fatigue:  Number(s.allowance?.fatigue)  || 0,
+            delay:    Number(s.allowance?.delay)    || 0,
+        };
+        ie.elapsed   = Number.isFinite(s.elapsed) ? s.elapsed : 0;
+        ie.readings  = Array.isArray(s.readings)
+            ? s.readings.filter(n => Number.isFinite(n)).slice(0, IE_READINGS_MAX)
+            : [];
+        ie.running   = false;
+        ie.finalized = !!s.finalized;
+        ie.paused    = ie.setupDone && !ie.finalized && (ie.elapsed > 0 || ie.readings.length > 0);
+    } catch (_) { /* corrupt — start fresh */ }
+}
+
+// Escape user-supplied element names before interpolation into innerHTML —
+// avoids an XSS vector via a text input the operator could paste HTML into.
+function _ieEsc(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// ---- IE: rAF ticker ----
+function ieScheduleTick() {
+    ieCancelTick();
+    _ieDispEl = null;
+    _ieRafLast = 0;
+    _ieRafId = requestAnimationFrame(_ieRafLoop);
+}
+function ieCancelTick() {
+    if (_ieRafId !== null) cancelAnimationFrame(_ieRafId);
+    _ieRafId = null;
+}
+function _ieRafLoop(ts) {
+    if (ts - _ieRafLast >= 33) {
+        _ieRafLast = ts;
+        ie.elapsed = performance.now() - ie.startTs;
+        if (!_ieDispEl || !_ieDispEl.isConnected) _ieDispEl = document.getElementById('ieDisplay');
+        if (_ieDispEl) _ieDispEl.textContent = fmtSw(ie.elapsed);
+    }
+    if (ie.running) _ieRafId = requestAnimationFrame(_ieRafLoop);
+    else _ieRafId = null;
+}
+
+// ---- IE: setup panel ----
+function _ieClampInt(raw, min, max) {
+    const n = parseInt(String(raw ?? '').replace(',', '.'), 10);
+    if (!Number.isFinite(n)) return min;
+    return Math.max(min, Math.min(max, n));
+}
+function _ieClampFloat(raw) {
+    const n = parseFloat(String(raw ?? '').replace(',', '.'));
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return Math.min(95, n);
+}
+
+function ieRenderSetup() {
+    const g = id => document.getElementById(id);
+    // Values → inputs (only when they differ, so focus + numpad don't fight it)
+    const rIn = g('ieRoundsInput');    if (rIn && rIn.value !== String(ie.rounds))            rIn.value = String(ie.rounds);
+    const cIn = g('ieElemCountInput'); if (cIn && cIn.value !== String(ie.elements.length))   cIn.value = String(ie.elements.length);
+    const setAlw = (id, v) => { const el = g(id); if (el && el.value !== String(v)) el.value = String(v); };
+    setAlw('ieAlwPersonal', ie.allowance.personal);
+    setAlw('ieAlwFatigue',  ie.allowance.fatigue);
+    setAlw('ieAlwDelay',    ie.allowance.delay);
+    const alwTot = ie.allowance.personal + ie.allowance.fatigue + ie.allowance.delay;
+    const alwTotEl = g('ieAlwTotal');
+    if (alwTotEl) alwTotEl.textContent = `${alwTot.toFixed(alwTot % 1 === 0 ? 0 : 1)}%`;
+    // Element list — preset dropdown + optional custom text. Performance
+    // Rating is captured AFTER timing (in the result panel), so setup stays
+    // quick to fill on the shop floor.
+    const list = g('ieElemList');
+    if (!list) return;
+    const presetOpts = IE_PRESET_KEYS
+        .map(k => `<option value="${k}">${_ieEsc(t(`ie_preset_${k}`))}</option>`)
+        .concat(`<option value="${IE_PRESET_CUSTOM}">${_ieEsc(t('ie_preset_custom'))}</option>`)
+        .join('');
+    list.innerHTML = ie.elements.map((e, i) => {
+        const isCustom = e.preset === IE_PRESET_CUSTOM;
+        return `
+        <div class="ie-elem-row" data-idx="${i}">
+            <div class="ie-elem-row-head">
+                <span class="ie-elem-badge">${i + 1}</span>
+                <select class="ie-elem-preset" data-ie-preset="${i}">${presetOpts}</select>
+                <button type="button" class="ie-elem-del" data-action="ie-elem-del" data-arg="${i}"
+                        aria-label="${_ieEsc(t('ie_del_elem'))}" title="${_ieEsc(t('ie_del_elem'))}">×</button>
+            </div>
+            <input type="text" class="ie-elem-name-custom" data-ie-name="${i}"
+                   placeholder="${_ieEsc(t('ie_elem_name_ph'))}" value="${_ieEsc(e.name || '')}"
+                   style="display:${isCustom ? 'block' : 'none'};">
+        </div>
+        `;
+    }).join('');
+    // Restore each select's active option (innerHTML dropped the "selected" state)
+    list.querySelectorAll('select[data-ie-preset]').forEach(sel => {
+        const i = Number(sel.dataset.iePreset);
+        if (ie.elements[i]) sel.value = ie.elements[i].preset || IE_PRESET_CUSTOM;
+    });
+    // Clear any prior error
+    const err = g('ieSetupError'); if (err) { err.style.display = 'none'; err.textContent = ''; }
+}
+
+// Delegated listeners for the setup form (bound once — see IIFE at bottom).
+function _ieOnSetupInput(e) {
+    const t = e.target;
+    if (!t) return;
+    if (t.id === 'ieRoundsInput') {
+        ie.rounds = _ieClampInt(t.value, 1, IE_ROUNDS_MAX);
+        saveIEState();
+        return;
+    }
+    if (t.id === 'ieElemCountInput') {
+        const next = _ieClampInt(t.value, 1, IE_ELEM_MAX);
+        ieSetElemCount(next);
+        return;
+    }
+    if (t.id === 'ieAlwPersonal') { ie.allowance.personal = _ieClampFloat(t.value); _ieRefreshAlwTotal(); saveIEState(); return; }
+    if (t.id === 'ieAlwFatigue')  { ie.allowance.fatigue  = _ieClampFloat(t.value); _ieRefreshAlwTotal(); saveIEState(); return; }
+    if (t.id === 'ieAlwDelay')    { ie.allowance.delay    = _ieClampFloat(t.value); _ieRefreshAlwTotal(); saveIEState(); return; }
+    if (t.dataset.ieName !== undefined) {
+        const i = Number(t.dataset.ieName);
+        if (ie.elements[i]) { ie.elements[i].name = t.value; saveIEState(); }
+        return;
+    }
+}
+// Preset dropdown change → swap preset and toggle the custom text input.
+function _ieOnSetupChange(e) {
+    const el = e.target;
+    if (!el || el.dataset.iePreset === undefined) return;
+    const i = Number(el.dataset.iePreset);
+    if (!ie.elements[i]) return;
+    const next = el.value === IE_PRESET_CUSTOM || IE_PRESET_KEYS.includes(el.value)
+        ? el.value : IE_PRESET_CUSTOM;
+    ie.elements[i].preset = next;
+    // Reveal / hide the sibling custom text input without re-rendering the
+    // whole list (avoids collapsing an active numpad or losing focus).
+    const row = el.closest('.ie-elem-row');
+    const custom = row?.querySelector('.ie-elem-name-custom');
+    if (custom) custom.style.display = next === IE_PRESET_CUSTOM ? 'block' : 'none';
+    saveIEState();
+}
+function _ieRefreshAlwTotal() {
+    const el = document.getElementById('ieAlwTotal');
+    if (!el) return;
+    const tot = ie.allowance.personal + ie.allowance.fatigue + ie.allowance.delay;
+    el.textContent = `${tot.toFixed(tot % 1 === 0 ? 0 : 1)}%`;
+}
+
+function ieSetElemCount(n) {
+    n = Math.max(1, Math.min(IE_ELEM_MAX, n));
+    if (n === ie.elements.length) return;
+    if (n > ie.elements.length) {
+        while (ie.elements.length < n) ie.elements.push(_ieMakeElem());
+    } else {
+        ie.elements.length = n;
+    }
+    ieRenderSetup();
+    saveIEState();
+}
+
+export function ieElemAdd() {
+    if (ie.elements.length >= IE_ELEM_MAX) return;
+    ie.elements.push(_ieMakeElem());
+    const cIn = document.getElementById('ieElemCountInput');
+    if (cIn) cIn.value = String(ie.elements.length);
+    ieRenderSetup();
+    saveIEState();
+}
+export function ieElemDel(idx) {
+    if (ie.elements.length <= 1) return;
+    if (idx < 0 || idx >= ie.elements.length) return;
+    ie.elements.splice(idx, 1);
+    const cIn = document.getElementById('ieElemCountInput');
+    if (cIn) cIn.value = String(ie.elements.length);
+    ieRenderSetup();
+    saveIEState();
+}
+
+// ---- IE: transitions ----
+export function ieStart() {
+    // Validate: rounds ≥ 1 and every element has a name.
+    if (!(ie.rounds >= 1)) {
+        _ieShowSetupError(t('ie_setup_error_rounds')); return;
+    }
+    if (!ie.elements.length
+        || ie.elements.some(e => e.preset === IE_PRESET_CUSTOM && (e.name || '').trim() === '')) {
+        _ieShowSetupError(t('ie_setup_error_elem')); return;
+    }
+    ie.setupDone = true;
+    ie.finalized = false;
+    ie.readings  = [];
+    ie.elapsed   = 0;
+    ie.running   = false;
+    ie.paused    = false;
+    gaTrack('ie_start_capture', { cycles: ie.rounds, elements: ie.elements.length });
+    _swSyncModePanels();
+    saveIEState();
+}
+
+function _ieShowSetupError(msg) {
+    const err = document.getElementById('ieSetupError');
+    if (!err) return;
+    err.textContent = msg;
+    err.style.display = 'block';
+}
+
+export function ieBackToSetup() {
+    // If the user goes back with readings recorded, confirm — otherwise the
+    // continuous timing series they collected is thrown away.
+    const hasData = ie.readings.length > 0 || ie.elapsed > 0;
+    const doReset = () => {
+        ieCancelTick();
+        ie.setupDone = false;
+        ie.finalized = false;
+        ie.running   = false;
+        ie.paused    = false;
+        ie.startTs   = null;
+        ie.elapsed   = 0;
+        ie.readings  = [];
+        _swSyncModePanels();
+        saveIEState();
+    };
+    if (hasData) showConfirm(t('ie_back_to_setup'), t('ie_reset_confirm'), doReset);
+    else doReset();
+}
+
+export function ieStartStop() {
+    const total = ie.rounds * ie.elements.length;
+    if (!ie.running && !ie.finalized) {
+        // Start or resume
+        ie.running = true;
+        ie.startTs = performance.now() - ie.elapsed;
+        ieScheduleTick();
+        gaTrack('ie_startstop', { action: 'start', taps: ie.readings.length });
+    } else if (ie.running) {
+        // Stop — freeze and (if any readings) finalize.
+        ieCancelTick();
+        ie.elapsed = performance.now() - ie.startTs;
+        ie.running = false;
+        ie.paused  = false;
+        if (ie.readings.length > 0) ieFinalize();
+        gaTrack('ie_startstop', { action: 'stop', taps: ie.readings.length, total });
+    }
+    _ieUpdateCaptureControls();
+    saveIEState();
+}
+
+export function ieTap() {
+    if (!ie.running) return;
+    const total = ie.rounds * ie.elements.length;
+    if (ie.readings.length >= total) return;   // already full — Stop is next
+    // Snap to 10 ms so stored value == displayed value.
+    const snapped = snapLapMs(performance.now() - ie.startTs);
+    ie.readings.push(snapped);
+    // Auto-finalize on the last tap so the operator doesn't hunt for Stop.
+    if (ie.readings.length >= total) {
+        ieCancelTick();
+        ie.elapsed = performance.now() - ie.startTs;
+        ie.running = false;
+        ieFinalize();
+    }
+    ieRenderCapture();
+    saveIEState();
+}
+
+export function ieUndo() {
+    if (ie.readings.length === 0) return;
+    ie.readings.pop();
+    ieRenderCapture();
+    saveIEState();
+}
+
+function ieFinalize() {
+    ie.finalized = true;
+    _swSyncModePanels();
+}
+
+// ---- IE: capture rendering ----
+function _ieCurrentPosition() {
+    const total = ie.rounds * ie.elements.length;
+    const nElems = ie.elements.length;
+    const done = ie.readings.length;
+    if (done >= total) return { cycle: ie.rounds, elemIdx: nElems, complete: true, total, done };
+    const cycle = Math.floor(done / nElems) + 1;
+    const elemIdx = (done % nElems) + 1;
+    return { cycle, elemIdx, complete: false, total, done };
+}
+
+function ieRenderCapture() {
+    const g = id => document.getElementById(id);
+    const dispEl = g('ieDisplay');
+    if (dispEl) dispEl.textContent = fmtSw(ie.elapsed);
+    const pos = _ieCurrentPosition();
+    const headerEl = g('ieCaptureHeader');
+    if (headerEl) {
+        if (pos.complete) {
+            headerEl.textContent = t('ie_capture_done');
+        } else {
+            const name = _ieElemLabel(ie.elements[pos.elemIdx - 1], pos.elemIdx);
+            headerEl.textContent = t('ie_capture_header')
+                .replace('{cur}', pos.cycle).replace('{tot}', ie.rounds)
+                .replace('{name}', name)
+                .replace('{e}', pos.elemIdx).replace('{n}', ie.elements.length);
+        }
+    }
+    const progEl = g('ieProgressLabel');
+    if (progEl) progEl.textContent = t('ie_progress_label')
+        .replace('{done}', pos.done).replace('{total}', pos.total);
+    _ieUpdateCaptureControls();
+    _ieRenderLiveTable();
+}
+
+function _ieUpdateCaptureControls() {
+    const g = id => document.getElementById(id);
+    const startBtn = g('ieStartStopBtn');
+    const tapBtn   = g('ieTapBtn');
+    const undoBtn  = g('ieUndoBtn');
+    const pos = _ieCurrentPosition();
+    if (startBtn) {
+        const label = startBtn.querySelector('.lang-text');
+        if (ie.running) {
+            startBtn.className = 'sw-modal-btn sw-btn-stop';
+            if (label) { label.textContent = t('sw_stop'); label.dataset.key = 'sw_stop'; }
+        } else if (ie.finalized) {
+            startBtn.className = 'sw-modal-btn sw-btn-secondary sw-btn-disabled';
+            startBtn.disabled = true;
+        } else {
+            startBtn.className = 'sw-modal-btn sw-btn-start';
+            startBtn.disabled = false;
+            if (label) {
+                const key = ie.elapsed > 0 ? 'sw_resume' : 'sw_start';
+                label.textContent = t(key); label.dataset.key = key;
+            }
+        }
+    }
+    if (tapBtn) {
+        const disabled = !ie.running || pos.complete;
+        tapBtn.disabled = disabled;
+        tapBtn.classList.toggle('sw-btn-disabled', disabled);
+    }
+    if (undoBtn) {
+        undoBtn.disabled = ie.readings.length === 0 || ie.running;
+        undoBtn.classList.toggle('sw-btn-disabled', undoBtn.disabled);
+    }
+}
+
+function _ieRenderLiveTable() {
+    const tbl = document.getElementById('ieLiveTable');
+    if (!tbl) return;
+    const N = ie.elements.length;
+    if (N === 0) { tbl.innerHTML = ''; return; }
+    // Header
+    let html = '<thead><tr><th>#</th>';
+    for (let c = 1; c <= ie.rounds; c++) html += `<th>${c}</th>`;
+    html += '</tr></thead><tbody>';
+    // Per-element rows
+    const matrix = elementTimesFromReadings(ie.readings, N);
+    for (let e = 0; e < N; e++) {
+        const label = _ieEsc(_ieElemLabel(ie.elements[e], e + 1));
+        html += `<tr><th title="${label}">${label}</th>`;
+        for (let c = 0; c < ie.rounds; c++) {
+            const v = matrix[c]?.[e];
+            html += `<td>${Number.isFinite(v) ? fmtSec2(v) : '·'}</td>`;
+        }
+        html += '</tr>';
+    }
+    html += '</tbody>';
+    tbl.innerHTML = html;
+}
+
+// ---- IE: result rendering ----
+let _ieLastStudy = null;
+
+function ieRenderResult() {
+    const N = ie.elements.length;
+    const matrix = elementTimesFromReadings(ie.readings, N);
+    // Elements that haven't been rated yet are treated as Normal Pace
+    // (RF = 1.00) — the picker records the user's choice on top afterwards.
+    const ranks = ie.elements.map(e => (
+        e.rated ? { ws: e.ws, we: e.we, wc: e.wc, wcon: e.wcon } : { ...IE_DEFAULT_RANK }
+    ));
+    const study = computeStudy(matrix, ranks, ie.allowance);
+    _ieLastStudy = study;
+
+    const tbl = document.getElementById('ieResultTable');
+    if (tbl) {
+        let html = '<thead><tr>'
+            + `<th>${_ieEsc(t('ie_result_col_elem'))}</th>`
+            + `<th>${_ieEsc(t('ie_result_col_mean'))}</th>`
+            + `<th>${_ieEsc(t('ie_result_col_sd'))}</th>`
+            + `<th>${_ieEsc(t('ie_result_col_rf'))}</th>`
+            + `<th>${_ieEsc(t('ie_result_col_nt'))}</th>`
+            + `<th>${_ieEsc(t('ie_result_col_st'))}</th>`
+            + `<th>${_ieEsc(t('ie_result_col_nreq_t'))}</th>`
+            + `<th>${_ieEsc(t('ie_result_col_nreq_m'))}</th>`
+            + '</tr></thead><tbody>';
+        study.rows.forEach((r, i) => {
+            const elem = ie.elements[i];
+            const name = _ieEsc(_ieElemLabel(elem, i + 1));
+            const btnLabel = elem?.rated
+                ? `${(r.rf * 100).toFixed(0)}%`
+                : _ieEsc(t('ie_rating_btn_unrated'));
+            const btnCls = 'ie-rating-btn' + (elem?.rated ? ' ie-rating-btn-set' : '');
+            html += '<tr>'
+                + `<td class="ie-r-name">${name}</td>`
+                + `<td>${fmtSec2(r.meanMs)}</td>`
+                + `<td>${fmtSec4(r.sdMs)}</td>`
+                + `<td><button type="button" class="${btnCls}" data-action="ie-rating-open" data-arg="${i}">${btnLabel}</button></td>`
+                + `<td>${fmtSec2(r.ntMs)}</td>`
+                + `<td class="ie-r-st">${fmtSec2(r.stMs)}</td>`
+                + `<td>${r.requiredNT || '·'}</td>`
+                + `<td>${r.requiredNMaytag || '·'}</td>`
+                + '</tr>';
+        });
+        html += '</tbody>';
+        tbl.innerHTML = html;
+    }
+    // Sample-size warnings
+    const warnEl = document.getElementById('ieResultWarnings');
+    if (warnEl) {
+        const rows = study.rows
+            .map((r, i) => ({ i, r, name: _ieElemLabel(ie.elements[i], i + 1) }))
+            .filter(x => x.r.requiredNT > x.r.n);
+        if (rows.length) {
+            warnEl.innerHTML = rows.map(({ name, r }) => {
+                const line = _ieEsc(t('ie_result_warn_more')
+                    .replace('{n}', r.n).replace('{req}', r.requiredNT));
+                return `<div class="ie-warn-row"><strong>${_ieEsc(name)}</strong> — ${line}</div>`;
+            }).join('');
+            warnEl.style.display = 'block';
+        } else {
+            warnEl.innerHTML = '';
+            warnEl.style.display = 'none';
+        }
+    }
+    // Totals
+    const totEl = document.getElementById('ieResultTotals');
+    if (totEl) {
+        const totalStMin = study.totalStandardMs / 60000;
+        const totalStSec = study.totalStandardMs / 1000;
+        totEl.innerHTML = `
+            <div class="ie-total-row">
+                <span>${t('ie_result_allowance')}</span>
+                <span>${study.totalAllowancePct.toFixed(study.totalAllowancePct % 1 === 0 ? 0 : 1)}%</span>
+            </div>
+            <div class="ie-total-row">
+                <span>${t('ie_result_total_st_sec')}</span>
+                <span>${totalStSec.toFixed(2)} s</span>
+            </div>
+            <div class="ie-total-row ie-total-hero">
+                <span>${t('ie_result_total_st_min')}</span>
+                <span><strong>${totalStMin.toFixed(4)}</strong> ${t('unit_min')}</span>
+            </div>`;
+    }
+}
+
+// ---- IE: save to main form ----
+export function ieSaveToForm() {
+    if (!_ieLastStudy) return;
+    const totalStMin = _ieLastStudy.totalStandardMs / 60000;
+    if (!(totalStMin > 0)) return;
+    // Route: SAM must be in minutes (Standard Time is a per-piece minute value).
+    // Switch unit to 'min' first (no conversion) so the field's meaning is
+    // clear, then write the value and trigger the full recalc pipeline.
+    setSamUnit('min', false);
+    const samEl = document.getElementById('samInput');
+    if (samEl) {
+        samEl.value = trimNum(totalStMin);
+        samEl.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    gaTrack('ie_save_sam', {
+        total_st_min: +totalStMin.toFixed(4),
+        elements:     ie.elements.length,
+        cycles:       ie.rounds,
+        allowance:    _ieLastStudy.totalAllowancePct,
+    });
+    closeStopwatchModal();
+}
+
+// ---- IE: Rating picker modal ----
+let _ieRatingElemIdx = null;
+
+// Which Westinghouse field goes with which element key + code universe.
+const _IE_RATING_FIELDS = [
+    { key: 'ws',   table: 'skill',       codes: Object.keys(WESTINGHOUSE.skill) },
+    { key: 'we',   table: 'effort',      codes: Object.keys(WESTINGHOUSE.effort) },
+    { key: 'wc',   table: 'conditions',  codes: Object.keys(WESTINGHOUSE.conditions) },
+    { key: 'wcon', table: 'consistency', codes: Object.keys(WESTINGHOUSE.consistency) },
+];
+
+export function openIeRatingModal(idx) {
+    idx = Number(idx);
+    if (!Number.isFinite(idx) || idx < 0 || idx >= ie.elements.length) return;
+    _ieRatingElemIdx = idx;
+    const elem = ie.elements[idx];
+    const modal = document.getElementById('ieRatingModal');
+    if (!modal) return;
+    const titleEl = document.getElementById('ieRatingTitle');
+    const rawName = _ieElemLabel(elem, idx + 1);
+    if (titleEl) titleEl.textContent = `${t('ie_rating_pick_title')} — ${rawName}`;
+    _ieRenderRatingLists();
+    _ieRefreshRatingSummary();
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    gaTrack('ie_open_rating', { element: idx, was_rated: !!elem.rated });
+}
+
+export function closeIeRatingModal() {
+    const modal = document.getElementById('ieRatingModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = 'hidden';   // sw modal is still open
+    _ieRatingElemIdx = null;
+    // Result table + totals must reflect any rating change the user made.
+    if (ie.finalized) ieRenderResult();
+}
+
+// Render the 4 code lists inside the picker. Each button carries data-ie-rp
+// with the field key + code so the delegated click handler can route it.
+function _ieRenderRatingLists() {
+    const elem = ie.elements[_ieRatingElemIdx];
+    if (!elem) return;
+    const noneBtn = document.querySelector('.ie-rating-none-btn');
+    if (noneBtn) noneBtn.classList.toggle('ie-rating-none-active', !elem.rated);
+
+    _IE_RATING_FIELDS.forEach(({ key, table, codes }) => {
+        const list = document.getElementById(`ieRatingList_${key}`);
+        if (!list) return;
+        const active = elem[key];
+        list.innerHTML = codes.map(code => {
+            const val = WESTINGHOUSE[table][code];
+            const sign = val > 0 ? '+' : (val < 0 ? '' : ' ');   // + for positive, blank for zero
+            const slug = WESTINGHOUSE_LABELS[table][code];
+            const label = _ieEsc(t(`ie_rating_lbl_${slug}`));
+            const isActive = elem.rated && active === code;
+            return `<button type="button" class="ie-rating-cell${isActive ? ' active' : ''}"
+                data-ie-rp="${key}" data-ie-rp-code="${code}">
+                <span class="ie-rating-val">${sign}${val.toFixed(2)}</span>
+                <span class="ie-rating-code">${code}</span>
+                <span class="ie-rating-lbl">${label}</span>
+            </button>`;
+        }).join('');
+    });
+}
+
+function _ieRefreshRatingSummary() {
+    const elem = ie.elements[_ieRatingElemIdx];
+    if (!elem) return;
+    const rf = elem.rated ? ratingFactor(elem) : 1;
+    const el = document.getElementById('ieRatingSummary');
+    if (el) el.textContent = elem.rated ? `${(rf * 100).toFixed(0)}%` : t('ie_rating_btn_unrated');
+}
+
+// User tapped a code cell — record it, mark rated, refresh visuals.
+export function ieRatingPick(field, code) {
+    if (_ieRatingElemIdx === null) return;
+    const elem = ie.elements[_ieRatingElemIdx];
+    if (!elem || !field || !code) return;
+    if (!_IE_RATING_FIELDS.some(f => f.key === field)) return;
+    elem[field] = code;
+    elem.rated = true;
+    _ieRenderRatingLists();
+    _ieRefreshRatingSummary();
+    saveIEState();
+    gaTrack('ie_pick_rating', { element: _ieRatingElemIdx, field, code });
+}
+
+// "ไม่ระบุ Rating" — reset to Normal Pace (RF=1.00).
+export function ieRatingNone() {
+    if (_ieRatingElemIdx === null) return;
+    const elem = ie.elements[_ieRatingElemIdx];
+    if (!elem) return;
+    elem.rated = false;
+    // Keep the codes as D/D/D/D so if the user re-rates later they see a sane
+    // starting point. `rated:false` is what tells the compute layer to use 1.00.
+    elem.ws = 'D'; elem.we = 'D'; elem.wc = 'D'; elem.wcon = 'D';
+    _ieRenderRatingLists();
+    _ieRefreshRatingSummary();
+    saveIEState();
+    gaTrack('ie_pick_rating', { element: _ieRatingElemIdx, field: 'none', code: 'none' });
+}
+
+// Delegated click for the rating cell buttons + backdrop dismiss.
+document.getElementById('ieRatingModal')?.addEventListener('click', e => {
+    if (e.target.id === 'ieRatingModal') { closeIeRatingModal(); return; }
+    const btn = e.target.closest('[data-ie-rp]');
+    if (!btn) return;
+    ieRatingPick(btn.dataset.ieRp, btn.dataset.ieRpCode);
+});
+
+// Bind the setup panel's inputs + preset selects (delegated so re-rendered
+// rows keep working).
+document.getElementById('ieSetupPanel')?.addEventListener('input', _ieOnSetupInput);
+document.getElementById('ieSetupPanel')?.addEventListener('change', _ieOnSetupChange);
+
 // ---- Export / Print ----
 export function printReport() {
     gaTrack('print_report');
@@ -971,6 +1751,16 @@ export function changeLanguage(lang) {
     // Re-render Time Study readouts (their text is built from t() at render time)
     if (document.getElementById('swStatsPanel')?.style.display === 'block') tsRecalculate();
     if (document.getElementById('tsConfigModal')?.style.display === 'flex') renderTTable();
+    // IE mode UI is JS-rendered via t() at render time — re-render the visible panel.
+    if (sw.mode === 'ie' && document.getElementById('swModal')?.style.display === 'flex') {
+        if (!ie.setupDone) ieRenderSetup();
+        else if (ie.finalized) ieRenderResult();
+        else ieRenderCapture();
+    }
+    if (document.getElementById('ieRatingModal')?.style.display === 'flex' && _ieRatingElemIdx !== null) {
+        // Reopen to refresh title + qualitative labels — same element index.
+        openIeRatingModal(_ieRatingElemIdx);
+    }
     // Tutorial content is rendered from JS (L() picks the language) — re-render if open.
     tutorialOnLangChange();
 }
@@ -1878,6 +2668,8 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         // Numpad sits above every other modal, so it swallows ESC first.
         if (document.getElementById('numpadModal')?.style.display === 'flex') { closeNumpad(); return; }
+        // Rating picker sits above the stopwatch modal — swallow ESC before it.
+        if (document.getElementById('ieRatingModal')?.style.display === 'flex') { closeIeRatingModal(); return; }
         if (document.getElementById('tutorialModal')?.style.display === 'flex') { tutBack(); return; }
         if (document.getElementById('settingsModal')?.style.display === 'flex') { closeSettingsModal(); return; }
         if (feedbackModal?.style.display === 'flex') closeFeedbackModal();

@@ -600,7 +600,10 @@ export function swSaveToForm() {
 // T_TABLE, tsTValue, and computeSampleSize live in timeutil.js so they can
 // be unit-tested from Node without a DOM. The runtime state here is only
 // the current user-chosen confidence + acceptable-error inputs.
-const _ts = { confidence: 95, error: 5 };
+// Default = QCO preset (95% / ±10%) — matches the initial `.active` card in
+// the config modal and the initial `value="10"` on tsErrorInput. Keep these
+// three in lock-step: any change here needs the same change in index.html.
+const _ts = { confidence: 95, error: 10 };
 
 export function tsSetConfidence(c) {
     _ts.confidence = c;

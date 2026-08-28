@@ -383,7 +383,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · <span id="appVersion">v1.25.0</span></p>
+    <p>© CSA Evaluation · <span id="appVersion">v1.25.1</span></p>
 </footer>
 
 <!-- ============ Back-to-Top Button ============ -->
@@ -687,20 +687,19 @@
             <div class="sw-config-section">
                 <div class="sw-config-label lang-text" data-key="ts_preset">ค่าเริ่มต้นที่ใช้บ่อย</div>
                 <div class="ts-preset-grid" id="tsPresetGrid" role="group" aria-label="Time Study presets">
-                    <button type="button" class="ts-preset-btn active" data-action="ts-preset" data-arg="95:5">
-                        <span class="ts-preset-name lang-text" data-key="ts_preset_std">มาตรฐาน IE</span>
+                    <button type="button" class="ts-preset-btn" data-action="ts-preset" data-arg="95:5">
+                        <span class="ts-preset-name">IE</span>
                         <span class="ts-preset-values">95% / ±5%</span>
                     </button>
-                    <button type="button" class="ts-preset-btn" data-action="ts-preset" data-arg="95:10">
-                        <span class="ts-preset-name lang-text" data-key="ts_preset_pilot">เก็บเบื้องต้น</span>
+                    <button type="button" class="ts-preset-btn active" data-action="ts-preset" data-arg="95:10">
+                        <span class="ts-preset-name">QCO</span>
                         <span class="ts-preset-values">95% / ±10%</span>
                     </button>
-                    <button type="button" class="ts-preset-btn" data-action="ts-preset" data-arg="99:3">
-                        <span class="ts-preset-name lang-text" data-key="ts_preset_audit">ตรวจสอบ / Audit</span>
-                        <span class="ts-preset-values">99% / ±3%</span>
+                    <button type="button" class="ts-preset-btn" data-action="ts-preset" data-arg="95:3">
+                        <span class="ts-preset-name">Audit</span>
+                        <span class="ts-preset-values">95% / ±3%</span>
                     </button>
                 </div>
-                <p class="sw-config-help lang-text" data-key="ts_preset_help">แตะเพื่อตั้งค่าทั้ง 2 ค่าล่างพร้อมกัน · ปรับเองด้านล่างได้ (จะกลายเป็น "กำหนดเอง")</p>
             </div>
 
             <!-- Confidence level -->
@@ -711,7 +710,6 @@
                     <button type="button" class="sw-ts-pill active" data-conf="95" data-action="ts-conf" data-arg="95">95%</button>
                     <button type="button" class="sw-ts-pill" data-conf="99" data-action="ts-conf" data-arg="99">99%</button>
                 </div>
-                <p class="sw-config-help lang-text" data-key="ts_confidence_help">ยิ่งสูง → ต้องการรอบมากขึ้นเพื่อให้มั่นใจว่าค่าเฉลี่ยที่วัดได้ถูกต้อง (มาตรฐานอุตสาหกรรมใช้ 95%)</p>
             </div>
 
             <!-- Acceptable error -->
@@ -719,17 +717,15 @@
                 <div class="sw-config-label lang-text" data-key="ts_error">ค่าคลาดเคลื่อนที่ยอมรับได้ (±%)</div>
                 <div class="sw-config-input-row">
                     <input type="text" id="tsErrorInput" class="sw-ts-error-input sw-ts-error-input-lg"
-                           inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="5"
+                           inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="10"
                            data-numpad="decimal" data-numpad-label="ts_error">
                     <span class="sw-config-input-suffix">%</span>
                 </div>
-                <p class="sw-config-help lang-text" data-key="ts_error_help">ยอมให้ค่าเฉลี่ยเพี้ยนได้กี่ % จากค่าจริง (มาตรฐานอุตสาหกรรมใช้ 5%)</p>
             </div>
 
             <!-- T-Distribution Table -->
             <div class="sw-config-section">
                 <div class="sw-config-label lang-text" data-key="ts_ttable_title">ตาราง T-Distribution</div>
-                <p class="sw-config-help lang-text" data-key="ts_ttable_note">แถวไฮไลต์คือ df ปัจจุบันของคุณ · คอลัมน์ไฮไลต์คือระดับความเชื่อมั่นที่เลือก (แบบสองหาง)</p>
                 <div class="sw-tt-wrap">
                     <table class="sw-tt-table">
                         <thead>

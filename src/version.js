@@ -11,7 +11,7 @@
 // Imported by main.js (footer), app.js (CSV row); test/version.test.js reads it.
 // ============================================================
 
-export const APP_VERSION = '1.27.0';
+export const APP_VERSION = '1.28.1';
 
 // Also expose as a global on the SW's self object so the service worker
 // (which is not an ES module here) can reference it. No-op in Node tests

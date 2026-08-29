@@ -287,7 +287,18 @@ export function swSetMode(mode) {
     // it. Stopwatch guard = sw.elapsed>0; IE guard = readings recorded.
     if (mode !== 'ie' && sw.elapsed > 0) return;
     if (mode === 'ie'  && ie.running) return;
+    // Switching INTO IE from another mode surfaces a one-tap gate so a
+    // non-IE user (CSA / QCO instructor doing Cycle Time) doesn't fall into
+    // the heavier element-by-element flow by accident. Re-tapping the IE tab
+    // while already in IE is a no-op and skips the gate.
+    if (mode === 'ie' && sw.mode !== 'ie') {
+        _ieShowIntroModal();
+        return;
+    }
+    _swApplyMode(mode);
+}
 
+function _swApplyMode(mode) {
     sw.mode = mode;
     document.getElementById('swTabLap')?.classList.toggle('active',    mode === 'lap');
     document.getElementById('swTabSingle')?.classList.toggle('active', mode === 'single');
@@ -297,6 +308,26 @@ export function swSetMode(mode) {
         swUpdateUI();
         saveStopwatchState();
     }
+}
+
+// ---- IE: intro gate ----
+function _ieShowIntroModal() {
+    const modal = document.getElementById('ieIntroModal');
+    if (!modal) { _swApplyMode('ie'); return; }
+    modal.style.display = 'flex';
+}
+function _ieHideIntroModal() {
+    const modal = document.getElementById('ieIntroModal');
+    if (modal) modal.style.display = 'none';
+}
+export function ieIntroConfirm() {
+    _ieHideIntroModal();
+    gaTrack('ie_intro_accept');
+    _swApplyMode('ie');
+}
+export function ieIntroCancel() {
+    _ieHideIntroModal();
+    gaTrack('ie_intro_cancel');
 }
 
 // Show/hide the top-level panels that belong to each mode. Lap/Single reuse
@@ -317,16 +348,20 @@ function _swSyncModePanels() {
             const el = g(id); if (el) el.style.display = 'none';
         });
     }
-    // IE panels
-    g('ieSetupPanel')  && (g('ieSetupPanel').style.display   = isIE && !ie.setupDone  ? 'block' : 'none');
-    g('ieCapturePanel')&& (g('ieCapturePanel').style.display = isIE &&  ie.setupDone && !ie.finalized ? 'block' : 'none');
-    g('ieResultPanel') && (g('ieResultPanel').style.display  = isIE &&  ie.finalized ? 'block' : 'none');
+    // IE panels: chooser → setup → capture → result. The chooser gates the
+    // rest; without a flow (SAM vs CT) there is nothing meaningful to set up.
+    const inChooser = isIE && !ie.flow;
+    const inSetup   = isIE &&  ie.flow && !ie.setupDone;
+    const inCapture = isIE &&  ie.flow &&  ie.setupDone && !ie.finalized;
+    const inResult  = isIE &&  ie.flow &&  ie.finalized;
+    g('ieChooserPanel')&& (g('ieChooserPanel').style.display = inChooser ? 'block' : 'none');
+    g('ieSetupPanel')  && (g('ieSetupPanel').style.display   = inSetup   ? 'block' : 'none');
+    g('ieCapturePanel')&& (g('ieCapturePanel').style.display = inCapture ? 'block' : 'none');
+    g('ieResultPanel') && (g('ieResultPanel').style.display  = inResult  ? 'block' : 'none');
 
-    if (isIE) {
-        if (!ie.setupDone) ieRenderSetup();
-        else if (ie.finalized) ieRenderResult();
-        else ieRenderCapture();
-    }
+    if (inSetup) ieRenderSetup();
+    else if (inCapture) ieRenderCapture();
+    else if (inResult) ieRenderResult();
 }
 
 export function swStartStop() {
@@ -902,6 +937,8 @@ function _ieElemLabel(e, idx1based) {
 }
 
 const ie = {
+    // flow: null (chooser) | 'sam' (Standard time) | 'ct' (Cycle Time observation)
+    flow:      null,
     // setup
     setupDone: false,
     rounds:    10,
@@ -925,14 +962,16 @@ let _ieDispEl = null;
 function saveIEState() {
     try {
         // Nothing meaningful to persist yet → clear so a stale entry can't
-        // resurrect an empty setup after reset.
-        if (!ie.setupDone && ie.readings.length === 0
+        // resurrect an empty chooser after reset. flow=null with default setup
+        // is the "fresh" state.
+        if (!ie.flow && !ie.setupDone && ie.readings.length === 0
             && !ie.elements.some(e => (e.name || '').trim() !== '')
             && ie.rounds === 10) {
             localStorage.removeItem(STORAGE_KEY_IE);
             return;
         }
         localStorage.setItem(STORAGE_KEY_IE, JSON.stringify({
+            flow:      ie.flow,
             setupDone: !!ie.setupDone,
             rounds:    ie.rounds,
             elements:  ie.elements.slice(),
@@ -950,6 +989,7 @@ export function restoreIEState() {
         if (!raw) return;
         const s = JSON.parse(raw);
         if (!s || typeof s !== 'object') return;
+        ie.flow      = (s.flow === 'sam' || s.flow === 'ct') ? s.flow : null;
         ie.setupDone = !!s.setupDone;
         ie.rounds    = Number.isFinite(s.rounds) && s.rounds > 0
             ? Math.min(IE_ROUNDS_MAX, Math.floor(s.rounds)) : 10;
@@ -985,6 +1025,8 @@ export function restoreIEState() {
             : [];
         ie.running   = false;
         ie.finalized = !!s.finalized;
+        // Without a flow there's no meaningful setup — snap back to the chooser.
+        if (!ie.flow) { ie.setupDone = false; ie.finalized = false; }
         ie.paused    = ie.setupDone && !ie.finalized && (ie.elapsed > 0 || ie.readings.length > 0);
     } catch (_) { /* corrupt — start fresh */ }
 }
@@ -1036,6 +1078,15 @@ function _ieClampFloat(raw) {
 
 function ieRenderSetup() {
     const g = id => document.getElementById(id);
+    // Title + allowance visibility diverge by flow. CT observes an operator
+    // against an existing SAM, so Rating (post-timing) and Allowance don't
+    // apply — hiding the whole allowance group avoids adding noise the
+    // observer would just ignore.
+    const isCT = ie.flow === 'ct';
+    const titleEl = g('ieSetupTitle');
+    if (titleEl) titleEl.textContent = t(isCT ? 'ie_setup_title_ct' : 'ie_setup_title');
+    const alwGroup = g('ieAllowanceGroup');
+    if (alwGroup) alwGroup.style.display = isCT ? 'none' : '';
     // Values → inputs (only when they differ, so focus + numpad don't fight it)
     const rIn = g('ieRoundsInput');    if (rIn && rIn.value !== String(ie.rounds))            rIn.value = String(ie.rounds);
     const cIn = g('ieElemCountInput'); if (cIn && cIn.value !== String(ie.elements.length))   cIn.value = String(ie.elements.length);
@@ -1157,6 +1208,40 @@ export function ieElemDel(idx) {
 }
 
 // ---- IE: transitions ----
+// Chooser → Setup. Setting the flow reveals the setup panel; CT hides the
+// Allowance group inside it. Called from the `ie-flow` action.
+export function ieSetFlow(flow) {
+    const next = (flow === 'sam' || flow === 'ct') ? flow : null;
+    if (!next) return;
+    ie.flow      = next;
+    ie.setupDone = false;
+    ie.finalized = false;
+    gaTrack('ie_pick_flow', { flow: next });
+    _swSyncModePanels();
+    saveIEState();
+}
+
+// Setup/Result → Chooser. If they've captured readings, confirm — same policy
+// as ieBackToSetup, since going back to the chooser also throws away data.
+export function ieBackToChooser() {
+    const doReset = () => {
+        ieCancelTick();
+        ie.flow      = null;
+        ie.setupDone = false;
+        ie.finalized = false;
+        ie.running   = false;
+        ie.paused    = false;
+        ie.startTs   = null;
+        ie.elapsed   = 0;
+        ie.readings  = [];
+        _swSyncModePanels();
+        saveIEState();
+    };
+    const hasData = ie.readings.length > 0 || ie.elapsed > 0;
+    if (hasData) showConfirm(t('ie_back_to_chooser'), t('ie_reset_confirm'), doReset);
+    else doReset();
+}
+
 export function ieStart() {
     // Validate: rounds ≥ 1 and every element has a name.
     if (!(ie.rounds >= 1)) {
@@ -1352,45 +1437,61 @@ function _ieRenderLiveTable() {
 let _ieLastStudy = null;
 
 function ieRenderResult() {
+    const isCT = ie.flow === 'ct';
     const N = ie.elements.length;
     const matrix = elementTimesFromReadings(ie.readings, N);
     // Elements that haven't been rated yet are treated as Normal Pace
     // (RF = 1.00) — the picker records the user's choice on top afterwards.
-    const ranks = ie.elements.map(e => (
-        e.rated ? { ws: e.ws, we: e.we, wc: e.wc, wcon: e.wcon } : { ...IE_DEFAULT_RANK }
-    ));
-    const study = computeStudy(matrix, ranks, ie.allowance);
+    // For CT we force RF=1 and zero allowances so mean == NT == ST and the
+    // totals reflect the raw observed cycle time.
+    const ranks = isCT
+        ? ie.elements.map(_ => ({ ...IE_DEFAULT_RANK }))
+        : ie.elements.map(e => (
+            e.rated ? { ws: e.ws, we: e.we, wc: e.wc, wcon: e.wcon } : { ...IE_DEFAULT_RANK }
+        ));
+    const alw = isCT ? { personal: 0, fatigue: 0, delay: 0 } : ie.allowance;
+    const study = computeStudy(matrix, ranks, alw);
     _ieLastStudy = study;
+
+    // Panel title + Save-button label are flow-driven.
+    const titleEl = document.getElementById('ieResultTitle');
+    if (titleEl) titleEl.textContent = t(isCT ? 'ie_result_title_ct' : 'ie_result_title');
+    const saveLbl = document.getElementById('ieSaveBtnLabel');
+    if (saveLbl) saveLbl.textContent = t(isCT ? 'ie_save_ct_btn' : 'ie_save_sam_btn');
 
     const tbl = document.getElementById('ieResultTable');
     if (tbl) {
         let html = '<thead><tr>'
             + `<th>${_ieEsc(t('ie_result_col_elem'))}</th>`
             + `<th>${_ieEsc(t('ie_result_col_mean'))}</th>`
-            + `<th>${_ieEsc(t('ie_result_col_sd'))}</th>`
-            + `<th>${_ieEsc(t('ie_result_col_rf'))}</th>`
-            + `<th>${_ieEsc(t('ie_result_col_nt'))}</th>`
-            + `<th>${_ieEsc(t('ie_result_col_st'))}</th>`
-            + `<th>${_ieEsc(t('ie_result_col_nreq_t'))}</th>`
-            + `<th>${_ieEsc(t('ie_result_col_nreq_m'))}</th>`
-            + '</tr></thead><tbody>';
+            + `<th>${_ieEsc(t('ie_result_col_sd'))}</th>`;
+        if (!isCT) {
+            html += `<th>${_ieEsc(t('ie_result_col_rf'))}</th>`
+                +  `<th>${_ieEsc(t('ie_result_col_nt'))}</th>`
+                +  `<th>${_ieEsc(t('ie_result_col_st'))}</th>`;
+        }
+        html += `<th>${_ieEsc(t('ie_result_col_nreq_t'))}</th>`
+            +  `<th>${_ieEsc(t('ie_result_col_nreq_m'))}</th>`
+            +  '</tr></thead><tbody>';
         study.rows.forEach((r, i) => {
             const elem = ie.elements[i];
             const name = _ieEsc(_ieElemLabel(elem, i + 1));
-            const btnLabel = elem?.rated
-                ? `${(r.rf * 100).toFixed(0)}%`
-                : _ieEsc(t('ie_rating_btn_unrated'));
-            const btnCls = 'ie-rating-btn' + (elem?.rated ? ' ie-rating-btn-set' : '');
             html += '<tr>'
                 + `<td class="ie-r-name">${name}</td>`
                 + `<td>${fmtSec2(r.meanMs)}</td>`
-                + `<td>${fmtSec4(r.sdMs)}</td>`
-                + `<td><button type="button" class="${btnCls}" data-action="ie-rating-open" data-arg="${i}">${btnLabel}</button></td>`
-                + `<td>${fmtSec2(r.ntMs)}</td>`
-                + `<td class="ie-r-st">${fmtSec2(r.stMs)}</td>`
-                + `<td>${r.requiredNT || '·'}</td>`
-                + `<td>${r.requiredNMaytag || '·'}</td>`
-                + '</tr>';
+                + `<td>${fmtSec4(r.sdMs)}</td>`;
+            if (!isCT) {
+                const btnLabel = elem?.rated
+                    ? `${(r.rf * 100).toFixed(0)}%`
+                    : _ieEsc(t('ie_rating_btn_unrated'));
+                const btnCls = 'ie-rating-btn' + (elem?.rated ? ' ie-rating-btn-set' : '');
+                html += `<td><button type="button" class="${btnCls}" data-action="ie-rating-open" data-arg="${i}">${btnLabel}</button></td>`
+                    +  `<td>${fmtSec2(r.ntMs)}</td>`
+                    +  `<td class="ie-r-st">${fmtSec2(r.stMs)}</td>`;
+            }
+            html += `<td>${r.requiredNT || '·'}</td>`
+                +  `<td>${r.requiredNMaytag || '·'}</td>`
+                +  '</tr>';
         });
         html += '</tbody>';
         tbl.innerHTML = html;
@@ -1416,29 +1517,78 @@ function ieRenderResult() {
     // Totals
     const totEl = document.getElementById('ieResultTotals');
     if (totEl) {
-        const totalStMin = study.totalStandardMs / 60000;
-        const totalStSec = study.totalStandardMs / 1000;
-        totEl.innerHTML = `
-            <div class="ie-total-row">
-                <span>${t('ie_result_allowance')}</span>
-                <span>${study.totalAllowancePct.toFixed(study.totalAllowancePct % 1 === 0 ? 0 : 1)}%</span>
-            </div>
-            <div class="ie-total-row">
-                <span>${t('ie_result_total_st_sec')}</span>
-                <span>${totalStSec.toFixed(2)} s</span>
-            </div>
-            <div class="ie-total-row ie-total-hero">
-                <span>${t('ie_result_total_st_min')}</span>
-                <span><strong>${totalStMin.toFixed(4)}</strong> ${t('unit_min')}</span>
-            </div>`;
+        if (isCT) {
+            // For CT we didn't apply rating or allowance, so totalStandardMs
+            // equals the sum of per-element means — i.e. the observed cycle
+            // time per piece. Show that + the number of pieces observed.
+            const totalCtMin = study.totalStandardMs / 60000;
+            const totalCtSec = study.totalStandardMs / 1000;
+            totEl.innerHTML = `
+                <div class="ie-total-row">
+                    <span>${t('ie_result_total_ct_pcs')}</span>
+                    <span>${ie.rounds}</span>
+                </div>
+                <div class="ie-total-row">
+                    <span>${t('ie_result_total_ct_sec')}</span>
+                    <span>${totalCtSec.toFixed(2)} s</span>
+                </div>
+                <div class="ie-total-row ie-total-hero">
+                    <span>${t('ie_result_total_ct_min')}</span>
+                    <span><strong>${totalCtMin.toFixed(4)}</strong> ${t('unit_min')}</span>
+                </div>`;
+        } else {
+            const totalStMin = study.totalStandardMs / 60000;
+            const totalStSec = study.totalStandardMs / 1000;
+            totEl.innerHTML = `
+                <div class="ie-total-row">
+                    <span>${t('ie_result_allowance')}</span>
+                    <span>${study.totalAllowancePct.toFixed(study.totalAllowancePct % 1 === 0 ? 0 : 1)}%</span>
+                </div>
+                <div class="ie-total-row">
+                    <span>${t('ie_result_total_st_sec')}</span>
+                    <span>${totalStSec.toFixed(2)} s</span>
+                </div>
+                <div class="ie-total-row ie-total-hero">
+                    <span>${t('ie_result_total_st_min')}</span>
+                    <span><strong>${totalStMin.toFixed(4)}</strong> ${t('unit_min')}</span>
+                </div>`;
+        }
     }
 }
 
 // ---- IE: save to main form ----
 export function ieSaveToForm() {
     if (!_ieLastStudy) return;
-    const totalStMin = _ieLastStudy.totalStandardMs / 60000;
-    if (!(totalStMin > 0)) return;
+    const totalStandardMs = _ieLastStudy.totalStandardMs;
+    if (!(totalStandardMs > 0)) return;
+
+    if (ie.flow === 'ct') {
+        // Cycle Time observation → totalMin + totalTime + totalCount so the
+        // main form recomputes Actual Efficiency against whichever SAM is
+        // already in samInput. `totalStandardMs` here equals sum-of-means
+        // per piece (RF=1, allowance=0 in CT), so total observed time = that
+        // × pieces observed.
+        const pieces = Math.max(1, ie.rounds);
+        const totalMs = totalStandardMs * pieces;
+        const totalSec2 = Math.round(totalMs / 10) / 100;
+        const mins = Math.floor(totalSec2 / 60);
+        const secs = Math.round((totalSec2 - mins * 60) * 100) / 100;
+        const g = id => document.getElementById(id);
+        if (g('totalMin'))   g('totalMin').value   = mins;
+        if (g('totalTime'))  g('totalTime').value  = secs;
+        if (g('totalCount')) g('totalCount').value = pieces;
+        calculateAll();
+        gaTrack('ie_save_ct', {
+            total_ct_min: +(totalMs / 60000).toFixed(4),
+            pieces,
+            elements:    ie.elements.length,
+        });
+        closeStopwatchModal();
+        return;
+    }
+
+    // SAM flow (default): write per-piece standard time to samInput.
+    const totalStMin = totalStandardMs / 60000;
     // Route: SAM must be in minutes (Standard Time is a per-piece minute value).
     // Switch unit to 'min' first (no conversion) so the field's meaning is
     // clear, then write the value and trigger the full recalc pipeline.

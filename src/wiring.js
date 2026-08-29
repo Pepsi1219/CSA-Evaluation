@@ -17,7 +17,8 @@ import {
     tsSetConfidence, tsApplyPreset, finishOnboarding, onboardNext, openFeedbackModal,
     setTrainCurve,
     ieElemAdd, ieElemDel, ieStart, ieBackToSetup, ieStartStop,
-    ieTap, ieUndo, ieSaveToForm,
+    ieTap, ieUndo, ieSaveToForm, ieSetFlow, ieBackToChooser,
+    ieIntroConfirm, ieIntroCancel,
     openIeRatingModal, closeIeRatingModal, ieRatingNone,
 } from './app.js';
 import { openHistoryModal } from './history.js';
@@ -67,6 +68,10 @@ const ACTIONS = {
     'ts-conf':      arg => tsSetConfidence(Number(arg)),
     'ts-preset':    arg => tsApplyPreset(arg),
     // IE Time Study mode
+    'ie-intro-confirm':   () => ieIntroConfirm(),
+    'ie-intro-cancel':    () => ieIntroCancel(),
+    'ie-flow':            arg => ieSetFlow(arg),
+    'ie-back-to-chooser': () => ieBackToChooser(),
     'ie-elem-add':      () => ieElemAdd(),
     'ie-elem-del':      arg => ieElemDel(Number(arg)),
     'ie-start':         () => ieStart(),

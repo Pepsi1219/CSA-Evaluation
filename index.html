@@ -383,7 +383,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · <span id="appVersion">v1.28.1</span></p>
+    <p>© CSA Evaluation · <span id="appVersion">v1.29.0</span></p>
 </footer>
 
 <!-- ============ Back-to-Top Button ============ -->
@@ -652,10 +652,16 @@
                 <div class="sw-stat-desc lang-text" id="swInfo_std" data-key="sw_info_std">ส่วนเบี่ยงเบนมาตรฐาน...</div>
 
                 <div class="sw-stat sw-stat-reqn sw-stat-tappable" data-action="sw-stat" data-arg="reqn">
-                    <span class="lang-text" data-key="sw_required_n">จำนวนรอบที่ควรจับเวลา</span>
+                    <span><span class="lang-text" data-key="sw_required_n">จำนวนรอบที่ควรจับเวลา</span> (t-test)</span>
                     <span id="swStatReqN">—</span>
                 </div>
                 <div class="sw-stat-desc" id="swInfo_reqn"></div>
+
+                <div class="sw-stat sw-stat-reqn sw-stat-tappable" data-action="sw-stat" data-arg="reqn_maytag">
+                    <span><span class="lang-text" data-key="sw_required_n">จำนวนรอบที่ควรจับเวลา</span> (Maytag)</span>
+                    <span id="swStatReqNMaytag">—</span>
+                </div>
+                <div class="sw-stat-desc" id="swInfo_reqn_maytag"></div>
             </div>
         </div>
 
@@ -690,8 +696,6 @@
 
         <!-- ============ IE mode: Flow chooser (SAM vs Cycle Time) ============ -->
         <div class="ie-panel" id="ieChooserPanel" style="display:none;">
-            <div class="ie-panel-title lang-text" data-key="ie_flow_pick_title">IE จะจับเวลาแบบไหน?</div>
-            <p class="ie-panel-desc lang-text" data-key="ie_flow_pick_desc">เลือกให้ตรงกับงานที่กำลังทำ — เปลี่ยนได้ทีหลัง</p>
             <div class="ie-flow-cards">
                 <button type="button" class="ie-flow-card" data-action="ie-flow" data-arg="sam">
                     <div class="ie-flow-card-icon" aria-hidden="true">
@@ -725,13 +729,25 @@
             <div class="form-row form-row-sam">
                 <div class="input-group">
                     <label class="lang-text" data-key="ie_rounds_label">จำนวนรอบที่จะจับเวลา</label>
-                    <input type="text" id="ieRoundsInput" class="glass-input" inputmode="none" pattern="[0-9]*" value="10"
-                           data-numpad="int" data-numpad-label="ie_rounds_label">
+                    <div class="ie-stepper">
+                        <input type="text" id="ieRoundsInput" class="glass-input ie-stepper-input" inputmode="none" pattern="[0-9]*" value="10"
+                               data-numpad="int" data-numpad-label="ie_rounds_label">
+                        <div class="ie-stepper-btns">
+                            <button type="button" class="ie-stepper-btn ie-stepper-btn-up" data-action="ie-nudge" data-arg="ieRoundsInput:1" aria-label="+">+</button>
+                            <button type="button" class="ie-stepper-btn ie-stepper-btn-down" data-action="ie-nudge" data-arg="ieRoundsInput:-1" aria-label="−">−</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="input-group">
                     <label class="lang-text" data-key="ie_elem_count_label">จำนวน Breakpoint</label>
-                    <input type="text" id="ieElemCountInput" class="glass-input" inputmode="none" pattern="[0-9]*" value="4"
-                           data-numpad="int" data-numpad-label="ie_elem_count_label">
+                    <div class="ie-stepper">
+                        <input type="text" id="ieElemCountInput" class="glass-input ie-stepper-input" inputmode="none" pattern="[0-9]*" value="4"
+                               data-numpad="int" data-numpad-label="ie_elem_count_label">
+                        <div class="ie-stepper-btns">
+                            <button type="button" class="ie-stepper-btn ie-stepper-btn-up" data-action="ie-nudge" data-arg="ieElemCountInput:1" aria-label="+">+</button>
+                            <button type="button" class="ie-stepper-btn ie-stepper-btn-down" data-action="ie-nudge" data-arg="ieElemCountInput:-1" aria-label="−">−</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -747,18 +763,36 @@
                 <div class="form-row form-row-three">
                     <div class="input-group">
                         <label class="lang-text" data-key="ie_allowance_personal">ส่วนตัว</label>
-                        <input type="text" id="ieAlwPersonal" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="5"
-                               data-numpad="decimal" data-numpad-label="ie_allowance_personal">
+                        <div class="ie-stepper">
+                            <input type="text" id="ieAlwPersonal" class="glass-input ie-stepper-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="5"
+                                   data-numpad="decimal" data-numpad-label="ie_allowance_personal">
+                            <div class="ie-stepper-btns">
+                                <button type="button" class="ie-stepper-btn ie-stepper-btn-up" data-action="ie-nudge" data-arg="ieAlwPersonal:1" aria-label="+">+</button>
+                                <button type="button" class="ie-stepper-btn ie-stepper-btn-down" data-action="ie-nudge" data-arg="ieAlwPersonal:-1" aria-label="−">−</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="input-group">
                         <label class="lang-text" data-key="ie_allowance_fatigue">ความล้า</label>
-                        <input type="text" id="ieAlwFatigue" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="5"
-                               data-numpad="decimal" data-numpad-label="ie_allowance_fatigue">
+                        <div class="ie-stepper">
+                            <input type="text" id="ieAlwFatigue" class="glass-input ie-stepper-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="5"
+                                   data-numpad="decimal" data-numpad-label="ie_allowance_fatigue">
+                            <div class="ie-stepper-btns">
+                                <button type="button" class="ie-stepper-btn ie-stepper-btn-up" data-action="ie-nudge" data-arg="ieAlwFatigue:1" aria-label="+">+</button>
+                                <button type="button" class="ie-stepper-btn ie-stepper-btn-down" data-action="ie-nudge" data-arg="ieAlwFatigue:-1" aria-label="−">−</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="input-group">
                         <label class="lang-text" data-key="ie_allowance_delay">ความล่าช้า</label>
-                        <input type="text" id="ieAlwDelay" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="5"
-                               data-numpad="decimal" data-numpad-label="ie_allowance_delay">
+                        <div class="ie-stepper">
+                            <input type="text" id="ieAlwDelay" class="glass-input ie-stepper-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="5"
+                                   data-numpad="decimal" data-numpad-label="ie_allowance_delay">
+                            <div class="ie-stepper-btns">
+                                <button type="button" class="ie-stepper-btn ie-stepper-btn-up" data-action="ie-nudge" data-arg="ieAlwDelay:1" aria-label="+">+</button>
+                                <button type="button" class="ie-stepper-btn ie-stepper-btn-down" data-action="ie-nudge" data-arg="ieAlwDelay:-1" aria-label="−">−</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="ie-alw-total">
@@ -784,14 +818,16 @@
                 <span class="lang-text" data-key="ie_tap_btn">แตะที่จุดตัด Element</span>
             </button>
 
-            <div class="ie-capture-controls">
-                <button type="button" class="sw-modal-btn sw-btn-secondary" id="ieUndoBtn" data-action="ie-undo">
-                    <span class="lang-text" data-key="ie_undo_btn">ถอนครั้งล่าสุด</span>
+            <!-- Same layout as the stopwatch page's .sw-controls — primary
+                 action on the RIGHT so a one-handed thumb reaches it. -->
+            <div class="sw-controls ie-capture-controls">
+                <button type="button" class="sw-modal-btn sw-btn-secondary" id="ieResetBtn" data-action="ie-reset-timer">
+                    <span class="lang-text" data-key="ie_reset_btn">เริ่มใหม่</span>
                 </button>
-                <button type="button" class="sw-modal-btn sw-btn-secondary" data-action="ie-back-to-setup">
-                    <span class="lang-text" data-key="ie_back_to_setup">แก้ไขการตั้งค่า</span>
+                <button type="button" class="sw-modal-btn sw-btn-secondary" id="iePauseBtn" data-action="ie-pause-timer">
+                    <span class="lang-text" data-key="sw_pause">พัก</span>
                 </button>
-                <button type="button" class="sw-modal-btn sw-btn-start" id="ieStartStopBtn" data-action="ie-startstop">
+                <button type="button" class="sw-modal-btn sw-btn-start" id="ieStartBtn" data-action="ie-start-timer">
                     <span class="lang-text" data-key="sw_start">เริ่ม</span>
                 </button>
             </div>
@@ -799,6 +835,8 @@
             <div class="ie-live-table-wrap">
                 <table class="ie-live-table" id="ieLiveTable"></table>
             </div>
+
+            <button type="button" class="ie-back-chip lang-text" data-action="ie-back-to-setup" data-key="ie_back_to_setup">แก้ไขการตั้งค่า</button>
         </div>
 
         <!-- ============ IE mode: Result ============ -->
@@ -807,13 +845,10 @@
             <div class="ie-result-wrap">
                 <table class="ie-result-table" id="ieResultTable"></table>
             </div>
-            <div class="ie-result-warnings" id="ieResultWarnings"></div>
             <div class="ie-result-totals" id="ieResultTotals"></div>
             <div class="ie-result-actions">
-                <button type="button" class="sw-modal-btn sw-btn-secondary" data-action="ie-back-to-setup">
-                    <span class="lang-text" data-key="ie_back_to_setup">แก้ไขการตั้งค่า</span>
-                </button>
-                <button type="button" class="ie-cta-btn" data-action="ie-save" id="ieSaveBtn">
+                <button type="button" class="ie-back-chip lang-text" data-action="ie-back-to-setup" data-key="ie_back_to_setup">แก้ไขการตั้งค่า</button>
+                <button type="button" class="ie-save-btn" data-action="ie-save" id="ieSaveBtn">
                     <span id="ieSaveBtnLabel">บันทึกเป็น SAM</span>
                 </button>
             </div>

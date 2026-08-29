@@ -2997,6 +2997,55 @@ body.boot-login .container { visibility: hidden; }
 }
 .ie-back-chip::before { content: "‹"; font-size: 14px; line-height: 1; }
 .ie-back-chip:hover { background: var(--accent-50); color: var(--accent-600); }
+/* Rounds / Breakpoint stepper — native-spinner style: input keeps its full
+   width; a stacked ± column sits absolutely on the right edge inside it so
+   the field can still be tapped to open the numpad (buttons only intercept
+   their own hit area). Right padding on the input carves space for the
+   buttons so the value never slides under them. */
+.ie-stepper { position: relative; }
+.ie-stepper-input {
+    width: 100%;
+    /* Room for the 36 px stepper column + 6 px breathing gap on the right. */
+    padding-right: 46px;
+    text-align: center;
+}
+.ie-stepper-btns {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    bottom: 4px;
+    width: 36px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    pointer-events: none; /* let taps on gaps fall through to the input */
+}
+.ie-stepper-btn {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-1);
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.05s;
+}
+.ie-stepper-btn-up   { border-radius: calc(var(--r-md) - 4px) calc(var(--r-md) - 4px) 4px 4px; }
+.ie-stepper-btn-down { border-radius: 4px 4px calc(var(--r-md) - 4px) calc(var(--r-md) - 4px); }
+.ie-stepper-btn:hover {
+    background: var(--accent-50);
+    border-color: var(--accent-300);
+    color: var(--accent-700);
+}
+.ie-stepper-btn:active { transform: scale(0.94); }
 .ie-elem-list-header {
     display: flex;
     align-items: center;
@@ -3212,24 +3261,38 @@ body.boot-login .container { visibility: hidden; }
     box-shadow: none;
     cursor: not-allowed;
 }
-.ie-capture-controls {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 16px;
-}
+/* IE capture uses the same 3-circle layout as .sw-controls; this hook
+   just tightens the spacing under it since the live table sits close
+   below. */
+.ie-capture-controls { margin-bottom: 14px; }
 .ie-live-table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     border: 1px solid var(--border);
     border-radius: 8px;
 }
+/* First-column header (the "Breakpoint" corner cell) aligns with the row
+   labels below it — the default thead rule is text-align:right, which left
+   the header word floating away from the "หยิบ / เย็บ / วาง" underneath. */
+.ie-live-table thead th:first-child,
+.ie-result-table thead th:first-child { text-align: left; }
+/* Sit the "‹ แก้ไขการตั้งค่า" chip below the table with air, matching
+   the same chip in the setup panel. */
+#ieCapturePanel .ie-back-chip { margin-top: 14px; }
 .ie-live-table, .ie-result-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 12px;
     font-variant-numeric: tabular-nums;
 }
+/* Fixed layout so the round columns share the remaining space evenly no
+   matter how few rounds — otherwise auto layout sizes each column to its
+   content and everything packs left with dead space on the right. The
+   label column gets a set width; JS sets a min-width per round count so
+   many rounds scroll horizontally instead of squashing. */
+.ie-live-table { table-layout: fixed; }
+.ie-live-table th:first-child,
+.ie-live-table td:first-child { width: 6.5em; }
 .ie-live-table th, .ie-live-table td,
 .ie-result-table th, .ie-result-table td {
     padding: 6px 8px;
@@ -3267,54 +3330,47 @@ body.boot-login .container { visibility: hidden; }
     border-radius: 8px;
     margin-bottom: 12px;
 }
-.ie-result-warnings {
-    margin: 4px 0 12px;
-}
-.ie-warn-row {
-    padding: 8px 12px;
-    background: var(--status-warn-soft, #fef3c7);
-    color: var(--status-warn-text, #92400e);
-    border-radius: 8px;
-    font-size: 13px;
-    margin-bottom: 6px;
-}
-.ie-warn-row strong { margin-right: 6px; }
-.ie-result-totals {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 6px 0;
-    margin-bottom: 16px;
-}
-.ie-total-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    padding: 8px 14px;
-    font-variant-numeric: tabular-nums;
-}
-.ie-total-row + .ie-total-row {
-    border-top: 1px solid var(--border);
-}
-.ie-total-hero {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--accent-teal-700);
-    background: var(--accent-teal-50);
-}
+/* Totals wrapper — content is a .sw-stats-panel now (rendered from JS),
+   so this just gives it bottom spacing before the actions row. */
+.ie-result-totals { margin-bottom: 16px; }
+.ie-result-totals .sw-stats-panel { margin-bottom: 0; }
+/* Actions row: subtle "step back" chip on the left, primary save button
+   on the right — matching the mobile-thumb pattern used elsewhere. */
 .ie-result-actions {
-    display: grid;
-    grid-template-columns: 1fr 2fr;
-    gap: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
 }
-.ie-result-actions .ie-cta-btn { margin-top: 0; }
+.ie-result-actions .ie-back-chip { margin-bottom: 0; }
+.ie-save-btn {
+    padding: 10px 22px;
+    background: var(--accent-grad);
+    color: #fff;
+    border: none;
+    border-radius: var(--r-md);
+    font-family: var(--font);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: var(--sh-sm);
+    transition: filter 0.15s, transform 0.08s;
+}
+.ie-save-btn:hover:not(:disabled) { filter: brightness(1.05); }
+.ie-save-btn:active:not(:disabled) { transform: scale(0.97); }
+.ie-save-btn:disabled {
+    background: var(--border);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    box-shadow: none;
+}
 
-/* Compact on narrow screens — element ranks collapse to a 2-col grid
-   already; on very small phones the tap button takes precedence. */
+/* Compact on narrow screens — element ranks collapse to a 2-col grid;
+   the capture controls stay as three peer circles (the shared
+   .sw-controls layout handles narrow widths). */
 @media (max-width: 380px) {
     .ie-elem-ranks { grid-template-columns: 1fr 1fr; }
-    .ie-capture-controls { grid-template-columns: 1fr 1fr; }
-    .ie-capture-controls > *:nth-child(3) { grid-column: 1 / -1; }
 }
 
 /* Rating button inside the result table — pill styled by state:

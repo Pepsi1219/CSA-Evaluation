@@ -19,7 +19,7 @@ import {
 } from './timeutil.js';
 import {
     WESTINGHOUSE, WESTINGHOUSE_LABELS, ratingFactor,
-    elementTimesFromReadings, computeStudy,
+    elementTimesFromReadings, computeStudy, maytagN,
 } from './ie.js';
 import { translations } from './translations.js';
 import {
@@ -283,15 +283,21 @@ function swTeardownKeyboardWatch() {
 
 export function swSetMode(mode) {
     if (mode !== 'lap' && mode !== 'single' && mode !== 'ie') return;
-    // Guard: while a timer is actively counting, don't let a stray tab-tap wipe
-    // it. Stopwatch guard = sw.elapsed>0; IE guard = readings recorded.
-    if (mode !== 'ie' && sw.elapsed > 0) return;
-    if (mode === 'ie'  && ie.running) return;
+    if (mode === sw.mode) return; // no-op tap on the already-active tab
+    // Guard: only block a switch when the CURRENT mode's timer is actively
+    // running — fat-finger protection on a live capture. A paused/finalized
+    // stopwatch or IE panel is fine to tab away from because each mode owns
+    // its own state (sw.* vs ie.*), and _swApplyMode never wipes either.
+    // Earlier, `sw.elapsed > 0` blocked ANY move to Lap/Single, which locked
+    // the user inside IE the moment sw.elapsed was non-zero (even from a
+    // persisted paused session).
+    if (sw.running && (sw.mode === 'lap' || sw.mode === 'single')) return;
+    if (ie.running &&  sw.mode === 'ie') return;
     // Switching INTO IE from another mode surfaces a one-tap gate so a
     // non-IE user (CSA / QCO instructor doing Cycle Time) doesn't fall into
     // the heavier element-by-element flow by accident. Re-tapping the IE tab
-    // while already in IE is a no-op and skips the gate.
-    if (mode === 'ie' && sw.mode !== 'ie') {
+    // while already in IE is caught by the no-op guard above.
+    if (mode === 'ie') {
         _ieShowIntroModal();
         return;
     }
@@ -748,14 +754,19 @@ export function tsRecalculate() {
     // Cheap DOM toggle — safe to call every recalc.
     _renderTsPresetActive();
 
-    const reqnRow    = document.querySelector('.sw-stat.sw-stat-reqn');
     const reqnVal    = document.getElementById('swStatReqN');
     const reqnInfo   = document.getElementById('swInfo_reqn');
+    const reqnValM   = document.getElementById('swStatReqNMaytag');
+    const reqnInfoM  = document.getElementById('swInfo_reqn_maytag');
+    const reqnRow    = reqnVal ? reqnVal.parentElement  : null;
+    const reqnRowM   = reqnValM ? reqnValM.parentElement : null;
     const contBtn    = document.getElementById('swContinueBtn');
     if (!reqnVal || !reqnInfo) return;
 
-    // Clear any prior verdict classes on the row
-    if (reqnRow) reqnRow.classList.remove('sw-reqn-ok', 'sw-reqn-warn', 'sw-reqn-na');
+    // Clear any prior verdict classes on both rows so a repeat call from
+    // a fresh state doesn't carry an old ok/warn tint.
+    if (reqnRow)  reqnRow .classList.remove('sw-reqn-ok', 'sw-reqn-warn', 'sw-reqn-na');
+    if (reqnRowM) reqnRowM.classList.remove('sw-reqn-ok', 'sw-reqn-warn', 'sw-reqn-na');
     if (contBtn) contBtn.style.display = 'none';
 
     // Only lap mode with 2+ laps has a distribution to work with
@@ -763,9 +774,14 @@ export function tsRecalculate() {
     const n = data.length;
 
     if (n < 2) {
-        if (reqnRow) reqnRow.classList.add('sw-reqn-na');
-        reqnVal.innerHTML  = '<span class="sw-reqn-na-text lang-text" data-key="ts_na">—</span>';
-        reqnInfo.innerHTML = `<span class="lang-text" data-key="ts_need_pilot">${t('ts_need_pilot')}</span>`;
+        if (reqnRow)  reqnRow .classList.add('sw-reqn-na');
+        if (reqnRowM) reqnRowM.classList.add('sw-reqn-na');
+        const naVal   = '<span class="sw-reqn-na-text lang-text" data-key="ts_na">—</span>';
+        const pilotMsg = `<span class="lang-text" data-key="ts_need_pilot">${t('ts_need_pilot')}</span>`;
+        reqnVal.innerHTML  = naVal;
+        reqnInfo.innerHTML = pilotMsg;
+        if (reqnValM)  reqnValM.innerHTML  = naVal;
+        if (reqnInfoM) reqnInfoM.innerHTML = pilotMsg;
         return;
     }
 
@@ -838,6 +854,55 @@ export function tsRecalculate() {
             </div>
         </div>
         ${formulaHTML}`;
+
+    // ---- Maytag row — fixed 95%/±5% shortcut, no config knobs.
+    // N' = ( 40 · √(n·Σx² − (Σx)²) / Σx )². Uses the same lap distribution
+    // as the t-test row so operators can compare the two sample-size
+    // conventions side-by-side. Continue-timing CTA stays bound to t-test
+    // (it's the tunable, primary method).
+    if (reqnValM && reqnInfoM) {
+        const sum   = data.reduce((a, b) => a + b, 0);
+        const sumSq = data.reduce((a, b) => a + b * b, 0);
+        const NM    = maytagN(sum, sumSq, n);
+        if (!(NM > 0)) {
+            if (reqnRowM) reqnRowM.classList.add('sw-reqn-na');
+            reqnValM.innerHTML  = '<span class="sw-reqn-na-text">—</span>';
+            reqnInfoM.innerHTML = `<span class="lang-text" data-key="ts_need_pilot">${t('ts_need_pilot')}</span>`;
+        } else {
+            const okM = n >= NM;
+            if (reqnRowM) reqnRowM.classList.add(okM ? 'sw-reqn-ok' : 'sw-reqn-warn');
+            reqnValM.innerHTML = `<span class="sw-reqn-num">${NM}</span>`;
+            // Same inline math layout as the t-test formula.
+            const maytagFormulaHTML = `
+                <div class="mformula" aria-label="N prime equals open-paren 40 times square-root of n Sigma x squared minus Sigma x squared over Sigma x close-paren squared">
+                    <span class="mvar">N′</span>
+                    <span class="meq">=</span>
+                    <span class="mparen">(</span>
+                    <span class="mfrac">
+                        <span class="mnum">40 · √(<i>n</i>·Σ<i>x</i>² − (Σ<i>x</i>)²)</span>
+                        <span class="mden">Σ<i>x</i></span>
+                    </span>
+                    <span class="mparen">)</span>
+                    <span class="msup">2</span>
+                </div>`;
+            const summaryLineM = okM
+                ? t('ts_have_ok').replace('{n}', n)
+                : t('ts_have_short').replace('{n}', n).replace('{more}', NM - n);
+            reqnInfoM.innerHTML = `
+                <div class="sw-reqn-headline">Maytag (95% / ±5%): N′ = ${NM}</div>
+                <div class="sw-reqn-summary">${summaryLineM}</div>
+                <div class="sw-ts-metrics">
+                    <div class="sw-ts-metric"><span>n</span><span>${n}</span></div>
+                    <div class="sw-ts-metric"><span>Σx</span><span>${fmtSec2(sum)} s</span></div>
+                    <div class="sw-ts-metric"><span>Σx²</span><span>${(sumSq / 1e6).toFixed(4)} s²</span></div>
+                    <div class="sw-ts-metric sw-ts-metric-hero">
+                        <span>N′</span>
+                        <span><strong>${NM}</strong></span>
+                    </div>
+                </div>
+                ${maytagFormulaHTML}`;
+        }
+    }
 }
 
 // Prepare stopwatch for more laps after Stop → preserves existing laps
@@ -903,10 +968,12 @@ export const IE_PRESET_CUSTOM = '__custom__';
 // Each element carries `rated: false` by default — user has not opened the
 // Rating picker yet, so we treat the observed time as Normal Time (RF = 1.00).
 // The stored rank codes are only consumed when `rated === true`.
-// `preset` is one of IE_PRESET_KEYS or IE_PRESET_CUSTOM. When custom, `name`
-// holds the user-typed label; otherwise `name` is unused and the label is
-// resolved through t() so it re-translates on language switch.
-const _ieMakeElem = (preset = IE_PRESET_CUSTOM, name = '') => ({
+// `preset` is one of IE_PRESET_KEYS, IE_PRESET_CUSTOM, or null (not yet
+// picked — the shape a fresh + Add element takes so the operator makes an
+// explicit choice). When custom, `name` holds the user-typed label; when
+// preset is a key, `name` is unused and the label is resolved through t()
+// so it re-translates on language switch.
+const _ieMakeElem = (preset = null, name = '') => ({
     preset, name, rated: false, ...IE_DEFAULT_RANK,
 });
 
@@ -995,12 +1062,14 @@ export function restoreIEState() {
             ? Math.min(IE_ROUNDS_MAX, Math.floor(s.rounds)) : 10;
         ie.elements  = Array.isArray(s.elements) && s.elements.length
             ? s.elements.slice(0, IE_ELEM_MAX).map(e => {
-                // Migrate old records that stored only `name`. If the name
-                // matches one of the preset translations in any language we
-                // treat it as that preset; otherwise it stays custom.
+                // Preset shape:
+                //   • explicit null  → freshly added, awaiting user's pick
+                //   • undefined      → legacy record with only `name`; try to
+                //     match a preset translation, else custom
+                //   • unknown string → treat as custom (defensive)
                 let preset = e?.preset;
-                if (!preset) preset = _ieMatchPreset(e?.name) || IE_PRESET_CUSTOM;
-                if (preset !== IE_PRESET_CUSTOM && !IE_PRESET_KEYS.includes(preset)) {
+                if (preset === undefined) preset = _ieMatchPreset(e?.name) || IE_PRESET_CUSTOM;
+                else if (preset !== null && preset !== IE_PRESET_CUSTOM && !IE_PRESET_KEYS.includes(preset)) {
                     preset = IE_PRESET_CUSTOM;
                 }
                 return {
@@ -1102,10 +1171,15 @@ function ieRenderSetup() {
     // quick to fill on the shop floor.
     const list = g('ieElemList');
     if (!list) return;
-    const presetOpts = IE_PRESET_KEYS
-        .map(k => `<option value="${k}">${_ieEsc(t(`ie_preset_${k}`))}</option>`)
-        .concat(`<option value="${IE_PRESET_CUSTOM}">${_ieEsc(t('ie_preset_custom'))}</option>`)
-        .join('');
+    // A leading blank option lets a freshly + Added element show "no pick yet"
+    // instead of defaulting to Custom — the operator has to make an explicit
+    // choice. Marked disabled so once past it the user can't fall back to blank
+    // via the dropdown UI (they'd have to delete the row).
+    const presetOpts = `<option value="" disabled>${_ieEsc(t('ie_preset_placeholder'))}</option>`
+        + IE_PRESET_KEYS
+            .map(k => `<option value="${k}">${_ieEsc(t(`ie_preset_${k}`))}</option>`)
+            .join('')
+        + `<option value="${IE_PRESET_CUSTOM}">${_ieEsc(t('ie_preset_custom'))}</option>`;
     list.innerHTML = ie.elements.map((e, i) => {
         const isCustom = e.preset === IE_PRESET_CUSTOM;
         return `
@@ -1117,15 +1191,16 @@ function ieRenderSetup() {
                         aria-label="${_ieEsc(t('ie_del_elem'))}" title="${_ieEsc(t('ie_del_elem'))}">×</button>
             </div>
             <input type="text" class="ie-elem-name-custom" data-ie-name="${i}"
-                   placeholder="${_ieEsc(t('ie_elem_name_ph'))}" value="${_ieEsc(e.name || '')}"
+                   value="${_ieEsc(e.name || '')}"
                    style="display:${isCustom ? 'block' : 'none'};">
         </div>
         `;
     }).join('');
-    // Restore each select's active option (innerHTML dropped the "selected" state)
+    // Restore each select's active option (innerHTML dropped the "selected" state).
+    // A null preset resolves to '' → the blank/disabled placeholder row.
     list.querySelectorAll('select[data-ie-preset]').forEach(sel => {
         const i = Number(sel.dataset.iePreset);
-        if (ie.elements[i]) sel.value = ie.elements[i].preset || IE_PRESET_CUSTOM;
+        if (ie.elements[i]) sel.value = ie.elements[i].preset ?? '';
     });
     // Clear any prior error
     const err = g('ieSetupError'); if (err) { err.style.display = 'none'; err.textContent = ''; }
@@ -1160,8 +1235,12 @@ function _ieOnSetupChange(e) {
     if (!el || el.dataset.iePreset === undefined) return;
     const i = Number(el.dataset.iePreset);
     if (!ie.elements[i]) return;
-    const next = el.value === IE_PRESET_CUSTOM || IE_PRESET_KEYS.includes(el.value)
-        ? el.value : IE_PRESET_CUSTOM;
+    // Blank/disabled placeholder shouldn't be selectable via keyboard, but if
+    // it slips through map it back to null. Everything else must be a known
+    // preset or Custom, else force Custom (defensive).
+    const next = el.value === '' ? null
+        : (el.value === IE_PRESET_CUSTOM || IE_PRESET_KEYS.includes(el.value))
+            ? el.value : IE_PRESET_CUSTOM;
     ie.elements[i].preset = next;
     // Reveal / hide the sibling custom text input without re-rendering the
     // whole list (avoids collapsing an active numpad or losing focus).
@@ -1187,6 +1266,37 @@ function ieSetElemCount(n) {
     }
     ieRenderSetup();
     saveIEState();
+}
+
+// Stepper (± buttons) next to a numeric IE input — spec is "<inputId>:<delta>".
+// Handles both integer fields (Rounds, Breakpoint count) and the three
+// float allowance percentages. Reads the field, adds delta, clamps to the
+// same range the input's own handler enforces, writes back, then dispatches
+// a native `input` event so `_ieOnSetupInput` persists (and for elem count,
+// re-renders the list).
+const IE_ALW_IDS = ['ieAlwPersonal', 'ieAlwFatigue', 'ieAlwDelay'];
+export function ieNudge(spec) {
+    if (!spec) return;
+    const [id, deltaStr] = spec.split(':');
+    const el = document.getElementById(id);
+    if (!el) return;
+    const delta = Number(deltaStr) || 0;
+    const isAlw = IE_ALW_IDS.includes(id);
+    const raw = String(el.value ?? '').replace(',', '.');
+    const cur = isAlw ? parseFloat(raw) : parseInt(raw, 10);
+    const base = Number.isFinite(cur) ? cur : 0;
+    let next;
+    if (isAlw) {
+        // Match _ieClampFloat's 0..95 range; round to 1 decimal so a 0.5 step
+        // doesn't drift into float-representation noise.
+        next = Math.max(0, Math.min(95, Math.round((base + delta) * 10) / 10));
+    } else {
+        const max = id === 'ieRoundsInput' ? IE_ROUNDS_MAX : IE_ELEM_MAX;
+        next = Math.max(1, Math.min(max, base + delta));
+    }
+    if (next === base) return;
+    el.value = String(next);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 export function ieElemAdd() {
@@ -1248,7 +1358,8 @@ export function ieStart() {
         _ieShowSetupError(t('ie_setup_error_rounds')); return;
     }
     if (!ie.elements.length
-        || ie.elements.some(e => e.preset === IE_PRESET_CUSTOM && (e.name || '').trim() === '')) {
+        || ie.elements.some(e => !e.preset
+            || (e.preset === IE_PRESET_CUSTOM && (e.name || '').trim() === ''))) {
         _ieShowSetupError(t('ie_setup_error_elem')); return;
     }
     ie.setupDone = true;
@@ -1289,25 +1400,50 @@ export function ieBackToSetup() {
     else doReset();
 }
 
-export function ieStartStop() {
-    const total = ie.rounds * ie.elements.length;
-    if (!ie.running && !ie.finalized) {
-        // Start or resume
-        ie.running = true;
-        ie.startTs = performance.now() - ie.elapsed;
-        ieScheduleTick();
-        gaTrack('ie_startstop', { action: 'start', taps: ie.readings.length });
-    } else if (ie.running) {
-        // Stop — freeze and (if any readings) finalize.
-        ieCancelTick();
-        ie.elapsed = performance.now() - ie.startTs;
-        ie.running = false;
-        ie.paused  = false;
-        if (ie.readings.length > 0) ieFinalize();
-        gaTrack('ie_startstop', { action: 'stop', taps: ie.readings.length, total });
-    }
+// Start / Resume — from a fresh state, or from a pause (elapsed carried over).
+// Auto-finalize still happens inside `ieTap` when the last breakpoint is
+// captured; there is no manual "finish" — the tap sequence ends the study.
+export function ieStartTimer() {
+    if (ie.running || ie.finalized) return;
+    ie.running = true;
+    ie.paused  = false;
+    ie.startTs = performance.now() - ie.elapsed;
+    ieScheduleTick();
+    gaTrack('ie_startstop', { action: 'start', taps: ie.readings.length });
     _ieUpdateCaptureControls();
     saveIEState();
+}
+// Pause — freeze the timer without finalizing. Readings stay put and the
+// operator can resume from the same elapsed value.
+export function iePauseTimer() {
+    if (!ie.running) return;
+    ieCancelTick();
+    ie.elapsed = performance.now() - ie.startTs;
+    ie.running = false;
+    ie.paused  = true;
+    gaTrack('ie_startstop', { action: 'pause', taps: ie.readings.length });
+    _ieUpdateCaptureControls();
+    saveIEState();
+}
+// Reset — wipe the timer + all captured readings so the operator can retry.
+// Confirms first if any data would be discarded; falls through cleanly on a
+// fresh panel.
+export function ieResetTimer() {
+    const hasData = ie.readings.length > 0 || ie.elapsed > 0;
+    const doReset = () => {
+        ieCancelTick();
+        ie.running  = false;
+        ie.paused   = false;
+        ie.finalized = false;
+        ie.startTs  = null;
+        ie.elapsed  = 0;
+        ie.readings = [];
+        gaTrack('ie_startstop', { action: 'reset' });
+        ieRenderCapture();
+        saveIEState();
+    };
+    if (hasData) showConfirm(t('ie_reset_btn'), t('ie_reset_confirm'), doReset);
+    else doReset();
 }
 
 export function ieTap() {
@@ -1324,13 +1460,6 @@ export function ieTap() {
         ie.running = false;
         ieFinalize();
     }
-    ieRenderCapture();
-    saveIEState();
-}
-
-export function ieUndo() {
-    if (ie.readings.length === 0) return;
-    ie.readings.pop();
     ieRenderCapture();
     saveIEState();
 }
@@ -1377,35 +1506,41 @@ function ieRenderCapture() {
 
 function _ieUpdateCaptureControls() {
     const g = id => document.getElementById(id);
-    const startBtn = g('ieStartStopBtn');
+    const startBtn = g('ieStartBtn');
+    const pauseBtn = g('iePauseBtn');
+    const resetBtn = g('ieResetBtn');
     const tapBtn   = g('ieTapBtn');
-    const undoBtn  = g('ieUndoBtn');
     const pos = _ieCurrentPosition();
+    const hasData = ie.readings.length > 0 || ie.elapsed > 0;
+    // Start / Resume — available whenever the timer is not running and the
+    // study isn't already finalized. Label stays "เริ่ม" per the requested
+    // three-button spec (no separate "ต่อ" text), the same button acts as
+    // resume from a pause.
     if (startBtn) {
-        const label = startBtn.querySelector('.lang-text');
-        if (ie.running) {
-            startBtn.className = 'sw-modal-btn sw-btn-stop';
-            if (label) { label.textContent = t('sw_stop'); label.dataset.key = 'sw_stop'; }
-        } else if (ie.finalized) {
-            startBtn.className = 'sw-modal-btn sw-btn-secondary sw-btn-disabled';
-            startBtn.disabled = true;
-        } else {
-            startBtn.className = 'sw-modal-btn sw-btn-start';
-            startBtn.disabled = false;
-            if (label) {
-                const key = ie.elapsed > 0 ? 'sw_resume' : 'sw_start';
-                label.textContent = t(key); label.dataset.key = key;
-            }
-        }
+        const disabled = ie.running || ie.finalized;
+        startBtn.disabled = disabled;
+        startBtn.classList.toggle('sw-btn-disabled', disabled);
     }
+    // Pause — only while running. Preserves elapsed + readings.
+    if (pauseBtn) {
+        const disabled = !ie.running;
+        pauseBtn.disabled = disabled;
+        pauseBtn.classList.toggle('sw-btn-disabled', disabled);
+    }
+    // Reset — only meaningful when there's data (or a finalized study) to
+    // discard; on a fresh panel it stays greyed to avoid the confirm prompt
+    // firing on an empty state.
+    if (resetBtn) {
+        const disabled = !hasData && !ie.finalized;
+        resetBtn.disabled = disabled;
+        resetBtn.classList.toggle('sw-btn-disabled', disabled);
+    }
+    // Breakpoint tap — only while running, until the last breakpoint is
+    // captured (which auto-finalizes into the result panel).
     if (tapBtn) {
         const disabled = !ie.running || pos.complete;
         tapBtn.disabled = disabled;
         tapBtn.classList.toggle('sw-btn-disabled', disabled);
-    }
-    if (undoBtn) {
-        undoBtn.disabled = ie.readings.length === 0 || ie.running;
-        undoBtn.classList.toggle('sw-btn-disabled', undoBtn.disabled);
     }
 }
 
@@ -1414,23 +1549,40 @@ function _ieRenderLiveTable() {
     if (!tbl) return;
     const N = ie.elements.length;
     if (N === 0) { tbl.innerHTML = ''; return; }
-    // Header
-    let html = '<thead><tr><th>#</th>';
+    // Fill cell-by-cell from the raw readings so the CURRENT in-progress
+    // cycle also lights up as each tap lands. `elementTimesFromReadings`
+    // truncates to whole cycles (right for stats, wrong for the live view).
+    const timeAt = Array.from({ length: ie.rounds }, () => new Array(N).fill(null));
+    for (let i = 0; i < ie.readings.length; i++) {
+        const c = Math.floor(i / N);
+        if (c >= ie.rounds) break;
+        const e = i % N;
+        const prev = i === 0 ? 0 : ie.readings[i - 1];
+        timeAt[c][e] = ie.readings[i] - prev;
+    }
+    // Header — first column labels the Breakpoint rows, following columns
+    // are the round numbers.
+    let html = '<thead><tr><th>Breakpoint</th>';
     for (let c = 1; c <= ie.rounds; c++) html += `<th>${c}</th>`;
     html += '</tr></thead><tbody>';
-    // Per-element rows
-    const matrix = elementTimesFromReadings(ie.readings, N);
     for (let e = 0; e < N; e++) {
         const label = _ieEsc(_ieElemLabel(ie.elements[e], e + 1));
         html += `<tr><th title="${label}">${label}</th>`;
         for (let c = 0; c < ie.rounds; c++) {
-            const v = matrix[c]?.[e];
+            const v = timeAt[c][e];
             html += `<td>${Number.isFinite(v) ? fmtSec2(v) : '·'}</td>`;
         }
         html += '</tr>';
     }
     html += '</tbody>';
     tbl.innerHTML = html;
+    // Balance: fixed layout + label-column width means the round columns
+    // auto-share whatever's left of the container. Min-width scales with
+    // round count so many rounds trigger the wrap's overflow-x scroll
+    // instead of squashing the cells unreadable.
+    tbl.style.tableLayout = 'fixed';
+    tbl.style.width       = '100%';
+    tbl.style.minWidth    = `calc(6.5em + ${ie.rounds} * 3.2em)`;
 }
 
 // ---- IE: result rendering ----
@@ -1461,25 +1613,33 @@ function ieRenderResult() {
 
     const tbl = document.getElementById('ieResultTable');
     if (tbl) {
+        // Header: Element | round 1 … R | x̄ | SD  (SAM adds Rating | NT | ST)
+        // Per-round columns show the raw observed time each Breakpoint took
+        // in that cycle — same data the live capture table showed. x̄ + SD
+        // sit at the right as the per-element summary; N (t-test / Maytag)
+        // moved out of this table into the sw-stats-panel summary below.
         let html = '<thead><tr>'
-            + `<th>${_ieEsc(t('ie_result_col_elem'))}</th>`
-            + `<th>${_ieEsc(t('ie_result_col_mean'))}</th>`
-            + `<th>${_ieEsc(t('ie_result_col_sd'))}</th>`;
+            + `<th>${_ieEsc(t('ie_result_col_elem'))}</th>`;
+        for (let c = 1; c <= ie.rounds; c++) html += `<th>${c}</th>`;
+        html += `<th>${_ieEsc(t('ie_result_col_mean'))}</th>`
+            +  `<th>${_ieEsc(t('ie_result_col_sd'))}</th>`;
         if (!isCT) {
             html += `<th>${_ieEsc(t('ie_result_col_rf'))}</th>`
                 +  `<th>${_ieEsc(t('ie_result_col_nt'))}</th>`
                 +  `<th>${_ieEsc(t('ie_result_col_st'))}</th>`;
         }
-        html += `<th>${_ieEsc(t('ie_result_col_nreq_t'))}</th>`
-            +  `<th>${_ieEsc(t('ie_result_col_nreq_m'))}</th>`
-            +  '</tr></thead><tbody>';
+        html += '</tr></thead><tbody>';
         study.rows.forEach((r, i) => {
             const elem = ie.elements[i];
             const name = _ieEsc(_ieElemLabel(elem, i + 1));
             html += '<tr>'
-                + `<td class="ie-r-name">${name}</td>`
-                + `<td>${fmtSec2(r.meanMs)}</td>`
-                + `<td>${fmtSec4(r.sdMs)}</td>`;
+                + `<td class="ie-r-name">${name}</td>`;
+            for (let c = 0; c < ie.rounds; c++) {
+                const v = matrix[c]?.[i];
+                html += `<td>${Number.isFinite(v) ? fmtSec2(v) : '·'}</td>`;
+            }
+            html += `<td>${fmtSec2(r.meanMs)}</td>`
+                +  `<td>${fmtSec4(r.sdMs)}</td>`;
             if (!isCT) {
                 const btnLabel = elem?.rated
                     ? `${(r.rf * 100).toFixed(0)}%`
@@ -1489,70 +1649,88 @@ function ieRenderResult() {
                     +  `<td>${fmtSec2(r.ntMs)}</td>`
                     +  `<td class="ie-r-st">${fmtSec2(r.stMs)}</td>`;
             }
-            html += `<td>${r.requiredNT || '·'}</td>`
-                +  `<td>${r.requiredNMaytag || '·'}</td>`
-                +  '</tr>';
+            html += '</tr>';
         });
         html += '</tbody>';
         tbl.innerHTML = html;
+        // Many rounds → let the wrap scroll instead of squashing. The label
+        // column stays wide enough for the Breakpoint name; every other
+        // column shares the remaining space evenly.
+        tbl.style.minWidth = `calc(7em + ${ie.rounds} * 3.2em${isCT ? ' + 2 * 4em' : ' + 5 * 4em'})`;
     }
-    // Sample-size warnings
-    const warnEl = document.getElementById('ieResultWarnings');
-    if (warnEl) {
-        const rows = study.rows
-            .map((r, i) => ({ i, r, name: _ieElemLabel(ie.elements[i], i + 1) }))
-            .filter(x => x.r.requiredNT > x.r.n);
-        if (rows.length) {
-            warnEl.innerHTML = rows.map(({ name, r }) => {
-                const line = _ieEsc(t('ie_result_warn_more')
-                    .replace('{n}', r.n).replace('{req}', r.requiredNT));
-                return `<div class="ie-warn-row"><strong>${_ieEsc(name)}</strong> — ${line}</div>`;
-            }).join('');
-            warnEl.style.display = 'block';
-        } else {
-            warnEl.innerHTML = '';
-            warnEl.style.display = 'none';
-        }
-    }
-    // Totals
+    // Totals — mirror the Lap-mode summary the operator already knows.
+    // Each fully-captured cycle's total observed time is one "lap": we
+    // compute Mean / Fastest / Slowest / Total / SD across those cycle
+    // totals, and the required-N row uses the same Time Study config
+    // (_ts.confidence, _ts.error) the Lap panel reads. The per-element
+    // detail table above still carries the RF / NT / ST breakdown for
+    // the SAM save path.
     const totEl = document.getElementById('ieResultTotals');
     if (totEl) {
-        if (isCT) {
-            // For CT we didn't apply rating or allowance, so totalStandardMs
-            // equals the sum of per-element means — i.e. the observed cycle
-            // time per piece. Show that + the number of pieces observed.
-            const totalCtMin = study.totalStandardMs / 60000;
-            const totalCtSec = study.totalStandardMs / 1000;
-            totEl.innerHTML = `
-                <div class="ie-total-row">
-                    <span>${t('ie_result_total_ct_pcs')}</span>
-                    <span>${ie.rounds}</span>
-                </div>
-                <div class="ie-total-row">
-                    <span>${t('ie_result_total_ct_sec')}</span>
-                    <span>${totalCtSec.toFixed(2)} s</span>
-                </div>
-                <div class="ie-total-row ie-total-hero">
-                    <span>${t('ie_result_total_ct_min')}</span>
-                    <span><strong>${totalCtMin.toFixed(4)}</strong> ${t('unit_min')}</span>
-                </div>`;
+        // Sum breakpoints per fully-captured cycle → one number per cycle.
+        const cycleTotals = matrix
+            .filter(row => row.every(v => Number.isFinite(v)))
+            .map(row => row.reduce((a, b) => a + b, 0));
+        const n = cycleTotals.length;
+        const stat = (label, value, cls = '') =>
+            `<div class="sw-stat ${cls}"><span>${label}</span><span>${value}</span></div>`;
+        let rows = '';
+        // Renders one required-N row (labelled with the method) tinted by
+        // whether we've already captured enough cycles for that method.
+        const reqStat = (method, N) => {
+            const label = `${t('sw_required_n')} (${method})`;
+            let cls = 'sw-stat-reqn';
+            let val;
+            if (!(N > 0)) { cls += ' sw-reqn-na'; val = '—'; }
+            else {
+                cls += n >= N ? ' sw-reqn-ok' : ' sw-reqn-warn';
+                val = `<span class="sw-reqn-num">${N}</span>`;
+            }
+            return stat(label, val, cls);
+        };
+        if (n === 0) {
+            // No fully-captured cycle yet — leave em-dashes so the panel
+            // shape stays consistent instead of collapsing.
+            rows =
+                stat(t('sw_avg'),     '—')
+              + stat(t('sw_fastest'), '—', 'sw-stat-fastest')
+              + stat(t('sw_slowest'), '—', 'sw-stat-slowest')
+              + stat(t('sw_total'),   '—')
+              + stat(t('sw_std'),     '—')
+              + reqStat('t-test', 0)
+              + reqStat('Maytag', 0);
         } else {
-            const totalStMin = study.totalStandardMs / 60000;
-            const totalStSec = study.totalStandardMs / 1000;
-            totEl.innerHTML = `
-                <div class="ie-total-row">
-                    <span>${t('ie_result_allowance')}</span>
-                    <span>${study.totalAllowancePct.toFixed(study.totalAllowancePct % 1 === 0 ? 0 : 1)}%</span>
-                </div>
-                <div class="ie-total-row">
-                    <span>${t('ie_result_total_st_sec')}</span>
-                    <span>${totalStSec.toFixed(2)} s</span>
-                </div>
-                <div class="ie-total-row ie-total-hero">
-                    <span>${t('ie_result_total_st_min')}</span>
-                    <span><strong>${totalStMin.toFixed(4)}</strong> ${t('unit_min')}</span>
-                </div>`;
+            const total = cycleTotals.reduce((a, b) => a + b, 0);
+            const avg   = total / n;
+            const min   = Math.min(...cycleTotals);
+            const max   = Math.max(...cycleTotals);
+            const sumSq = cycleTotals.reduce((s, v) => s + v * v, 0);
+            const sd    = n > 1
+                ? Math.sqrt(cycleTotals.reduce((s, v) => s + (v - avg) * (v - avg), 0) / (n - 1))
+                : 0;
+            // t-test uses the shared Time Study config (_ts.confidence /
+            // _ts.error) so this row stays in lockstep with the Lap panel.
+            // Maytag is the fixed 95%/±5% shortcut — its own convention,
+            // no config knob.
+            const ss   = computeSampleSize(cycleTotals, _ts.confidence, _ts.error);
+            const nT   = ss ? ss.N : 0;
+            const nMay = maytagN(total, sumSq, n);
+            rows =
+                stat(t('sw_avg'),     fmtSw(avg))
+              + stat(t('sw_fastest'), fmtSw(min), 'sw-stat-fastest')
+              + stat(t('sw_slowest'), fmtSw(max), 'sw-stat-slowest')
+              + stat(t('sw_total'),   fmtSw(total))
+              + stat(t('sw_std'),     `${fmtSec4(sd)}<span class="sw-stat-unit"> s</span>`)
+              + reqStat('t-test', nT)
+              + reqStat('Maytag', nMay);
         }
+        totEl.innerHTML = `
+            <div class="sw-stats-panel">
+                <div class="sw-stats-header">
+                    <div class="sw-stats-title">${t('sw_summary')}</div>
+                </div>
+                <div class="sw-stats-grid">${rows}</div>
+            </div>`;
     }
 }
 

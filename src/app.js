@@ -693,6 +693,362 @@ export function swSaveToForm() {
     closeStopwatchModal();
 }
 
+// Export the current stopwatch summary + lap list as a PNG. Thin
+// wrapper over the shared _renderSummaryPng helper (which also feeds
+// the IE result panel's PNG export). Wired to the PNG button in the
+// save panel that only reveals itself after swShowStats.
+export function swExportPNG() {
+    const data = sw.mode === 'lap' ? sw.laps : (sw.elapsed > 0 ? [sw.elapsed] : []);
+    if (!data.length) return;
+    gaTrack('sw_export_png', { mode: sw.mode, laps: data.length });
+    const isLap = sw.mode === 'lap';
+    _renderSummaryPng({
+        title:      t('sw_summary'),
+        modeLabel:  isLap
+            ? `Lap · ${data.length} ${t('sw_laps_title')}`
+            : `Single · ${fmtSw(sw.elapsed)}`,
+        data,
+        rowLabel:   t('sw_laps_title'),
+        showRows:   isLap,
+        fileStem:   `stopwatch-${sw.mode}`,
+    });
+}
+
+// Draws a stopwatch-style summary card (stats + optional per-row list
+// + optional per-element table) to an off-screen canvas and triggers a
+// PNG download. Shared by `swExportPNG` and `ieExportPNG` since both
+// panels display the same 6-row stats shape over an array of ms values
+// (laps for stopwatch, per-cycle totals for IE). The optional
+// `elementTable` block renders above the stats — used by IE to include
+// the per-Breakpoint × round grid the operator sees on screen. No
+// external library — same hand-drawn canvas approach the tutorial
+// certificate uses.
+function _renderSummaryPng({ title, modeLabel, data, rowLabel, showRows, fileStem, elementTable }) {
+    // Stats — same math swShowStats / tsRecalculate run on screen.
+    const total = data.reduce((a, b) => a + b, 0);
+    const avg   = total / data.length;
+    const min   = Math.min(...data);
+    const max   = Math.max(...data);
+    const denom = data.length > 1 ? data.length - 1 : 1;
+    const vari  = data.reduce((s, v) => s + (v - avg) * (v - avg), 0) / denom;
+    const std   = Math.sqrt(vari);
+    const sumSq = data.reduce((s, v) => s + v * v, 0);
+    const ss    = data.length >= 2
+        ? computeSampleSize(data, _ts.confidence, _ts.error) : null;
+    const nT    = ss ? ss.N : 0;
+    const nMay  = maytagN(total, sumSq, data.length);
+
+    // Theme-aware — read the current CSS tokens so the exported PNG
+    // matches the theme the user is viewing.
+    const cs   = getComputedStyle(document.documentElement);
+    const c = key => (cs.getPropertyValue(key).trim() || '#000');
+    const bg     = c('--surface') || '#ffffff';
+    const bg2    = c('--surface-2') || '#f6f7fb';
+    const ink    = c('--text-1')  || '#14152a';
+    const sub    = c('--text-2')  || '#5b5f76';
+    const faint  = c('--text-3')  || '#9095ab';
+    const border = c('--border')  || '#eef0f6';
+    const accent = c('--accent-600') || '#4f46e5';
+    const success= c('--success')    || '#16a34a';
+    const danger = c('--danger')     || '#ef4444';
+
+    const FONT = "'Inter','Noto Sans Thai','Segoe UI',sans-serif";
+    const PAD = 40;
+    // Element table layout — dynamic width so many rounds don't squash.
+    // First column carries the Breakpoint name, remaining columns share
+    // equal width. Canvas grows to accommodate a wide table.
+    const TBL_NAME_COL = 140;
+    const TBL_MIN_COL  = 60;
+    const TBL_HEAD_H   = 42;
+    const TBL_ROW_H    = 36;
+    let W = 720;
+    let TABLE_H = 0;
+    if (elementTable && elementTable.rows.length) {
+        const nCols = elementTable.headers.length;              // includes name col
+        const wanted = PAD * 2 + TBL_NAME_COL + (nCols - 1) * TBL_MIN_COL;
+        W = Math.max(W, wanted);
+        TABLE_H = 22 + TBL_HEAD_H + elementTable.rows.length * TBL_ROW_H + 14;
+    }
+    const TITLE_H  = 80;
+    const HEADER_H = 60;
+    const STATS_H  = 7 * 50 + 20;
+    const LIST_HEAD = showRows ? 40 : 0;
+    const LIST_ROW_H = 32;
+    const LIST_H = showRows ? Math.min(data.length, 40) * LIST_ROW_H : 0;
+    const LIST_OVERFLOW = showRows && data.length > 40;
+    const OVERFLOW_H = LIST_OVERFLOW ? 26 : 0;
+    const FOOTER_H  = 44;
+    const H = TITLE_H + HEADER_H + TABLE_H + STATS_H + LIST_HEAD + LIST_H + OVERFLOW_H + FOOTER_H + PAD * 2;
+    const DPR = 2;
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = W * DPR;
+    canvas.height = H * DPR;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(DPR, DPR);
+
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = border; ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+
+    let y = PAD;
+
+    // Title + right-aligned timestamp
+    ctx.fillStyle = accent;
+    ctx.font = `700 26px ${FONT}`;
+    ctx.textBaseline = 'top';
+    ctx.fillText(title, PAD, y);
+    ctx.fillStyle = faint;
+    ctx.font = `500 13px ${FONT}`;
+    ctx.textAlign = 'right';
+    ctx.fillText(new Date().toLocaleString(), W - PAD, y + 8);
+    ctx.textAlign = 'left';
+    y += TITLE_H - PAD;
+
+    // Mode chip
+    ctx.fillStyle = bg2;
+    _roundRect(ctx, PAD, y, W - PAD * 2, 44, 10);
+    ctx.fill();
+    ctx.fillStyle = sub;
+    ctx.font = `600 15px ${FONT}`;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(modeLabel, PAD + 16, y + 22);
+    y += HEADER_H;
+
+    // Optional element table (IE only) — Element | round 1..R | x̄ | SD
+    // [| Rating | NT | ST for SAM]. First column is the Breakpoint name;
+    // remaining columns share equal width.
+    if (elementTable && elementTable.rows.length) {
+        const headers = elementTable.headers;
+        const rows    = elementTable.rows;
+        const nCols   = headers.length;
+        const tblX    = PAD;
+        const tblW    = W - PAD * 2;
+        const colW    = (tblW - TBL_NAME_COL) / (nCols - 1);
+        // Header stripe
+        const tblTop = y;
+        ctx.fillStyle = c('--accent-50') || '#eef0ff';
+        _roundRect(ctx, tblX, tblTop, tblW, TBL_HEAD_H, 8);
+        ctx.fill();
+        ctx.fillStyle = c('--accent-700') || '#4338ca';
+        ctx.font = `700 13px ${FONT}`;
+        ctx.textBaseline = 'middle';
+        for (let ci = 0; ci < nCols; ci++) {
+            const cx = ci === 0 ? tblX + 14 : tblX + TBL_NAME_COL + (ci - 1 + 1) * colW - 14;
+            ctx.textAlign = ci === 0 ? 'left' : 'right';
+            ctx.fillText(headers[ci], cx, tblTop + TBL_HEAD_H / 2);
+        }
+        // Body rows
+        let ry = tblTop + TBL_HEAD_H;
+        ctx.font = `500 13px ${FONT}`;
+        for (let ri = 0; ri < rows.length; ri++) {
+            const row = rows[ri];
+            ctx.fillStyle = ink;
+            ctx.font = `700 13px ${FONT}`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            // Ellipsize element name if too wide
+            let name = row[0];
+            const maxNameW = TBL_NAME_COL - 20;
+            while (name.length && ctx.measureText(name).width > maxNameW) {
+                name = name.slice(0, -1);
+            }
+            if (name !== row[0]) name = name.slice(0, -1) + '…';
+            ctx.fillText(name, tblX + 14, ry + TBL_ROW_H / 2);
+            ctx.font = `500 13px ${FONT}`;
+            ctx.textAlign = 'right';
+            ctx.fillStyle = sub;
+            for (let ci = 1; ci < nCols; ci++) {
+                const cx = tblX + TBL_NAME_COL + ci * colW - 14;
+                ctx.fillText(row[ci] ?? '·', cx, ry + TBL_ROW_H / 2);
+            }
+            // Row separator (skip after last)
+            if (ri < rows.length - 1) {
+                ctx.strokeStyle = border; ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(tblX + 8,       ry + TBL_ROW_H);
+                ctx.lineTo(tblX + tblW - 8, ry + TBL_ROW_H);
+                ctx.stroke();
+            }
+            ry += TBL_ROW_H;
+        }
+        // Outer frame
+        ctx.strokeStyle = border; ctx.lineWidth = 1;
+        _roundRect(ctx, tblX + 0.5, tblTop + 0.5, tblW - 1, TABLE_H - 14 - 22 - 0.5, 8);
+        ctx.stroke();
+        y = tblTop + TABLE_H;
+    }
+
+    // Stats block bg
+    const statsTop = y;
+    ctx.fillStyle = bg2;
+    _roundRect(ctx, PAD, statsTop, W - PAD * 2, STATS_H, 12);
+    ctx.fill();
+    y += 18;
+
+    const drawRow = (label, value, valueColor, dotColor) => {
+        ctx.fillStyle = sub;
+        ctx.font = `500 15px ${FONT}`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const lx = PAD + 20;
+        ctx.fillText(label, lx, y + 22);
+        if (dotColor) {
+            const lw = ctx.measureText(label).width;
+            ctx.fillStyle = dotColor;
+            ctx.beginPath(); ctx.arc(lx + lw + 8, y + 22, 3.5, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = valueColor || ink;
+        ctx.font = `700 17px ${FONT}`;
+        ctx.textAlign = 'right';
+        ctx.fillText(value, W - PAD - 20, y + 22);
+        ctx.textAlign = 'left';
+        ctx.strokeStyle = border; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(PAD + 20, y + 44);
+        ctx.lineTo(W - PAD - 20, y + 44);
+        ctx.stroke();
+        y += 50;
+    };
+    drawRow(t('sw_avg'),     fmtSw(avg));
+    drawRow(t('sw_fastest'), fmtSw(min), success, success);
+    drawRow(t('sw_slowest'), fmtSw(max), danger,  danger);
+    drawRow(t('sw_total'),   fmtSw(total));
+    drawRow(t('sw_std'),     `${fmtSec4(std)} s`);
+    drawRow(`${t('sw_required_n')} (t-test)`, ss ? String(nT) : '—', accent);
+    drawRow(`${t('sw_required_n')} (Maytag)`, nMay > 0 ? String(nMay) : '—', accent);
+    y = statsTop + STATS_H;
+
+    if (showRows) {
+        y += 6;
+        ctx.fillStyle = sub;
+        ctx.font = `600 13px ${FONT}`;
+        ctx.textBaseline = 'top';
+        ctx.fillText(rowLabel, PAD, y);
+        y += 24;
+        const maxRows = Math.min(data.length, 40);
+        for (let i = 0; i < maxRows; i++) {
+            const v = data[i];
+            const isMin = v === min;
+            const isMax = v === max;
+            ctx.fillStyle = isMin ? success : isMax ? danger : sub;
+            ctx.font = `500 14px ${FONT}`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`#${i + 1}`, PAD + 4, y + 16);
+            ctx.fillStyle = isMin ? success : isMax ? danger : ink;
+            ctx.font = `600 14px ${FONT}`;
+            ctx.textAlign = 'right';
+            ctx.fillText(fmtSw(v), W - PAD - 4, y + 16);
+            ctx.strokeStyle = border; ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(PAD, y + LIST_ROW_H);
+            ctx.lineTo(W - PAD, y + LIST_ROW_H);
+            ctx.stroke();
+            y += LIST_ROW_H;
+        }
+        if (LIST_OVERFLOW) {
+            ctx.fillStyle = faint;
+            ctx.font = `500 12px ${FONT}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText(`… + ${data.length - 40} more`, W / 2, y + 6);
+        }
+    }
+
+    // Footer — app identity + version.
+    ctx.fillStyle = faint;
+    ctx.font = `500 12px ${FONT}`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('Industrial Engineering Calculator', PAD, H - PAD + 20);
+    ctx.textAlign = 'right';
+    ctx.fillText(`v${APP_VERSION}`, W - PAD, H - PAD + 20);
+
+    canvas.toBlob(blob => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const dt = new Date();
+        const pad2 = n => String(n).padStart(2, '0');
+        const stampFile = `${dt.getFullYear()}${pad2(dt.getMonth() + 1)}${pad2(dt.getDate())}-${pad2(dt.getHours())}${pad2(dt.getMinutes())}`;
+        a.href = url;
+        a.download = `${fileStem}-${stampFile}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+    }, 'image/png');
+}
+
+// IE-side PNG export — computes per-cycle totals from ie.readings and
+// delegates to the shared drawer. Emits: header + mode chip + the
+// per-Breakpoint × round table the operator sees on screen + the same
+// stats summary the stopwatch PNG carries + per-cycle list + footer.
+export function ieExportPNG() {
+    const N = ie.elements.length;
+    if (!N) return;
+    const matrix = elementTimesFromReadings(ie.readings, N);
+    const cycleTotals = matrix
+        .filter(row => row.every(v => Number.isFinite(v)))
+        .map(row => row.reduce((a, b) => a + b, 0));
+    if (!cycleTotals.length) return;
+    gaTrack('ie_export_png', { flow: ie.flow, cycles: cycleTotals.length, elements: N });
+    const isCT = ie.flow === 'ct';
+
+    // Element table: mirror the on-screen layout —
+    //   Element | 1 … R | x̄ | SD  (SAM adds Rating | NT | ST).
+    // Uses the same computeStudy output that drives the DOM table, so
+    // values match the on-screen numbers to the last digit.
+    const ranks = isCT
+        ? ie.elements.map(_ => ({ ...IE_DEFAULT_RANK }))
+        : ie.elements.map(e => (
+            e.rated ? { ws: e.ws, we: e.we, wc: e.wc, wcon: e.wcon } : { ...IE_DEFAULT_RANK }
+        ));
+    const alw = isCT ? { personal: 0, fatigue: 0, delay: 0 } : ie.allowance;
+    const study = computeStudy(matrix, ranks, alw);
+    const headers = [t('ie_result_col_elem')];
+    for (let c = 1; c <= ie.rounds; c++) headers.push(String(c));
+    headers.push(t('ie_result_col_mean'), t('ie_result_col_sd'));
+    if (!isCT) headers.push(t('ie_result_col_rf'), t('ie_result_col_nt'), t('ie_result_col_st'));
+    const tableRows = study.rows.map((r, i) => {
+        const elem = ie.elements[i];
+        const row = [_ieElemLabel(elem, i + 1)];
+        for (let c = 0; c < ie.rounds; c++) {
+            const v = matrix[c]?.[i];
+            row.push(Number.isFinite(v) ? fmtSec2(v) : '·');
+        }
+        row.push(fmtSec2(r.meanMs), fmtSec4(r.sdMs));
+        if (!isCT) {
+            row.push(elem?.rated ? `${(r.rf * 100).toFixed(0)}%` : '—');
+            row.push(fmtSec2(r.ntMs));
+            row.push(fmtSec2(r.stMs));
+        }
+        return row;
+    });
+
+    _renderSummaryPng({
+        title:      t(isCT ? 'ie_result_title_ct' : 'ie_result_title'),
+        modeLabel:  `${isCT ? 'Cycle Time' : 'Time Study'} · ${cycleTotals.length} cycles · ${N} breakpoints`,
+        data:       cycleTotals,
+        rowLabel:   'Cycles',
+        showRows:   true,
+        fileStem:   `ie-${isCT ? 'ct' : 'sam'}`,
+        elementTable: { headers, rows: tableRows },
+    });
+}
+// Rounded-rectangle path helper (canvas has no built-in). Same signature
+// as the certificate helper in tutorial.js.
+function _roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y,     x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x,     y + h, r);
+    ctx.arcTo(x,     y + h, x,     y,     r);
+    ctx.arcTo(x,     y,     x + w, y,     r);
+    ctx.closePath();
+}
+
 // ---- Time Study (Statistical Sample Size) ----
 // T_TABLE, tsTValue, and computeSampleSize live in timeutil.js so they can
 // be unit-tested from Node without a DOM. The runtime state here is only
@@ -753,6 +1109,16 @@ export function tsRecalculate() {
     // Keep the preset row in sync with whatever the numpad / conf pill last did.
     // Cheap DOM toggle — safe to call every recalc.
     _renderTsPresetActive();
+
+    // If the IE result panel is open, its summary reads _ts.confidence /
+    // _ts.error too — repaint it BEFORE the Lap-specific early return
+    // below so a config change made while in IE takes effect immediately.
+    // (The earlier "add at end" attempt never fired here because the
+    // early return triggers when sw.mode === 'ie' → Lap data is empty.)
+    const ieResultPanel = document.getElementById('ieResultPanel');
+    if (ieResultPanel && ieResultPanel.style.display !== 'none' && ie.finalized) {
+        ieRenderResult();
+    }
 
     const reqnVal    = document.getElementById('swStatReqN');
     const reqnInfo   = document.getElementById('swInfo_reqn');
@@ -1672,12 +2038,15 @@ function ieRenderResult() {
             .filter(row => row.every(v => Number.isFinite(v)))
             .map(row => row.reduce((a, b) => a + b, 0));
         const n = cycleTotals.length;
-        const stat = (label, value, cls = '') =>
-            `<div class="sw-stat ${cls}"><span>${label}</span><span>${value}</span></div>`;
-        let rows = '';
-        // Renders one required-N row (labelled with the method) tinted by
-        // whether we've already captured enough cycles for that method.
-        const reqStat = (method, N) => {
+        // Tappable row + its description sibling. `key` is the `data-arg`
+        // the delegated 'sw-stat' action passes to swToggleStatInfo, which
+        // toggles `#swInfo_<key>`. IE uses an `ie_` prefix so its rows
+        // don't collide with the Lap panel's static rows.
+        const stat = (key, label, value, cls, descHTML) =>
+            `<div class="sw-stat sw-stat-tappable ${cls || ''}" data-action="sw-stat" data-arg="${key}">`
+            + `<span>${label}</span><span>${value}</span></div>`
+            + `<div class="sw-stat-desc" id="swInfo_${key}">${descHTML || ''}</div>`;
+        const reqStat = (key, method, N, descHTML) => {
             const label = `${t('sw_required_n')} (${method})`;
             let cls = 'sw-stat-reqn';
             let val;
@@ -1686,19 +2055,27 @@ function ieRenderResult() {
                 cls += n >= N ? ' sw-reqn-ok' : ' sw-reqn-warn';
                 val = `<span class="sw-reqn-num">${N}</span>`;
             }
-            return stat(label, val, cls);
+            return stat(key, label, val, cls, descHTML);
         };
+        // Descriptions reuse the Lap panel's `sw_info_*` translations so
+        // wording stays in lockstep across TH/EN/VN/LA. The two required-N
+        // rows carry their own formula + metrics block (built below).
+        const dAvg   = `<span class="lang-text" data-key="sw_info_avg">${t('sw_info_avg')}</span>`;
+        const dMin   = `<span class="lang-text" data-key="sw_info_min">${t('sw_info_min')}</span>`;
+        const dMax   = `<span class="lang-text" data-key="sw_info_max">${t('sw_info_max')}</span>`;
+        const dTot   = `<span class="lang-text" data-key="sw_info_total">${t('sw_info_total')}</span>`;
+        const dStd   = `<span class="lang-text" data-key="sw_info_std">${t('sw_info_std')}</span>`;
+        const pilot  = `<span class="lang-text" data-key="ts_need_pilot">${t('ts_need_pilot')}</span>`;
+        let rows = '';
         if (n === 0) {
-            // No fully-captured cycle yet — leave em-dashes so the panel
-            // shape stays consistent instead of collapsing.
             rows =
-                stat(t('sw_avg'),     '—')
-              + stat(t('sw_fastest'), '—', 'sw-stat-fastest')
-              + stat(t('sw_slowest'), '—', 'sw-stat-slowest')
-              + stat(t('sw_total'),   '—')
-              + stat(t('sw_std'),     '—')
-              + reqStat('t-test', 0)
-              + reqStat('Maytag', 0);
+                stat('ie_avg',     t('sw_avg'),     '—', '', dAvg)
+              + stat('ie_min',     t('sw_fastest'), '—', 'sw-stat-fastest', dMin)
+              + stat('ie_max',     t('sw_slowest'), '—', 'sw-stat-slowest', dMax)
+              + stat('ie_total',   t('sw_total'),   '—', '', dTot)
+              + stat('ie_std',     t('sw_std'),     '—', '', dStd)
+              + reqStat('ie_reqn_t', 't-test', 0, pilot)
+              + reqStat('ie_reqn_m', 'Maytag', 0, pilot);
         } else {
             const total = cycleTotals.reduce((a, b) => a + b, 0);
             const avg   = total / n;
@@ -1709,20 +2086,98 @@ function ieRenderResult() {
                 ? Math.sqrt(cycleTotals.reduce((s, v) => s + (v - avg) * (v - avg), 0) / (n - 1))
                 : 0;
             // t-test uses the shared Time Study config (_ts.confidence /
-            // _ts.error) so this row stays in lockstep with the Lap panel.
-            // Maytag is the fixed 95%/±5% shortcut — its own convention,
-            // no config knob.
+            // _ts.error); Maytag is fixed 95%/±5%.
             const ss   = computeSampleSize(cycleTotals, _ts.confidence, _ts.error);
             const nT   = ss ? ss.N : 0;
             const nMay = maytagN(total, sumSq, n);
+            // Rich info panel for the t-test row — same shape as tsRecalculate's
+            // Lap-panel block, with cycle-totals as the data. Only meaningful
+            // when we have a real distribution (n ≥ 2).
+            let tDescHTML = pilot;
+            if (ss) {
+                const df = ss.df;
+                const eRatio = _ts.error / 100;
+                const eStr = eRatio.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+                const dfNote = df > 30 ? ` <span class="sw-ts-note">(${t('ts_capped_df')})</span>` : '';
+                const okT = n >= ss.N;
+                const summaryLine = okT
+                    ? t('ts_have_ok').replace('{n}', n)
+                    : t('ts_have_short').replace('{n}', n).replace('{more}', ss.N - n);
+                const formulaHTML = `
+                    <div class="mformula" aria-label="N equals open-paren t times s over e times x-bar close-paren squared">
+                        <span class="mvar">N</span>
+                        <span class="meq">=</span>
+                        <span class="mparen">(</span>
+                        <span class="mfrac">
+                            <span class="mnum"><i>t</i> · <i>s</i></span>
+                            <span class="mden"><i>e</i> · <i>x̄</i></span>
+                        </span>
+                        <span class="mparen">)</span>
+                        <span class="msup">2</span>
+                    </div>`;
+                tDescHTML = `
+                    <div class="sw-reqn-headline">
+                        ${t('ts_msg_prefix')
+                            .replace('{conf}', _ts.confidence)
+                            .replace('{N_raw}', ss.N_raw.toFixed(2))
+                            .replace('{N}', ss.N)}
+                    </div>
+                    <div class="sw-reqn-summary">${summaryLine}</div>
+                    <div class="sw-ts-metrics">
+                        <div class="sw-ts-metric"><span>n</span><span>${n}</span></div>
+                        <div class="sw-ts-metric"><span>df</span><span>${df}${dfNote}</span></div>
+                        <div class="sw-ts-metric"><span>t</span><span>${ss.tVal.toFixed(4)}</span></div>
+                        <div class="sw-ts-metric"><span>x̄</span><span>${fmtSec2(ss.mean)} s</span></div>
+                        <div class="sw-ts-metric"><span>s</span><span>${fmtSec4(ss.sd)} s</span></div>
+                        <div class="sw-ts-metric"><span>e</span><span>${eStr} <span class="sw-ts-note">(${_ts.error}%)</span></span></div>
+                        <div class="sw-ts-metric sw-ts-metric-hero">
+                            <span>N</span>
+                            <span>${ss.N_raw.toFixed(2)} → <strong>${ss.N}</strong></span>
+                        </div>
+                    </div>
+                    ${formulaHTML}`;
+            }
+            // Rich info panel for the Maytag row.
+            let mDescHTML = pilot;
+            if (nMay > 0) {
+                const okM = n >= nMay;
+                const summaryLineM = okM
+                    ? t('ts_have_ok').replace('{n}', n)
+                    : t('ts_have_short').replace('{n}', n).replace('{more}', nMay - n);
+                const maytagFormulaHTML = `
+                    <div class="mformula" aria-label="N prime equals open-paren 40 times square-root of n Sigma x squared minus Sigma x squared over Sigma x close-paren squared">
+                        <span class="mvar">N′</span>
+                        <span class="meq">=</span>
+                        <span class="mparen">(</span>
+                        <span class="mfrac">
+                            <span class="mnum">40 · √(<i>n</i>·Σ<i>x</i>² − (Σ<i>x</i>)²)</span>
+                            <span class="mden">Σ<i>x</i></span>
+                        </span>
+                        <span class="mparen">)</span>
+                        <span class="msup">2</span>
+                    </div>`;
+                mDescHTML = `
+                    <div class="sw-reqn-headline">Maytag (95% / ±5%): N′ = ${nMay}</div>
+                    <div class="sw-reqn-summary">${summaryLineM}</div>
+                    <div class="sw-ts-metrics">
+                        <div class="sw-ts-metric"><span>n</span><span>${n}</span></div>
+                        <div class="sw-ts-metric"><span>Σx</span><span>${fmtSec2(total)} s</span></div>
+                        <div class="sw-ts-metric"><span>Σx²</span><span>${(sumSq / 1e6).toFixed(4)} s²</span></div>
+                        <div class="sw-ts-metric sw-ts-metric-hero">
+                            <span>N′</span>
+                            <span><strong>${nMay}</strong></span>
+                        </div>
+                    </div>
+                    ${maytagFormulaHTML}`;
+            }
             rows =
-                stat(t('sw_avg'),     fmtSw(avg))
-              + stat(t('sw_fastest'), fmtSw(min), 'sw-stat-fastest')
-              + stat(t('sw_slowest'), fmtSw(max), 'sw-stat-slowest')
-              + stat(t('sw_total'),   fmtSw(total))
-              + stat(t('sw_std'),     `${fmtSec4(sd)}<span class="sw-stat-unit"> s</span>`)
-              + reqStat('t-test', nT)
-              + reqStat('Maytag', nMay);
+                stat('ie_avg',     t('sw_avg'),     fmtSw(avg),                                          '',                dAvg)
+              + stat('ie_min',     t('sw_fastest'), fmtSw(min),                                          'sw-stat-fastest', dMin)
+              + stat('ie_max',     t('sw_slowest'), fmtSw(max),                                          'sw-stat-slowest', dMax)
+              + stat('ie_total',   t('sw_total'),   fmtSw(total),                                        '',                dTot)
+              + stat('ie_std',     t('sw_std'),     `${fmtSec4(sd)}<span class="sw-stat-unit"> s</span>`, '',                dStd)
+              + reqStat('ie_reqn_t', 't-test', nT,   tDescHTML)
+              + reqStat('ie_reqn_m', 'Maytag', nMay, mDescHTML);
         }
         totEl.innerHTML = `
             <div class="sw-stats-panel">

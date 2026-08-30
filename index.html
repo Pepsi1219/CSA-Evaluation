@@ -383,7 +383,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · <span id="appVersion">v1.29.0</span></p>
+    <p>© CSA Evaluation · <span id="appVersion">v1.30.0</span></p>
 </footer>
 
 <!-- ============ Back-to-Top Button ============ -->
@@ -683,15 +683,26 @@
                 <label class="lang-text" data-key="sw_rounds">จำนวนรอบ</label>
                 <input type="text" id="swRoundsInput" class="sw-rounds-input" inputmode="none" pattern="[0-9]*" value="1" data-numpad="int" data-numpad-label="sw_rounds">
             </div>
-            <button class="sw-save-to-form-btn" data-action="sw-save">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                    <polyline points="17 21 17 13 7 13 7 21"/>
-                    <polyline points="7 3 7 8 15 8"/>
-                </svg>
-                <span class="lang-text" data-key="sw_save_form">บันทึกลงฟอร์ม</span>
-            </button>
+            <div class="sw-save-row">
+                <button class="sw-png-btn" data-action="sw-png" title="Export PNG" aria-label="Export PNG">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="9" cy="9" r="1.6"/>
+                        <path d="M21 15l-5-5-9 9"/>
+                    </svg>
+                    <span>PNG</span>
+                </button>
+                <button class="sw-save-to-form-btn" data-action="sw-save">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/>
+                        <polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    <span class="lang-text" data-key="sw_save_form">บันทึกลงฟอร์ม</span>
+                </button>
+            </div>
         </div>
 
         <!-- ============ IE mode: Flow chooser (SAM vs Cycle Time) ============ -->
@@ -841,7 +852,18 @@
 
         <!-- ============ IE mode: Result ============ -->
         <div class="ie-panel" id="ieResultPanel" style="display:none;">
-            <div class="ie-panel-title" id="ieResultTitle">สรุป Time Study</div>
+            <div class="ie-result-header">
+                <div class="ie-panel-title" id="ieResultTitle">สรุป Time Study</div>
+                <button type="button" class="ie-png-btn" data-action="ie-png" title="Export PNG" aria-label="Export PNG">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="9" cy="9" r="1.6"/>
+                        <path d="M21 15l-5-5-9 9"/>
+                    </svg>
+                    <span>PNG</span>
+                </button>
+            </div>
             <div class="ie-result-wrap">
                 <table class="ie-result-table" id="ieResultTable"></table>
             </div>

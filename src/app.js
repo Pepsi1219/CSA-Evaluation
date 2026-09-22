@@ -19,7 +19,7 @@ import {
 } from './timeutil.js';
 import {
     WESTINGHOUSE, WESTINGHOUSE_LABELS, ratingFactor,
-    elementTimesFromReadings, computeStudy, maytagN,
+    elementTimesFromReadings, computeStudy, maytagN, maytagCoeff,
 } from './ie.js';
 import { translations } from './translations.js';
 import {
@@ -736,7 +736,7 @@ function _renderSummaryPng({ title, modeLabel, data, rowLabel, showRows, fileSte
     const ss    = data.length >= 2
         ? computeSampleSize(data, _ts.confidence, _ts.error) : null;
     const nT    = ss ? ss.N : 0;
-    const nMay  = maytagN(total, sumSq, data.length);
+    const nMay  = maytagN(total, sumSq, data.length, _ts.error);
 
     // Theme-aware — read the current CSS tokens so the exported PNG
     // matches the theme the user is viewing.
@@ -1006,7 +1006,7 @@ export function ieExportPNG() {
             e.rated ? { ws: e.ws, we: e.we, wc: e.wc, wcon: e.wcon } : { ...IE_DEFAULT_RANK }
         ));
     const alw = isCT ? { personal: 0, fatigue: 0, delay: 0 } : ie.allowance;
-    const study = computeStudy(matrix, ranks, alw);
+    const study = computeStudy(matrix, ranks, alw, _ts.error);
     const headers = [t('ie_result_col_elem')];
     for (let c = 1; c <= ie.rounds; c++) headers.push(String(c));
     headers.push(t('ie_result_col_mean'), t('ie_result_col_sd'));
@@ -1057,6 +1057,29 @@ function _roundRect(ctx, x, y, w, h, r) {
 // the config modal and the initial `value="10"` on tsErrorInput. Keep these
 // three in lock-step: any change here needs the same change in index.html.
 const _ts = { confidence: 95, error: 10 };
+
+// Maytag formula display: k = 2 / (e/100) so the "40" in the textbook
+// form follows the current error margin instead of staying glued to ±5%.
+function _fmtMaytagK(k) {
+    const r = Math.round(k);
+    if (Math.abs(k - r) < 1e-6) return String(r);
+    return k.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+}
+function _maytagFormulaHTML(errorPercent) {
+    const kStr = _fmtMaytagK(maytagCoeff(errorPercent));
+    return `
+        <div class="mformula" aria-label="N prime equals open-paren ${kStr} times square-root of n Sigma x squared minus Sigma x squared over Sigma x close-paren squared">
+            <span class="mvar">N′</span>
+            <span class="meq">=</span>
+            <span class="mparen">(</span>
+            <span class="mfrac">
+                <span class="mnum">${kStr} · √(<i>n</i>·Σ<i>x</i>² − (Σ<i>x</i>)²)</span>
+                <span class="mden">Σ<i>x</i></span>
+            </span>
+            <span class="mparen">)</span>
+            <span class="msup">2</span>
+        </div>`;
+}
 
 export function tsSetConfidence(c) {
     _ts.confidence = c;
@@ -1221,15 +1244,15 @@ export function tsRecalculate() {
         </div>
         ${formulaHTML}`;
 
-    // ---- Maytag row — fixed 95%/±5% shortcut, no config knobs.
-    // N' = ( 40 · √(n·Σx² − (Σx)²) / Σx )². Uses the same lap distribution
-    // as the t-test row so operators can compare the two sample-size
-    // conventions side-by-side. Continue-timing CTA stays bound to t-test
-    // (it's the tunable, primary method).
+    // ---- Maytag row — 95% (z ≈ 2) shortcut; error margin follows
+    // `_ts.error` so k = 2 / e (textbook 40 at ±5%, 20 at ±10%).
+    // Same lap distribution as the t-test row so operators can compare
+    // the two conventions. Continue-timing CTA stays bound to t-test
+    // (it's the method that also follows the confidence pill).
     if (reqnValM && reqnInfoM) {
         const sum   = data.reduce((a, b) => a + b, 0);
         const sumSq = data.reduce((a, b) => a + b * b, 0);
-        const NM    = maytagN(sum, sumSq, n);
+        const NM    = maytagN(sum, sumSq, n, _ts.error);
         if (!(NM > 0)) {
             if (reqnRowM) reqnRowM.classList.add('sw-reqn-na');
             reqnValM.innerHTML  = '<span class="sw-reqn-na-text">—</span>';
@@ -1238,35 +1261,23 @@ export function tsRecalculate() {
             const okM = n >= NM;
             if (reqnRowM) reqnRowM.classList.add(okM ? 'sw-reqn-ok' : 'sw-reqn-warn');
             reqnValM.innerHTML = `<span class="sw-reqn-num">${NM}</span>`;
-            // Same inline math layout as the t-test formula.
-            const maytagFormulaHTML = `
-                <div class="mformula" aria-label="N prime equals open-paren 40 times square-root of n Sigma x squared minus Sigma x squared over Sigma x close-paren squared">
-                    <span class="mvar">N′</span>
-                    <span class="meq">=</span>
-                    <span class="mparen">(</span>
-                    <span class="mfrac">
-                        <span class="mnum">40 · √(<i>n</i>·Σ<i>x</i>² − (Σ<i>x</i>)²)</span>
-                        <span class="mden">Σ<i>x</i></span>
-                    </span>
-                    <span class="mparen">)</span>
-                    <span class="msup">2</span>
-                </div>`;
             const summaryLineM = okM
                 ? t('ts_have_ok').replace('{n}', n)
                 : t('ts_have_short').replace('{n}', n).replace('{more}', NM - n);
             reqnInfoM.innerHTML = `
-                <div class="sw-reqn-headline">Maytag (95% / ±5%): N′ = ${NM}</div>
+                <div class="sw-reqn-headline">Maytag (95% / ±${_ts.error}%): N′ = ${NM}</div>
                 <div class="sw-reqn-summary">${summaryLineM}</div>
                 <div class="sw-ts-metrics">
                     <div class="sw-ts-metric"><span>n</span><span>${n}</span></div>
                     <div class="sw-ts-metric"><span>Σx</span><span>${fmtSec2(sum)} s</span></div>
                     <div class="sw-ts-metric"><span>Σx²</span><span>${(sumSq / 1e6).toFixed(4)} s²</span></div>
+                    <div class="sw-ts-metric"><span>k</span><span>${_fmtMaytagK(maytagCoeff(_ts.error))} <span class="sw-ts-note">(2 / ${_ts.error}%)</span></span></div>
                     <div class="sw-ts-metric sw-ts-metric-hero">
                         <span>N′</span>
                         <span><strong>${NM}</strong></span>
                     </div>
                 </div>
-                ${maytagFormulaHTML}`;
+                ${_maytagFormulaHTML(_ts.error)}`;
         }
     }
 }
@@ -1968,7 +1979,7 @@ function ieRenderResult() {
             e.rated ? { ws: e.ws, we: e.we, wc: e.wc, wcon: e.wcon } : { ...IE_DEFAULT_RANK }
         ));
     const alw = isCT ? { personal: 0, fatigue: 0, delay: 0 } : ie.allowance;
-    const study = computeStudy(matrix, ranks, alw);
+    const study = computeStudy(matrix, ranks, alw, _ts.error);
     _ieLastStudy = study;
 
     // Panel title + Save-button label are flow-driven.
@@ -2086,10 +2097,10 @@ function ieRenderResult() {
                 ? Math.sqrt(cycleTotals.reduce((s, v) => s + (v - avg) * (v - avg), 0) / (n - 1))
                 : 0;
             // t-test uses the shared Time Study config (_ts.confidence /
-            // _ts.error); Maytag is fixed 95%/±5%.
+            // _ts.error); Maytag stays at 95% (z ≈ 2) but follows `_ts.error`.
             const ss   = computeSampleSize(cycleTotals, _ts.confidence, _ts.error);
             const nT   = ss ? ss.N : 0;
-            const nMay = maytagN(total, sumSq, n);
+            const nMay = maytagN(total, sumSq, n, _ts.error);
             // Rich info panel for the t-test row — same shape as tsRecalculate's
             // Lap-panel block, with cycle-totals as the data. Only meaningful
             // when we have a real distribution (n ≥ 2).
@@ -2144,31 +2155,20 @@ function ieRenderResult() {
                 const summaryLineM = okM
                     ? t('ts_have_ok').replace('{n}', n)
                     : t('ts_have_short').replace('{n}', n).replace('{more}', nMay - n);
-                const maytagFormulaHTML = `
-                    <div class="mformula" aria-label="N prime equals open-paren 40 times square-root of n Sigma x squared minus Sigma x squared over Sigma x close-paren squared">
-                        <span class="mvar">N′</span>
-                        <span class="meq">=</span>
-                        <span class="mparen">(</span>
-                        <span class="mfrac">
-                            <span class="mnum">40 · √(<i>n</i>·Σ<i>x</i>² − (Σ<i>x</i>)²)</span>
-                            <span class="mden">Σ<i>x</i></span>
-                        </span>
-                        <span class="mparen">)</span>
-                        <span class="msup">2</span>
-                    </div>`;
                 mDescHTML = `
-                    <div class="sw-reqn-headline">Maytag (95% / ±5%): N′ = ${nMay}</div>
+                    <div class="sw-reqn-headline">Maytag (95% / ±${_ts.error}%): N′ = ${nMay}</div>
                     <div class="sw-reqn-summary">${summaryLineM}</div>
                     <div class="sw-ts-metrics">
                         <div class="sw-ts-metric"><span>n</span><span>${n}</span></div>
                         <div class="sw-ts-metric"><span>Σx</span><span>${fmtSec2(total)} s</span></div>
                         <div class="sw-ts-metric"><span>Σx²</span><span>${(sumSq / 1e6).toFixed(4)} s²</span></div>
+                        <div class="sw-ts-metric"><span>k</span><span>${_fmtMaytagK(maytagCoeff(_ts.error))} <span class="sw-ts-note">(2 / ${_ts.error}%)</span></span></div>
                         <div class="sw-ts-metric sw-ts-metric-hero">
                             <span>N′</span>
                             <span><strong>${nMay}</strong></span>
                         </div>
                     </div>
-                    ${maytagFormulaHTML}`;
+                    ${_maytagFormulaHTML(_ts.error)}`;
             }
             rows =
                 stat('ie_avg',     t('sw_avg'),     fmtSw(avg),                                          '',                dAvg)

@@ -129,15 +129,28 @@ export function standardTimeMs(ntMs, allowancePct) {
     return ntMs / (1 - a);
 }
 
-// Maytag / General Electric sample-size shortcut for 95% / ±5%:
+// Maytag / General Electric sample-size shortcut.
+// Classic textbook form is 95% / ±5%:
 //   N' = ( 40 · √(n·Σx² − (Σx)²) / Σx )²
-// 40 = t(∞, 95%) / 0.05 ≈ 40 (rounded from 39.2). Returns Math.ceil(N').
-// Returns 0 when data is insufficient or the sum is 0 (avoid /0).
-export function maytagN(sum, sumSq, n) {
+// The 40 is t(∞, 95%) / 0.05, with t rounded to 2.0 (1.96 → 39.2 → 40).
+// For any other error margin e% the same rounding gives
+//   k = 2 / (e/100) = 200 / e
+// so ±10% → k = 20, ±5% → k = 40. Confidence stays locked at 95%
+// (z ≈ 2) — that's the Maytag convention; the t-test row is the one
+// that follows the user's confidence pill.
+// Returns Math.ceil(N'). Returns 0 when data is insufficient or sum is 0.
+export function maytagCoeff(errorPercent = 5) {
+    const e = Number(errorPercent);
+    if (!(e > 0)) return 40;
+    return 2 / (e / 100);
+}
+
+export function maytagN(sum, sumSq, n, errorPercent = 5) {
     if (!(n >= 2) || !(sum > 0)) return 0;
     const inner = n * sumSq - sum * sum;
     if (!(inner > 0)) return 0;
-    const raw = Math.pow((40 * Math.sqrt(inner)) / sum, 2);
+    const k = maytagCoeff(errorPercent);
+    const raw = Math.pow((k * Math.sqrt(inner)) / sum, 2);
     return Math.ceil(raw);
 }
 
@@ -151,8 +164,9 @@ export function sampleSizeT(timesMs, confidence = 95, errorPercent = 5) {
 // rating rank, compute a full study summary. Returns rows per element +
 // study totals in ms. `elementTimes` is the shape returned by
 // elementTimesFromReadings; `ranks` is `Array<{ws,we,wc,wcon}>` in the same
-// element order; `allowance` = {personal, fatigue, delay} in %.
-export function computeStudy(elementTimes, ranks, allowance) {
+// element order; `allowance` = {personal, fatigue, delay} in %;
+// `errorPercent` is the Maytag error margin (same as `_ts.error`).
+export function computeStudy(elementTimes, ranks, allowance, errorPercent = 5) {
     const nElements = ranks.length;
     const cycles = elementTimes.length;
     const totalAllowance =
@@ -177,7 +191,7 @@ export function computeStudy(elementTimes, ranks, allowance) {
         const sd   = stats ? stats.sd   : 0;
         const nt = normalTimeMs(mean, rf);
         const st = standardTimeMs(nt, totalAllowance);
-        const nMay = stats ? maytagN(stats.sum, stats.sumSq, stats.n) : 0;
+        const nMay = stats ? maytagN(stats.sum, stats.sumSq, stats.n, errorPercent) : 0;
         const tRes = stats ? sampleSizeT(times, 95, 5) : null;
         const nT   = tRes ? tRes.N : 0;
 

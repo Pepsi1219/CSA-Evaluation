@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
     WESTINGHOUSE, ratingFactor,
     elementTimesFromReadings, elementStats,
-    normalTimeMs, standardTimeMs, maytagN, sampleSizeT,
+    normalTimeMs, standardTimeMs, maytagN, maytagCoeff, sampleSizeT,
     computeStudy,
 } from '../src/ie.js';
 
@@ -133,7 +133,7 @@ test('normalTimeMs & standardTimeMs', async t => {
 });
 
 // ---------------------------------------------------------------
-// maytagN — 95% / ±5% shortcut
+// maytagN — 95% / z≈2 shortcut; k = 2/e (40 at ±5%)
 // ---------------------------------------------------------------
 test('maytagN', async t => {
     await t.test('zero variance → 0 (nothing more to sample)', () => {
@@ -154,6 +154,21 @@ test('maytagN', async t => {
     });
     await t.test('sum=0 guard', () => {
         assert.equal(maytagN(0, 0, 5), 0);
+    });
+    await t.test('maytagCoeff: ±5% → 40, ±10% → 20', () => {
+        assert.equal(maytagCoeff(5), 40);
+        assert.equal(maytagCoeff(10), 20);
+        assert.equal(maytagCoeff(), 40);
+    });
+    await t.test('known dataset: ±5% → 89, ±10% → 23', () => {
+        // 4,5,6,7,8 s. inner = nΣx²−(Σx)² = 5e7; √inner/Σx = √5e7 / 3e4
+        // k=40 → (40√inner/Σx)² = 800/9 → ceil 89
+        // k=20 → 200/9 → ceil 23  (N scales with k², so 4× smaller)
+        const times = [4000, 5000, 6000, 7000, 8000];
+        const s = elementStats(times);
+        assert.equal(maytagN(s.sum, s.sumSq, s.n, 5), 89);
+        assert.equal(maytagN(s.sum, s.sumSq, s.n), 89); // default e = 5
+        assert.equal(maytagN(s.sum, s.sumSq, s.n, 10), 23);
     });
 });
 

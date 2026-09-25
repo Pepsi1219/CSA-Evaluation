@@ -23,6 +23,40 @@ function fmtSec4(ms) { return (Math.abs(ms) / 1000).toFixed(4); }
 // values match what the user sees on screen and would hand-calc.
 function snapLapMs(ms) { return Math.round(ms / 10) * 10; }
 
+// Summary for individually recorded timings (Lap / IE cycles). Every value is
+// known, so fastest, slowest, and sample SD are all meaningful.
+function summarizeTimingSamples(samples) {
+    if (!Array.isArray(samples) || samples.length === 0 || samples.some(ms => !Number.isFinite(ms) || ms < 0)) {
+        return null;
+    }
+    const count = samples.length;
+    const total = samples.reduce((sum, ms) => sum + ms, 0);
+    const average = total / count;
+    const min = Math.min(...samples);
+    const max = Math.max(...samples);
+    const denom = count > 1 ? count - 1 : 1;
+    const variance = samples.reduce((sum, ms) => sum + (ms - average) ** 2, 0) / denom;
+    return { count, total, average, min, max, std: Math.sqrt(variance), hasIndividualTimes: true };
+}
+
+// Summary for Single mode, where one stopwatch reading covers a batch of
+// completed rounds. The average is exact, but per-round fastest/slowest and
+// SD cannot be inferred from one aggregate duration, so keep those unknown.
+function summarizeTimedBatch(totalMs, rounds) {
+    if (!Number.isFinite(totalMs) || totalMs < 0 || !Number.isInteger(rounds) || rounds < 1) return null;
+    const average = totalMs / rounds;
+    const hasIndividualTimes = rounds === 1;
+    return {
+        count: rounds,
+        total: totalMs,
+        average,
+        min: hasIndividualTimes ? totalMs : null,
+        max: hasIndividualTimes ? totalMs : null,
+        std: hasIndividualTimes ? 0 : null,
+        hasIndividualTimes,
+    };
+}
+
 // T-distribution — two-tailed critical values.
 // Rows: [df, t@90%, t@95%, t@99%]. df > 30 falls back to df = 30.
 const T_TABLE = [
@@ -98,6 +132,7 @@ function csvBuild(rows) {
 
 export {
     fmtSw, fmtSec2, fmtSec4, snapLapMs,
+    summarizeTimingSamples, summarizeTimedBatch,
     T_TABLE, tsTValue, computeSampleSize,
     csvEscape, csvRow, csvBuild,
 };

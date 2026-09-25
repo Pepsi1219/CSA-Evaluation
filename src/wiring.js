@@ -13,7 +13,7 @@ import {
     openSettingsModal, resetForm, setSamUnit, closeActionsMenu,
     openStopwatchModal, closeStopwatchModal, swSetMode, swStartStop,
     swPauseResume, swLapOrReset, swToggleStatInfo, swContinueTiming,
-    swSaveToForm, swExportPNG, swDeleteLap, openTsConfigModal, closeTsConfigModal,
+    swSaveToForm, swExportPNG, swDeleteLap, swSetSingleRounds, openTsConfigModal, closeTsConfigModal,
     tsSetConfidence, tsApplyPreset, finishOnboarding, onboardNext, openFeedbackModal,
     setTrainCurve,
     ieElemAdd, ieElemDel, ieNudge, ieStart, ieBackToSetup,
@@ -37,6 +37,7 @@ RECALC_IDS.forEach(id => {
     document.getElementById(id)?.addEventListener('input', () => calculateAll());
 });
 document.getElementById('tsErrorInput')?.addEventListener('input', () => tsRecalculate());
+document.getElementById('swRoundsInput')?.addEventListener('input', () => swSetSingleRounds());
 
 // Action table. Handlers that take the element's data-arg receive it as
 // the sole argument. Menu items that used to also call closeActionsMenu()

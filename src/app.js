@@ -14,6 +14,7 @@ import {
 } from './calc.js';
 import {
     fmtSw, fmtSec2, fmtSec4, snapLapMs,
+    summarizeTimingSamples, summarizeTimedBatch,
     T_TABLE, tsTValue, computeSampleSize,
     csvEscape, csvRow, csvBuild,
 } from './timeutil.js';
@@ -107,6 +108,7 @@ const sw = {
     startTs:   null,    // timestamp when last started
     lapStart:  0,       // elapsed ms at start of current lap
     laps:      [],      // [ms per completed lap]
+    singleRounds: 1,    // completed rounds represented by one Single-mode reading
     interval:  null,
 };
 
@@ -125,6 +127,7 @@ function saveStopwatchState() {
             elapsed:   sw.elapsed,
             lapStart:  sw.lapStart,
             laps:      sw.laps.slice(),
+            singleRounds: sw.singleRounds,
             finalized: !!sw.finalized,
         }));
     } catch (_) { /* private browsing / quota — skip silently */ }
@@ -145,6 +148,7 @@ export function restoreStopwatchState() {
         sw.laps      = Array.isArray(s.laps)
             ? s.laps.filter(n => Number.isFinite(n)).slice(0, SW_LAPS_MAX)
             : [];
+        sw.singleRounds = _swNormalizeSingleRounds(s.singleRounds);
         sw.running   = false;
         sw.finalized = !!s.finalized;
         // Anything not finalized is treated as paused so the user can Resume.
@@ -163,6 +167,7 @@ function swSyncDomFromState() {
     if (el('swTabIE'))     el('swTabIE').classList.toggle('active',     sw.mode === 'ie');
     // Main display
     if (el('swDisplay')) el('swDisplay').textContent = fmtSw(sw.elapsed);
+    if (el('swRoundsInput')) el('swRoundsInput').value = String(sw.singleRounds);
     // Laps list + section visibility
     if (sw.mode === 'lap' && sw.laps.length > 0) {
         if (el('swLapSection')) el('swLapSection').style.display = 'block';
@@ -434,9 +439,10 @@ export function swLapOrReset() {
     } else {
         // Reset everything
         swCancelTick();
-        Object.assign(sw, { running:false, paused:false, finalized:false, elapsed:0, startTs:null, lapStart:0, laps:[], interval:null });
+        Object.assign(sw, { running:false, paused:false, finalized:false, elapsed:0, startTs:null, lapStart:0, laps:[], singleRounds:1, interval:null });
         const el = id => document.getElementById(id);
         if (el('swDisplay'))    el('swDisplay').innerText    = '00:00.00';
+        if (el('swRoundsInput')) el('swRoundsInput').value = '1';
         if (el('swCurrentLap')) el('swCurrentLap').innerText = '';
         if (el('swLapList'))    el('swLapList').innerHTML    = '';
         if (el('swStatsPanel'))  el('swStatsPanel').style.display  = 'none';
@@ -605,30 +611,50 @@ function _swDeleteLapConfirmed(idx) {
     saveStopwatchState();
 }
 
+function _swNormalizeSingleRounds(value) {
+    const parsed = parseNum(value);
+    return Number.isFinite(parsed) && parsed >= 1 ? Math.floor(parsed) : 1;
+}
+
+function _swSummary() {
+    return sw.mode === 'lap'
+        ? summarizeTimingSamples(sw.laps)
+        : summarizeTimedBatch(sw.elapsed, sw.singleRounds);
+}
+
+// The numpad and physical keyboard both emit `input`; keep the batch count in
+// stopwatch state so the visible summary, PNG export, save-to-form bridge, and
+// a restored session all agree on the same denominator.
+export function swSetSingleRounds() {
+    const input = document.getElementById('swRoundsInput');
+    sw.singleRounds = _swNormalizeSingleRounds(input?.value);
+    if (sw.mode === 'single' && sw.finalized) swShowStats();
+    saveStopwatchState();
+}
+
 function swShowStats() {
-    const data = sw.mode === 'lap' ? sw.laps : (sw.elapsed > 0 ? [sw.elapsed] : []);
-    if (!data.length) return;
+    const summary = _swSummary();
+    if (!summary || !(summary.total > 0)) return;
 
     // Start with all stat explanations collapsed
     document.querySelectorAll('.sw-stat-desc').forEach(d => d.classList.remove('sw-show'));
     document.querySelectorAll('.sw-stat-tappable').forEach(r => r.classList.remove('sw-open'));
 
-    const total = data.reduce((a, b) => a + b, 0);
-    const avg   = total / data.length;
-    const min   = Math.min(...data);
-    const max   = Math.max(...data);
+    const { total, average, min, max, std } = summary;
     // Sample SD (n-1, Bessel's correction) — matches Time Study convention
     // and the t-distribution used in the sample-size calc below.
-    const denom = data.length > 1 ? data.length - 1 : 1;
-    const vari  = data.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / denom;
-    const std   = Math.sqrt(vari);
 
-    const setEl = (id, ms) => { const el = document.getElementById(id); if (el) el.innerText = fmtSw(ms); };
-    setEl('swStatAvg', avg);   setEl('swStatMin', min);
-    setEl('swStatMax', max);   setEl('swStatTotal', total);
+    const setEl = (id, ms) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = Number.isFinite(ms) ? fmtSw(ms) : '—';
+    };
+    setEl('swStatAvg', average); setEl('swStatMin', min);
+    setEl('swStatMax', max);     setEl('swStatTotal', total);
     // Std Dev is a spread, not a clock time — display in seconds (statistical convention)
     const stdEl = document.getElementById('swStatStd');
-    if (stdEl) stdEl.innerHTML = `${fmtSec4(std)}<span class="sw-stat-unit"> s</span>`;
+    if (stdEl) stdEl.innerHTML = Number.isFinite(std)
+        ? `${fmtSec4(std)}<span class="sw-stat-unit"> s</span>`
+        : '—';
 
     const statsPanel  = document.getElementById('swStatsPanel');
     const lapSection  = document.getElementById('swLapSection');
@@ -675,7 +701,8 @@ export function swSaveToForm() {
         rounds  = sw.laps.length;
     } else {
         totalMs = sw.elapsed;
-        rounds  = parseInt(document.getElementById('swRoundsInput')?.value) || 1;
+        swSetSingleRounds();
+        rounds  = sw.singleRounds;
     }
     // Carry the full measured precision into the form. The seconds field now
     // accepts decimals, so instead of flooring to whole seconds (which threw
@@ -708,6 +735,7 @@ export function swExportPNG() {
             ? `Lap · ${data.length} ${t('sw_laps_title')}`
             : `Single · ${fmtSw(sw.elapsed)}`,
         data,
+        summary:    _swSummary(),
         rowLabel:   t('sw_laps_title'),
         showRows:   isLap,
         fileStem:   `stopwatch-${sw.mode}`,
@@ -723,20 +751,16 @@ export function swExportPNG() {
 // the per-Breakpoint × round grid the operator sees on screen. No
 // external library — same hand-drawn canvas approach the tutorial
 // certificate uses.
-function _renderSummaryPng({ title, modeLabel, data, rowLabel, showRows, fileStem, elementTable }) {
+function _renderSummaryPng({ title, modeLabel, data, summary, rowLabel, showRows, fileStem, elementTable }) {
     // Stats — same math swShowStats / tsRecalculate run on screen.
-    const total = data.reduce((a, b) => a + b, 0);
-    const avg   = total / data.length;
-    const min   = Math.min(...data);
-    const max   = Math.max(...data);
-    const denom = data.length > 1 ? data.length - 1 : 1;
-    const vari  = data.reduce((s, v) => s + (v - avg) * (v - avg), 0) / denom;
-    const std   = Math.sqrt(vari);
+    const stats = summary || summarizeTimingSamples(data);
+    if (!stats) return;
+    const { total, average: avg, min, max, std, hasIndividualTimes } = stats;
     const sumSq = data.reduce((s, v) => s + v * v, 0);
-    const ss    = data.length >= 2
+    const ss    = hasIndividualTimes && data.length >= 2
         ? computeSampleSize(data, _ts.confidence, _ts.error) : null;
     const nT    = ss ? ss.N : 0;
-    const nMay  = maytagN(total, sumSq, data.length, _ts.error);
+    const nMay  = hasIndividualTimes ? maytagN(total, sumSq, data.length, _ts.error) : 0;
 
     // Theme-aware — read the current CSS tokens so the exported PNG
     // matches the theme the user is viewing.
@@ -910,11 +934,12 @@ function _renderSummaryPng({ title, modeLabel, data, rowLabel, showRows, fileSte
         ctx.stroke();
         y += 50;
     };
-    drawRow(t('sw_avg'),     fmtSw(avg));
-    drawRow(t('sw_fastest'), fmtSw(min), success, success);
-    drawRow(t('sw_slowest'), fmtSw(max), danger,  danger);
-    drawRow(t('sw_total'),   fmtSw(total));
-    drawRow(t('sw_std'),     `${fmtSec4(std)} s`);
+    const fmtStatTime = ms => Number.isFinite(ms) ? fmtSw(ms) : '—';
+    drawRow(t('sw_avg'),     fmtStatTime(avg));
+    drawRow(t('sw_fastest'), fmtStatTime(min), Number.isFinite(min) ? success : undefined, Number.isFinite(min) ? success : undefined);
+    drawRow(t('sw_slowest'), fmtStatTime(max), Number.isFinite(max) ? danger : undefined,  Number.isFinite(max) ? danger : undefined);
+    drawRow(t('sw_total'),   fmtStatTime(total));
+    drawRow(t('sw_std'),     Number.isFinite(std) ? `${fmtSec4(std)} s` : '—');
     drawRow(`${t('sw_required_n')} (t-test)`, ss ? String(nT) : '—', accent);
     drawRow(`${t('sw_required_n')} (Maytag)`, nMay > 0 ? String(nMay) : '—', accent);
     y = statsTop + STATS_H;
@@ -1086,6 +1111,7 @@ export function tsSetConfidence(c) {
     document.querySelectorAll('.sw-ts-pill').forEach(p => {
         p.classList.toggle('active', parseInt(p.dataset.conf) === c);
     });
+    renderTTable();
     _renderTsPresetActive();
     tsRecalculate();
     gaTrack('ts_change_confidence', { confidence: c });
@@ -1105,6 +1131,7 @@ export function tsApplyPreset(arg) {
     document.querySelectorAll('.sw-ts-pill').forEach(p => {
         p.classList.toggle('active', parseInt(p.dataset.conf) === c);
     });
+    renderTTable();
     const errorInput = document.getElementById('tsErrorInput');
     if (errorInput) errorInput.value = String(e);
     // tsRecalculate reads tsErrorInput + writes _ts.error, then we mark the
@@ -3448,6 +3475,14 @@ document.addEventListener('click', e => {
 });
 
 document.addEventListener('keydown', e => {
+    // The shared numpad can be opened from the main form or another modal.
+    // Treat Enter exactly like its Done button before an underlying form can
+    // receive a submit/activation event.
+    if (e.key === 'Enter' && document.getElementById('numpadModal')?.style.display === 'flex') {
+        e.preventDefault();
+        closeNumpad();
+        return;
+    }
     if (e.key === 'Escape') {
         // Numpad sits above every other modal, so it swallows ESC first.
         if (document.getElementById('numpadModal')?.style.display === 'flex') { closeNumpad(); return; }

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
     fmtSw, fmtSec2, fmtSec4, snapLapMs,
+    summarizeTimingSamples, summarizeTimedBatch,
     T_TABLE, tsTValue, computeSampleSize,
     csvEscape, csvRow, csvBuild,
 } from '../src/timeutil.js';
@@ -59,6 +60,45 @@ test('snapLapMs', async t => {
         // After snapping, floor and round give the same result
         const snapped = snapLapMs(1567);          // 1570
         assert.equal(fmtSw(snapped), '00:01.57');
+    });
+});
+
+// ---------------------------------------------------------------
+// Stopwatch summaries
+// ---------------------------------------------------------------
+test('timing summaries', async t => {
+    await t.test('keeps the batch total and divides the average by its rounds', () => {
+        assert.deepEqual(summarizeTimedBatch(30000, 3), {
+            count: 3,
+            total: 30000,
+            average: 10000,
+            min: null,
+            max: null,
+            std: null,
+            hasIndividualTimes: false,
+        });
+    });
+    await t.test('only exposes fastest, slowest, and SD when individual times are known', () => {
+        assert.deepEqual(summarizeTimedBatch(30000, 1), {
+            count: 1,
+            total: 30000,
+            average: 30000,
+            min: 30000,
+            max: 30000,
+            std: 0,
+            hasIndividualTimes: true,
+        });
+        const stats = summarizeTimingSamples([10000, 20000]);
+        assert.equal(stats.average, 15000);
+        assert.equal(stats.min, 10000);
+        assert.equal(stats.max, 20000);
+        assert.ok(Math.abs(stats.std - 7071.067811865475) < 1e-9);
+        assert.equal(stats.hasIndividualTimes, true);
+    });
+    await t.test('rejects invalid batch inputs', () => {
+        assert.equal(summarizeTimedBatch(30000, 0), null);
+        assert.equal(summarizeTimedBatch(30000, 1.5), null);
+        assert.equal(summarizeTimingSamples([]), null);
     });
 });
 

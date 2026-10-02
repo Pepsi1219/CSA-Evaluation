@@ -57,8 +57,8 @@
     <header class="app-header">
         <div class="header-top">
             <div class="brand">
-                <div class="brand-mark" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                <button type="button" class="brand-mark" data-action="tools-open" aria-haspopup="dialog" aria-controls="toolsModal">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <rect x="5" y="2.5" width="14" height="19" rx="3" stroke-width="1.8"/>
                         <rect x="8" y="5.5" width="8" height="3" rx="1.2" fill="currentColor" stroke="none"/>
                         <circle cx="9"  cy="12.5" r="1" fill="currentColor" stroke="none"/>
@@ -68,7 +68,8 @@
                         <circle cx="12" cy="16.5" r="1" fill="currentColor" stroke="none"/>
                         <circle cx="15" cy="16.5" r="1" fill="currentColor" stroke="none"/>
                     </svg>
-                </div>
+                    <span class="tools-visually-hidden lang-text" data-key="tools_open">เปิดเครื่องมือ</span>
+                </button>
                 <div class="brand-text">
                     <h1 class="glass-title">Industrial Engineering Calculator</h1>
                     <p class="brand-sub lang-text" data-key="brand_sub">เครื่องมือประเมินประสิทธิภาพ</p>
@@ -708,26 +709,46 @@
         <!-- ============ IE mode: Flow chooser (SAM vs Cycle Time) ============ -->
         <div class="ie-panel" id="ieChooserPanel" style="display:none;">
             <div class="ie-flow-cards">
-                <button type="button" class="ie-flow-card" data-action="ie-flow" data-arg="sam">
-                    <div class="ie-flow-card-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <div class="ie-flow-card-wrap">
+                    <button type="button" class="ie-flow-card" data-action="ie-flow" data-arg="sam">
+                        <div class="ie-flow-card-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="9"/>
+                                <path d="M12 7v5l3 2"/>
+                            </svg>
+                        </div>
+                        <div class="ie-flow-card-title lang-text" data-key="ie_flow_sam_title">สร้างเวลามาตรฐาน (SAM)</div>
+                        <div class="ie-flow-card-desc lang-text" data-key="ie_flow_sam_desc">Standard Time (STD) = Normal Time (NT) × (1 + Allowance %)</div>
+                    </button>
+                    <button type="button" class="ie-flow-help-btn" data-action="ie-sam-help-open" title="SAM calculation help">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <circle cx="12" cy="12" r="9"/>
-                            <path d="M12 7v5l3 2"/>
+                            <path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1 .9-1.8 1.2-1.8 2.7"/>
+                            <path d="M12 17h.01"/>
                         </svg>
-                    </div>
-                    <div class="ie-flow-card-title lang-text" data-key="ie_flow_sam_title">สร้างเวลามาตรฐาน (SAM)</div>
-                    <div class="ie-flow-card-desc lang-text" data-key="ie_flow_sam_desc">จับเวลาละเอียด + Rating + Allowance</div>
-                </button>
-                <button type="button" class="ie-flow-card" data-action="ie-flow" data-arg="ct">
-                    <div class="ie-flow-card-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 17l4-4 4 4 6-8 4 4"/>
-                            <path d="M3 21h18"/>
+                        <span class="ie-sam-visually-hidden lang-text" data-key="ie_sam_help_btn">วิธีคำนวณ SAM</span>
+                    </button>
+                </div>
+                <div class="ie-flow-card-wrap">
+                    <button type="button" class="ie-flow-card" data-action="ie-flow" data-arg="ct">
+                        <div class="ie-flow-card-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 17l4-4 4 4 6-8 4 4"/>
+                                <path d="M3 21h18"/>
+                            </svg>
+                        </div>
+                        <div class="ie-flow-card-title lang-text" data-key="ie_flow_ct_title">จับ Cycle Time หน้างาน</div>
+                        <div class="ie-flow-card-desc lang-text" data-key="ie_flow_ct_desc">จับ Cycle Time เป็นราย Element เทียบ SAM</div>
+                    </button>
+                    <button type="button" class="ie-flow-help-btn" data-action="ie-ct-help-open" title="Cycle Time help">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="9"/>
+                            <path d="M9.6 9a2.5 2.5 0 1 1 4.2 1.8c-1 .9-1.8 1.2-1.8 2.7"/>
+                            <path d="M12 17h.01"/>
                         </svg>
-                    </div>
-                    <div class="ie-flow-card-title lang-text" data-key="ie_flow_ct_title">จับ Cycle Time หน้างาน</div>
-                    <div class="ie-flow-card-desc lang-text" data-key="ie_flow_ct_desc">จับ Cycle Time เป็นราย Element เทียบ SAM</div>
-                </button>
+                        <span class="ie-sam-visually-hidden lang-text" data-key="ie_ct_help_btn">วิธีจับ Cycle Time</span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -879,6 +900,166 @@
     </div>
 </div>
 
+<!-- ============ Tools menu / Daily capacity calculator ============ -->
+<div id="toolsModal" class="sw-overlay tools-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="toolsPageTitle">
+    <div class="sw-page">
+        <div class="sw-header">
+            <button type="button" class="sw-back-btn" data-action="tools-back" title="Back">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="20" height="20" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                <span class="lang-text" data-key="tools_back">กลับ</span>
+            </button>
+            <h2 class="tools-header-title lang-text" id="toolsPageTitle" data-key="tools_title">เครื่องมือ</h2>
+            <div class="sw-header-spacer" aria-hidden="true"></div>
+        </div>
+
+        <section class="tools-menu-panel" id="toolsMenuPanel">
+            <p class="tools-page-intro lang-text" data-key="tools_choose">เลือกเครื่องมือ</p>
+            <button type="button" class="tools-card" data-action="daily-capacity-open">
+                <span class="tools-card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+                        <path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 6-7"/><path d="M16 6h4v4"/>
+                    </svg>
+                </span>
+                <span class="tools-card-copy">
+                    <span class="tools-card-title lang-text" data-key="daily_capacity_title">กำลังการผลิตต่อวัน</span>
+                    <span class="tools-card-subtitle lang-text" data-key="daily_capacity_subtitle">คำนวณจำนวนชิ้นจาก SAM เวลา และจำนวนพนักงาน</span>
+                </span>
+                <svg class="tools-card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+        </section>
+
+        <section class="daily-capacity-panel" id="dailyCapacityPanel" style="display:none;">
+            <p class="tools-page-intro lang-text" data-key="daily_capacity_desc">กรอกเวลามาตรฐาน เวลาใช้งานต่อวัน และจำนวนพนักงาน</p>
+            <div class="daily-capacity-grid">
+                <div class="input-group">
+                    <div class="label-row">
+                        <label for="capacitySamInput" class="lang-text" data-key="daily_capacity_sam">ค่า SAM ต่อชิ้น</label>
+                        <div class="unit-toggle-group" role="group" aria-label="SAM unit">
+                            <button type="button" class="unit-toggle-btn active" data-action="capacity-sam-unit" data-arg="min"><span class="lang-text" data-key="unit_min">นาที</span></button>
+                            <button type="button" class="unit-toggle-btn" data-action="capacity-sam-unit" data-arg="sec"><span class="lang-text" data-key="unit_sec">วินาที</span></button>
+                        </div>
+                    </div>
+                    <input type="text" id="capacitySamInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="daily_capacity_sam">
+                </div>
+                <div class="input-group">
+                    <label for="capacityEfficiencyInput" class="lang-text" data-key="daily_capacity_efficiency">เป้าหมายประสิทธิภาพ (%)</label>
+                    <input type="text" id="capacityEfficiencyInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="100" data-numpad="decimal" data-numpad-label="daily_capacity_efficiency">
+                </div>
+                <div class="input-group">
+                    <div class="label-row">
+                        <label for="capacityWorkTimeInput" class="lang-text" data-key="daily_capacity_work_time">เวลาทำงานรวมต่อวัน</label>
+                        <div class="unit-toggle-group" role="group" aria-label="Working time unit">
+                            <button type="button" class="unit-toggle-btn" data-action="capacity-time-unit" data-arg="min"><span class="lang-text" data-key="unit_min">นาที</span></button>
+                            <button type="button" class="unit-toggle-btn active" data-action="capacity-time-unit" data-arg="hour"><span class="lang-text" data-key="daily_capacity_hour">ชั่วโมง</span></button>
+                        </div>
+                    </div>
+                    <input type="text" id="capacityWorkTimeInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="daily_capacity_work_time">
+                </div>
+                <div class="input-group">
+                    <label for="capacityWorkersInput" class="lang-text" data-key="daily_capacity_workers">จำนวนพนักงาน</label>
+                    <input type="text" id="capacityWorkersInput" class="glass-input" inputmode="none" pattern="[0-9]*" data-numpad="int" data-numpad-label="daily_capacity_workers">
+                </div>
+            </div>
+            <div class="daily-capacity-results" aria-live="polite">
+                <div class="daily-capacity-result-main">
+                    <span class="daily-capacity-result-label lang-text" data-key="daily_capacity_total">กำลังการผลิตรวมต่อวัน</span>
+                    <strong><span id="dailyCapacityTotal">—</span><span class="daily-capacity-result-unit lang-text" data-key="daily_capacity_pieces_day">ชิ้น/วัน</span></strong>
+                </div>
+                <div class="daily-capacity-result-worker">
+                    <span class="lang-text" data-key="daily_capacity_per_worker">ต่อพนักงาน 1 คน</span>
+                    <strong><span id="dailyCapacityPerWorker">—</span><span class="daily-capacity-result-unit lang-text" data-key="daily_capacity_pieces_day">ชิ้น/วัน</span></strong>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<!-- ============ IE SAM calculation helper ============ -->
+<div id="ieSamHelpModal" class="modal-overlay ie-sam-help-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="ieSamHelpTitle" aria-describedby="ieSamHelpIntro">
+    <div class="feedback-modal ie-sam-help-modal">
+        <button type="button" class="modal-close" data-action="ie-sam-help-close" title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            <span class="ie-sam-visually-hidden lang-text" data-key="close">ปิด</span>
+        </button>
+        <div class="modal-header">
+            <div class="modal-icon" aria-hidden="true">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+                </svg>
+            </div>
+            <h3 class="modal-title lang-text" id="ieSamHelpTitle" data-key="ie_sam_help_title">วิธีคำนวณเวลามาตรฐาน</h3>
+            <p class="modal-subtitle lang-text" id="ieSamHelpIntro" data-key="ie_sam_help_subtitle">Observed Time → Normal Time → Standard Time</p>
+        </div>
+        <div class="modal-body ie-sam-help-body">
+            <section class="ie-sam-help-step" aria-labelledby="ieSamHelpStep1Title">
+                <h4 class="ie-sam-help-step-title" id="ieSamHelpStep1Title"><span class="ie-sam-help-step-no">1</span><span class="lang-text" data-key="ie_sam_help_step1_title">เวลาสังเกตเฉลี่ย (Observed Time - OT)</span></h4>
+                <p class="ie-sam-help-copy lang-text" data-key="ie_sam_help_step1_desc">เฉลี่ยเวลาที่จับได้ในแต่ละรอบ หลังคัดรอบที่ผิดปกติ (Outliers) ออก</p>
+                <div class="ie-sam-help-equation"><var>OT</var> = <span>Σx</span> / <var>n</var></div>
+                <p class="ie-sam-help-note lang-text" data-key="ie_sam_help_outlier_note">ระบบยังไม่คัด Outlier อัตโนมัติ ค่า OT ในผลลัพธ์จึงเฉลี่ยทุกรอบที่บันทึกไว้</p>
+            </section>
+            <section class="ie-sam-help-step" aria-labelledby="ieSamHelpStep2Title">
+                <h4 class="ie-sam-help-step-title" id="ieSamHelpStep2Title"><span class="ie-sam-help-step-no">2</span><span class="lang-text" data-key="ie_sam_help_step2_title">เวลาปกติ (Normal Time - NT)</span></h4>
+                <p class="ie-sam-help-copy lang-text" data-key="ie_sam_help_step2_desc">ปรับ OT ด้วย Rating Factor เพื่อเทียบกับความเร็วการทำงานมาตรฐาน (100%)</p>
+                <div class="ie-sam-help-equation"><var>NT</var> = <var>OT</var> × (<span>Rating %</span> / 100)</div>
+                <p class="ie-sam-help-copy ie-sam-help-example lang-text" data-key="ie_sam_help_rating_examples">ตัวอย่าง: 110% = 1.10 · 85% = 0.85 · 100% = 1.00 (1.15 = 115%)</p>
+            </section>
+            <section class="ie-sam-help-step" aria-labelledby="ieSamHelpStep3Title">
+                <h4 class="ie-sam-help-step-title" id="ieSamHelpStep3Title"><span class="ie-sam-help-step-no">3</span><span class="lang-text" data-key="ie_sam_help_step3_title">เวลามาตรฐาน (Standard Time - STD)</span></h4>
+                <p class="ie-sam-help-copy lang-text" data-key="ie_sam_help_step3_desc">รวมค่าเผื่อ PFD เข้ากับ NT โดยบวกเปอร์เซ็นต์ค่าเผื่อเข้ากับ 100%</p>
+                <ul class="ie-sam-help-pfd">
+                    <li class="lang-text" data-key="ie_sam_help_pfd_personal">P · Personal — ประมาณ 5%</li>
+                    <li class="lang-text" data-key="ie_sam_help_pfd_fatigue">F · Fatigue — 4–7%</li>
+                    <li class="lang-text" data-key="ie_sam_help_pfd_delay">D · Delay — 2–5%</li>
+                </ul>
+                <div class="ie-sam-help-equation"><var>STD</var> = <var>NT</var> × (1 + <span>Allowance %</span> / 100)</div>
+            </section>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-submit" data-action="ie-sam-help-close"><span class="lang-text" data-key="close">ปิด</span></button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ IE Cycle Time calculation helper ============ -->
+<div id="ieCtHelpModal" class="modal-overlay ie-sam-help-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="ieCtHelpTitle" aria-describedby="ieCtHelpIntro">
+    <div class="feedback-modal ie-sam-help-modal">
+        <button type="button" class="modal-close" data-action="ie-ct-help-close" title="Close">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            <span class="ie-sam-visually-hidden lang-text" data-key="close">ปิด</span>
+        </button>
+        <div class="modal-header">
+            <div class="modal-icon" aria-hidden="true">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M8 2h8"/>
+                </svg>
+            </div>
+            <h3 class="modal-title lang-text" id="ieCtHelpTitle" data-key="ie_ct_help_title">วิธีจับ Cycle Time หน้างาน</h3>
+            <p class="modal-subtitle lang-text" id="ieCtHelpIntro" data-key="ie_ct_help_subtitle">Observe Cycle Time → Compare with SAM</p>
+        </div>
+        <div class="modal-body ie-sam-help-body">
+            <section class="ie-sam-help-step" aria-labelledby="ieCtHelpStep1Title">
+                <h4 class="ie-sam-help-step-title" id="ieCtHelpStep1Title"><span class="ie-sam-help-step-no">1</span><span class="lang-text" data-key="ie_ct_help_step1_title">กำหนด Breakpoint</span></h4>
+                <p class="ie-sam-help-copy lang-text" data-key="ie_ct_help_step1_desc">แบ่งงานเป็น Element ตามลำดับ และกำหนดจุดเริ่ม–จบของแต่ละขั้นตอนให้ชัดเจน</p>
+            </section>
+            <section class="ie-sam-help-step" aria-labelledby="ieCtHelpStep2Title">
+                <h4 class="ie-sam-help-step-title" id="ieCtHelpStep2Title"><span class="ie-sam-help-step-no">2</span><span class="lang-text" data-key="ie_ct_help_step2_title">จับเวลาต่อเนื่อง</span></h4>
+                <p class="ie-sam-help-copy lang-text" data-key="ie_ct_help_step2_desc">กด Start หนึ่งครั้ง แล้วแตะทุก Breakpoint จนครบหนึ่งรอบ ระบบแยกเวลาแต่ละ Element และรวมเป็น Cycle Time ต่อรอบ</p>
+                <div class="ie-sam-help-equation"><var>CT</var><sub>cycle</sub> = Σ <var>t</var><sub>element</sub></div>
+                <div class="ie-sam-help-equation"><span>Average CT</span> = Σ <var>CT</var><sub>cycle</sub> / <var>n</var></div>
+            </section>
+            <section class="ie-sam-help-step" aria-labelledby="ieCtHelpStep3Title">
+                <h4 class="ie-sam-help-step-title" id="ieCtHelpStep3Title"><span class="ie-sam-help-step-no">3</span><span class="lang-text" data-key="ie_ct_help_step3_title">เทียบกับ SAM ที่มีอยู่</span></h4>
+                <p class="ie-sam-help-copy lang-text" data-key="ie_ct_help_step3_desc">นำ Average CT ไปเทียบ SAM เดิมเพื่อดูประสิทธิภาพจริง เมื่อบันทึก ระบบจะส่งเวลาที่สังเกตได้ไปยังฟอร์ม Actual โดยคงค่า SAM เดิมไว้</p>
+                <div class="ie-sam-help-equation"><span>Actual Efficiency</span> = <var>SAM</var> / <span>Average CT</span> × 100%</div>
+                <p class="ie-sam-help-note lang-text" data-key="ie_ct_help_raw_note">โหมดนี้รายงานเวลาที่สังเกตจริง ไม่ปรับ Rating และไม่บวก PFD Allowance</p>
+            </section>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-submit" data-action="ie-ct-help-close"><span class="lang-text" data-key="close">ปิด</span></button>
+        </div>
+    </div>
+</div>
+
 <!-- ============ IE Rating Picker Modal ============ -->
 <div id="ieRatingModal" class="sw-overlay" style="display:none;" role="dialog" aria-modal="true">
     <div class="sw-page">
@@ -890,8 +1071,9 @@
                 </svg>
                 <span class="lang-text" data-key="sw_back">กลับ</span>
             </button>
-            <div class="sw-mode-tabs">
-                <span class="sw-tt-title" id="ieRatingTitle">Rating</span>
+            <div class="ie-rating-heading" id="ieRatingTitle" aria-live="polite">
+                <span class="ie-rating-heading-label lang-text" data-key="ie_rating_pick_title">ให้คะแนน Rating</span>
+                <span class="ie-rating-heading-element"></span>
             </div>
             <div class="sw-header-spacer"></div>
         </div>

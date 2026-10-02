@@ -24,6 +24,18 @@ function pcsFromEff(sam, effPercent) {
     return Math.round((60 / sam) * (effPercent / 100));
 }
 
+// Whole-piece daily capacity from standard minutes/piece, efficiency,
+// available production minutes, and headcount. Round down so capacity is
+// never overstated by a partial piece.
+function calcDailyCapacity(samMinutes, effPercent, workingMinutes, workers) {
+    if (!(samMinutes > 0) || !(effPercent > 0) || !(workingMinutes > 0) || !(workers > 0)) {
+        return { perWorker: 0, total: 0 };
+    }
+    const perWorker = Math.floor((workingMinutes / samMinutes) * (effPercent / 100));
+    const total = Math.floor(perWorker * workers);
+    return { perWorker, total };
+}
+
 // Average cycle time in minutes from recorded total time + rep count.
 // Returns null when there isn't enough data to compute it.
 function calcAvgMin(totalMin, totalSec, totalCount) {
@@ -93,6 +105,7 @@ function calcTrainingDay(currentEff, gap, duration, day, sam, curve = 'scurve') 
 export {
     parseNum,
     pcsFromEff,
+    calcDailyCapacity,
     calcAvgMin,
     calcActualEff,
     newSamFromEff,

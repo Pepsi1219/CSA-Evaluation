@@ -114,18 +114,19 @@ test('normalTimeMs & standardTimeMs', async t => {
     await t.test('NT = mean × rf', () => {
         assert.equal(normalTimeMs(0.8 * 60000, 1.20), 0.96 * 60000);
     });
-    await t.test('ST = NT / (1 − A) — Niebel example 15% → 0.96/0.85', () => {
+    await t.test('ST = NT × (1 + A) — 15% allowance adds 15% to NT', () => {
         const st = standardTimeMs(0.96 * 60000, 15);
-        assert.equal(+((st / 60000).toFixed(4)), 1.1294);
+        assert.equal(+((st / 60000).toFixed(4)), 1.104);
     });
     await t.test('ST with 0% allowance = NT', () => {
         assert.equal(standardTimeMs(1000, 0), 1000);
     });
-    await t.test('ST clamps allowance ≥ 95% (guard against divide-by-zero)', () => {
-        // 95% → 20×; anything above is clamped to 95
+    await t.test('ST clamps allowance above 95%', () => {
+        // Keep the existing input guard; 95% → 1.95× under the add-on formula.
         const a = standardTimeMs(100, 99);
         const b = standardTimeMs(100, 95);
         assert.equal(a, b);
+        assert.equal(a, 195);
     });
     await t.test('ST treats negative allowance as 0', () => {
         assert.equal(standardTimeMs(500, -20), 500);
@@ -210,8 +211,8 @@ test('computeStudy — full IE calc', async t => {
         assert.equal(r.meanMs, 10500);
         assert.equal(r.rf, 1);
         assert.equal(r.ntMs, 10500);
-        // ST = NT / 0.85
-        assert.equal(+r.stMs.toFixed(2), +(10500 / 0.85).toFixed(2));
+        // ST = NT × 1.15
+        assert.equal(+r.stMs.toFixed(2), +(10500 * 1.15).toFixed(2));
     });
     await t.test('element 1 (skill B1)', () => {
         const r = s.rows[1];

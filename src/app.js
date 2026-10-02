@@ -9,7 +9,7 @@
 // ============================================================
 import { APP_VERSION } from './version.js';
 import {
-    parseNum, pcsFromEff, calcAvgMin, calcActualEff,
+    parseNum, pcsFromEff, calcDailyCapacity, calcAvgMin, calcActualEff,
     newSamFromEff, calcActualPcsPerHr, calcPassRate, calcTrainingDay,
 } from './calc.js';
 import {
@@ -259,6 +259,99 @@ export function closeStopwatchModal() {
     document.body.style.overflow = '';
     swTeardownKeyboardWatch();
     saveStopwatchState();
+}
+
+// ---- Tools menu / daily-capacity calculator ----
+let _toolsReturnFocus = null;
+let _dailyCapacitySamUnit = 'min';
+let _dailyCapacityTimeUnit = 'hour';
+
+function _setToolsPage(page) {
+    const showCapacity = page === 'capacity';
+    const menuPanel = document.getElementById('toolsMenuPanel');
+    const capacityPanel = document.getElementById('dailyCapacityPanel');
+    const title = document.getElementById('toolsPageTitle');
+    if (menuPanel) menuPanel.style.display = showCapacity ? 'none' : '';
+    if (capacityPanel) capacityPanel.style.display = showCapacity ? '' : 'none';
+    if (title) {
+        title.dataset.key = showCapacity ? 'daily_capacity_title' : 'tools_title';
+        title.textContent = t(title.dataset.key);
+    }
+    if (showCapacity) calculateDailyCapacityUI();
+}
+
+export function openToolsModal() {
+    const modal = document.getElementById('toolsModal');
+    if (!modal) return;
+    _toolsReturnFocus = document.activeElement;
+    _setToolsPage('menu');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    modal.querySelector('.tools-card')?.focus({ preventScroll: true });
+}
+
+export function closeToolsModal() {
+    const modal = document.getElementById('toolsModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+    if (_toolsReturnFocus instanceof HTMLElement && _toolsReturnFocus.isConnected) {
+        _toolsReturnFocus.focus({ preventScroll: true });
+    }
+    _toolsReturnFocus = null;
+}
+
+export function toolsBack() {
+    const capacityPanel = document.getElementById('dailyCapacityPanel');
+    if (capacityPanel?.style.display !== 'none') {
+        _setToolsPage('menu');
+        document.querySelector('#toolsMenuPanel .tools-card')?.focus({ preventScroll: true });
+        return;
+    }
+    closeToolsModal();
+}
+
+export function openDailyCapacityTool() {
+    _setToolsPage('capacity');
+}
+
+export function setDailyCapacitySamUnit(unit) {
+    if (unit !== 'min' && unit !== 'sec') return;
+    _dailyCapacitySamUnit = unit;
+    document.querySelectorAll('[data-action="capacity-sam-unit"]').forEach(button => {
+        button.classList.toggle('active', button.dataset.arg === unit);
+    });
+    calculateDailyCapacityUI();
+}
+
+export function setDailyCapacityTimeUnit(unit) {
+    if (unit !== 'min' && unit !== 'hour') return;
+    _dailyCapacityTimeUnit = unit;
+    document.querySelectorAll('[data-action="capacity-time-unit"]').forEach(button => {
+        button.classList.toggle('active', button.dataset.arg === unit);
+    });
+    calculateDailyCapacityUI();
+}
+
+export function calculateDailyCapacityUI() {
+    const samValue = parseNum(document.getElementById('capacitySamInput')?.value);
+    const efficiency = parseNum(document.getElementById('capacityEfficiencyInput')?.value);
+    const workValue = parseNum(document.getElementById('capacityWorkTimeInput')?.value);
+    const workerValue = parseNum(document.getElementById('capacityWorkersInput')?.value);
+    const samMinutes = _dailyCapacitySamUnit === 'sec' ? samValue / 60 : samValue;
+    const workMinutes = _dailyCapacityTimeUnit === 'hour' ? workValue * 60 : workValue;
+    const valid = samMinutes > 0 && efficiency >= 0 && workMinutes > 0
+        && Number.isInteger(workerValue) && workerValue > 0;
+    const totalEl = document.getElementById('dailyCapacityTotal');
+    const perWorkerEl = document.getElementById('dailyCapacityPerWorker');
+    if (!totalEl || !perWorkerEl) return;
+    if (!valid) {
+        totalEl.textContent = '—';
+        perWorkerEl.textContent = '—';
+        return;
+    }
+    const capacity = calcDailyCapacity(samMinutes, efficiency, workMinutes, workerValue);
+    totalEl.textContent = capacity.total.toLocaleString();
+    perWorkerEl.textContent = capacity.perWorker.toLocaleString();
 }
 
 // iOS Safari doesn't resize the layout viewport when the on-screen keyboard
@@ -2269,6 +2362,42 @@ export function ieSaveToForm() {
 
 // ---- IE: Rating picker modal ----
 let _ieRatingElemIdx = null;
+let _ieSamHelpReturnFocus = null;
+let _ieCtHelpReturnFocus = null;
+
+export function openIeSamHelp() {
+    const modal = document.getElementById('ieSamHelpModal');
+    if (!modal) return;
+    _ieSamHelpReturnFocus = document.activeElement;
+    modal.style.display = 'flex';
+    modal.querySelector('[data-action="ie-sam-help-close"]')?.focus({ preventScroll: true });
+}
+
+export function closeIeSamHelp() {
+    const modal = document.getElementById('ieSamHelpModal');
+    if (modal) modal.style.display = 'none';
+    if (_ieSamHelpReturnFocus instanceof HTMLElement && _ieSamHelpReturnFocus.isConnected) {
+        _ieSamHelpReturnFocus.focus({ preventScroll: true });
+    }
+    _ieSamHelpReturnFocus = null;
+}
+
+export function openIeCtHelp() {
+    const modal = document.getElementById('ieCtHelpModal');
+    if (!modal) return;
+    _ieCtHelpReturnFocus = document.activeElement;
+    modal.style.display = 'flex';
+    modal.querySelector('[data-action="ie-ct-help-close"]')?.focus({ preventScroll: true });
+}
+
+export function closeIeCtHelp() {
+    const modal = document.getElementById('ieCtHelpModal');
+    if (modal) modal.style.display = 'none';
+    if (_ieCtHelpReturnFocus instanceof HTMLElement && _ieCtHelpReturnFocus.isConnected) {
+        _ieCtHelpReturnFocus.focus({ preventScroll: true });
+    }
+    _ieCtHelpReturnFocus = null;
+}
 
 // Which Westinghouse field goes with which element key + code universe.
 const _IE_RATING_FIELDS = [
@@ -2287,7 +2416,8 @@ export function openIeRatingModal(idx) {
     if (!modal) return;
     const titleEl = document.getElementById('ieRatingTitle');
     const rawName = _ieElemLabel(elem, idx + 1);
-    if (titleEl) titleEl.textContent = `${t('ie_rating_pick_title')} — ${rawName}`;
+    const elementTitle = titleEl?.querySelector('.ie-rating-heading-element');
+    if (elementTitle) elementTitle.textContent = rawName;
     _ieRenderRatingLists();
     _ieRefreshRatingSummary();
     modal.style.display = 'flex';
@@ -3460,6 +3590,15 @@ document.getElementById('closeFormulaOkBtn')?.addEventListener('click', closeFor
 document.getElementById('formulaModal')?.addEventListener('click', e => {
     if (e.target.id === 'formulaModal') closeFormulaModal();
 });
+document.getElementById('ieSamHelpModal')?.addEventListener('click', e => {
+    if (e.target.id === 'ieSamHelpModal') closeIeSamHelp();
+});
+document.getElementById('ieCtHelpModal')?.addEventListener('click', e => {
+    if (e.target.id === 'ieCtHelpModal') closeIeCtHelp();
+});
+document.getElementById('toolsModal')?.addEventListener('click', e => {
+    if (e.target.id === 'toolsModal') closeToolsModal();
+});
 
 document.getElementById('actionsTrigger')?.addEventListener('click', e => {
     e.stopPropagation();
@@ -3486,6 +3625,9 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         // Numpad sits above every other modal, so it swallows ESC first.
         if (document.getElementById('numpadModal')?.style.display === 'flex') { closeNumpad(); return; }
+        if (document.getElementById('toolsModal')?.style.display === 'flex') { toolsBack(); return; }
+        if (document.getElementById('ieCtHelpModal')?.style.display === 'flex') { closeIeCtHelp(); return; }
+        if (document.getElementById('ieSamHelpModal')?.style.display === 'flex') { closeIeSamHelp(); return; }
         // Rating picker sits above the stopwatch modal — swallow ESC before it.
         if (document.getElementById('ieRatingModal')?.style.display === 'flex') { closeIeRatingModal(); return; }
         if (document.getElementById('tutorialModal')?.style.display === 'flex') { tutBack(); return; }

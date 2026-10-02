@@ -121,12 +121,12 @@ export function normalTimeMs(meanMs, rf) {
     return meanMs * rf;
 }
 
-// Standard Time = Normal Time / (1 − A). `allowancePct` is the SUM of the
-// P/F/D buckets, expressed in percent (e.g. 15 means 15% total).
-// Clamped so an accidental 100+ doesn't divide by zero or go negative.
+// Standard Time = Normal Time × (1 + A). `allowancePct` is the SUM of the
+// P/F/D buckets, expressed in percent (e.g. 15 means a 15% add-on).
+// Clamp to the setup UI's 0–95% allowance range.
 export function standardTimeMs(ntMs, allowancePct) {
     const a = Math.max(0, Math.min(95, Number(allowancePct) || 0)) / 100;
-    return ntMs / (1 - a);
+    return ntMs * (1 + a);
 }
 
 // Maytag / General Electric sample-size shortcut.

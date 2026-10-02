@@ -11,6 +11,8 @@ import {
     calculateAll, tsRecalculate,
     exportCSV, printReport, pwaInstall, toggleTheme,
     openSettingsModal, resetForm, setSamUnit, closeActionsMenu,
+    openToolsModal, closeToolsModal, toolsBack, openDailyCapacityTool,
+    setDailyCapacitySamUnit, setDailyCapacityTimeUnit, calculateDailyCapacityUI,
     openStopwatchModal, closeStopwatchModal, swSetMode, swStartStop,
     swPauseResume, swLapOrReset, swToggleStatInfo, swContinueTiming,
     swSaveToForm, swExportPNG, swDeleteLap, swSetSingleRounds, openTsConfigModal, closeTsConfigModal,
@@ -20,6 +22,7 @@ import {
     ieStartTimer, iePauseTimer, ieResetTimer,
     ieTap, ieSaveToForm, ieExportPNG, ieSetFlow, ieBackToChooser,
     ieIntroConfirm, ieIntroCancel,
+    openIeSamHelp, closeIeSamHelp, openIeCtHelp, closeIeCtHelp,
     openIeRatingModal, closeIeRatingModal, ieRatingNone,
 } from './app.js';
 import { openHistoryModal } from './history.js';
@@ -38,6 +41,8 @@ RECALC_IDS.forEach(id => {
 });
 document.getElementById('tsErrorInput')?.addEventListener('input', () => tsRecalculate());
 document.getElementById('swRoundsInput')?.addEventListener('input', () => swSetSingleRounds());
+['capacitySamInput', 'capacityEfficiencyInput', 'capacityWorkTimeInput', 'capacityWorkersInput']
+    .forEach(id => document.getElementById(id)?.addEventListener('input', calculateDailyCapacityUI));
 
 // Action table. Handlers that take the element's data-arg receive it as
 // the sole argument. Menu items that used to also call closeActionsMenu()
@@ -51,6 +56,11 @@ const ACTIONS = {
     theme:          () => toggleTheme(),
     settings:       () => { openSettingsModal(); closeActionsMenu(); },
     reset:          () => { resetForm();        closeActionsMenu(); },
+    'tools-open':   () => openToolsModal(),
+    'tools-back':   () => toolsBack(),
+    'daily-capacity-open': () => openDailyCapacityTool(),
+    'capacity-sam-unit': arg => setDailyCapacitySamUnit(arg),
+    'capacity-time-unit': arg => setDailyCapacityTimeUnit(arg),
     // SAM unit toggle
     'sam-unit':     arg => setSamUnit(arg),
     // stopwatch
@@ -73,6 +83,10 @@ const ACTIONS = {
     // IE Time Study mode
     'ie-intro-confirm':   () => ieIntroConfirm(),
     'ie-intro-cancel':    () => ieIntroCancel(),
+    'ie-sam-help-open':   () => openIeSamHelp(),
+    'ie-sam-help-close':  () => closeIeSamHelp(),
+    'ie-ct-help-open':    () => openIeCtHelp(),
+    'ie-ct-help-close':   () => closeIeCtHelp(),
     'ie-flow':            arg => ieSetFlow(arg),
     'ie-back-to-chooser': () => ieBackToChooser(),
     'ie-elem-add':      () => ieElemAdd(),

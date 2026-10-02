@@ -27,7 +27,7 @@ export default defineConfig({
     // service worker from a prod visit — which is scoped to the origin it was
     // registered on — cannot intercept requests here. Origin is (host, port);
     // moving to :5199 gives dev a clean origin no SW is registered against.
-    server: { port: 5199, strictPort: true },
+    server: { host: true, port: 5199, strictPort: true },
     build: {
         outDir: 'dist',
         emptyOutDir: true,

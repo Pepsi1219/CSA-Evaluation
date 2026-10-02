@@ -24,16 +24,16 @@ function pcsFromEff(sam, effPercent) {
     return Math.round((60 / sam) * (effPercent / 100));
 }
 
-// Whole-piece daily capacity from standard minutes/piece, efficiency,
-// available production minutes, and headcount. Round down so capacity is
-// never overstated by a partial piece.
+// Daily capacity from standard minutes/piece, efficiency, available
+// production minutes, and headcount. Keep fractional pieces through the
+// aggregate calculation; rounding each worker separately understates output.
 function calcDailyCapacity(samMinutes, effPercent, workingMinutes, workers) {
     if (!(samMinutes > 0) || !(effPercent > 0) || !(workingMinutes > 0) || !(workers > 0)) {
-        return { perWorker: 0, total: 0 };
+        return { perHour: 0, total: 0 };
     }
-    const perWorker = Math.floor((workingMinutes / samMinutes) * (effPercent / 100));
-    const total = Math.floor(perWorker * workers);
-    return { perWorker, total };
+    const total = (workingMinutes / samMinutes) * (effPercent / 100) * workers;
+    const perHour = total / (workingMinutes / 60);
+    return { perHour, total };
 }
 
 // Average cycle time in minutes from recorded total time + rep count.

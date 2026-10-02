@@ -316,6 +316,13 @@ export function openDailyCapacityTool() {
 
 export function setDailyCapacitySamUnit(unit) {
     if (unit !== 'min' && unit !== 'sec') return;
+    if (unit !== _dailyCapacitySamUnit) {
+        const input = document.getElementById('capacitySamInput');
+        const raw = parseNum(input?.value);
+        if (input && !isNaN(raw)) {
+            input.value = trimNum(unit === 'sec' ? raw * 60 : raw / 60);
+        }
+    }
     _dailyCapacitySamUnit = unit;
     document.querySelectorAll('[data-action="capacity-sam-unit"]').forEach(button => {
         button.classList.toggle('active', button.dataset.arg === unit);
@@ -342,16 +349,17 @@ export function calculateDailyCapacityUI() {
     const valid = samMinutes > 0 && efficiency >= 0 && workMinutes > 0
         && Number.isInteger(workerValue) && workerValue > 0;
     const totalEl = document.getElementById('dailyCapacityTotal');
-    const perWorkerEl = document.getElementById('dailyCapacityPerWorker');
-    if (!totalEl || !perWorkerEl) return;
+    const perHourEl = document.getElementById('dailyCapacityPerHour');
+    if (!totalEl || !perHourEl) return;
     if (!valid) {
         totalEl.textContent = '—';
-        perWorkerEl.textContent = '—';
+        perHourEl.textContent = '—';
         return;
     }
     const capacity = calcDailyCapacity(samMinutes, efficiency, workMinutes, workerValue);
-    totalEl.textContent = capacity.total.toLocaleString();
-    perWorkerEl.textContent = capacity.perWorker.toLocaleString();
+    const numberFormat = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+    totalEl.textContent = capacity.total.toLocaleString(undefined, numberFormat);
+    perHourEl.textContent = capacity.perHour.toLocaleString(undefined, numberFormat);
 }
 
 // iOS Safari doesn't resize the layout viewport when the on-screen keyboard

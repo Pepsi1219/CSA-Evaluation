@@ -20,7 +20,7 @@
 // The byte change is what forces old clients to drop stale caches, so it can't
 // be derived from an import (this file is not an ES module). test/version.test.js
 // fails the build if this literal drifts.
-const CACHE = 'csa-v1.30.0';
+const CACHE = 'csa-v1.30.1';
 const NET_TIMEOUT_MS = 3000;
 
 // Injected at build time by vite-plugin-pwa. In dev the manifest is empty,
@@ -61,6 +61,9 @@ function fetchWithTimeout(request) {
 self.addEventListener('fetch', e => {
     const url = new URL(e.request.url);
     if (e.request.method !== 'GET' || url.origin !== self.location.origin) return;
+    // Firebase Hosting reserves /__/ for its Auth helpers. Let the browser
+    // fetch those URLs directly so no helper response enters the offline cache.
+    if (url.pathname.startsWith('/__/')) return;
 
     e.respondWith((async () => {
         try {

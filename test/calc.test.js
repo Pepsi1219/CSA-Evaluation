@@ -49,27 +49,28 @@ test('pcsFromEff', async (t) => {
 });
 
 test('calcDailyCapacity', async t => {
-    await t.test('calculates whole-piece capacity from daily minutes, SAM, efficiency, and workers', () => {
+    await t.test('calculates daily total and equivalent hourly output', () => {
         assert.deepEqual(calcDailyCapacity(0.5, 100, 480, 10), {
-            perWorker: 960,
+            perHour: 1200,
             total: 9600,
         });
         assert.deepEqual(calcDailyCapacity(0.5, 80, 480, 3), {
-            perWorker: 768,
+            perHour: 288,
             total: 2304,
         });
     });
-    await t.test('floors partial pieces instead of overstating capacity', () => {
-        assert.deepEqual(calcDailyCapacity(0.7, 100, 60, 1), {
-            perWorker: 85,
-            total: 85,
-        });
+    await t.test('preserves fractional pieces across the full workforce', () => {
+        const capacity = calcDailyCapacity(740 / 60, 100, 480, 21);
+        assert.ok(Math.abs(capacity.total - (8 * 3600 * 21 / 740)) < 1e-10);
+        assert.ok(Math.abs(capacity.total - 817.2972972972973) < 1e-10);
+        assert.ok(Math.abs(capacity.perHour - (capacity.total / 8)) < 1e-10);
+        assert.ok(Math.abs(capacity.perHour - 102.16216216216216) < 1e-10);
     });
     await t.test('returns zero capacity for invalid or non-positive inputs', () => {
-        assert.deepEqual(calcDailyCapacity(0, 100, 480, 10), { perWorker: 0, total: 0 });
-        assert.deepEqual(calcDailyCapacity(0.5, 0, 480, 10), { perWorker: 0, total: 0 });
-        assert.deepEqual(calcDailyCapacity(0.5, 100, 0, 10), { perWorker: 0, total: 0 });
-        assert.deepEqual(calcDailyCapacity(0.5, 100, 480, 0), { perWorker: 0, total: 0 });
+        assert.deepEqual(calcDailyCapacity(0, 100, 480, 10), { perHour: 0, total: 0 });
+        assert.deepEqual(calcDailyCapacity(0.5, 0, 480, 10), { perHour: 0, total: 0 });
+        assert.deepEqual(calcDailyCapacity(0.5, 100, 0, 10), { perHour: 0, total: 0 });
+        assert.deepEqual(calcDailyCapacity(0.5, 100, 480, 0), { perHour: 0, total: 0 });
     });
 });
 

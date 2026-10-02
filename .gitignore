@@ -15,3 +15,5 @@ dist/
 .env.local
 .env.*.local
 .playwright-mcp/
+firebase-debug.log
+firebase-debug.*.log

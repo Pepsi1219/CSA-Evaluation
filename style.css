@@ -3127,9 +3127,9 @@ body.boot-login .container { visibility: hidden; }
 .daily-capacity-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px 12px;
+    gap: var(--sp-4);
 }
-.daily-capacity-units { margin: 8px 0 0; }
+.daily-capacity-units { flex: 0 0 auto; margin: 0 0 0 auto; }
 .daily-capacity-results {
     margin-top: 20px;
     padding-top: 18px;
@@ -3149,6 +3149,12 @@ body.boot-login .container { visibility: hidden; }
 .daily-capacity-result-worker strong { color: var(--text-2); font-size: 14px; font-variant-numeric: tabular-nums; }
 .daily-capacity-result-unit { margin-left: 5px; font-size: 12px; font-weight: 500; }
 .daily-capacity-result-main .daily-capacity-result-unit { font-size: 13px; }
+@media (max-width: 560px) {
+    .daily-capacity-grid { gap: var(--sp-3); }
+}
+@media (max-width: 380px) {
+    .daily-capacity-grid { grid-template-columns: 1fr; }
+}
 .ie-sam-visually-hidden {
     position: absolute;
     width: 1px;

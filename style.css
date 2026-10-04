@@ -3151,6 +3151,7 @@ body.boot-login .container { visibility: hidden; }
 .daily-capacity-result-main .daily-capacity-result-unit { font-size: 13px; }
 @media (max-width: 560px) {
     .daily-capacity-grid { gap: var(--sp-3); }
+    .daily-capacity-panel { padding-left: 0; padding-right: 0; }
 }
 @media (max-width: 380px) {
     .daily-capacity-grid { grid-template-columns: 1fr; }

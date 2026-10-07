@@ -10,9 +10,12 @@
 import {
     calculateAll, tsRecalculate,
     exportCSV, printReport, pwaInstall, toggleTheme,
-    openSettingsModal, resetForm, setSamUnit, closeActionsMenu,
+    openSettingsModal, resetForm, setSamUnit, closeActionsMenu, scrollToTop,
     openToolsModal, closeToolsModal, toolsBack, openDailyCapacityTool,
-    setDailyCapacitySamUnit, setDailyCapacityTimeUnit, calculateDailyCapacityUI,
+    setDailyCapacitySamUnit, calculateDailyCapacityUI,
+    openDailyCapacityConfig, closeDailyCapacityConfig, setDailyCapacityPeriod,
+    openDailyCapacityTimeMenu, setDailyCapacityTimeMenuValue, closeDailyCapacityTimeMenu,
+    setDailyCapacityTimeFormat, toggleDailyCapacityPeriod,
     openStopwatchModal, closeStopwatchModal, swSetMode, swStartStop,
     swPauseResume, swLapOrReset, swToggleStatInfo, swContinueTiming,
     swSaveToForm, swExportPNG, swDeleteLap, swSetSingleRounds, openTsConfigModal, closeTsConfigModal,
@@ -41,8 +44,27 @@ RECALC_IDS.forEach(id => {
 });
 document.getElementById('tsErrorInput')?.addEventListener('input', () => tsRecalculate());
 document.getElementById('swRoundsInput')?.addEventListener('input', () => swSetSingleRounds());
-['capacitySamInput', 'capacityEfficiencyInput', 'capacityWorkTimeInput', 'capacityWorkersInput']
+['capacitySamInput', 'capacityEfficiencyInput', 'capacityEndTimeInput', 'capacityWorkersInput',
+    'capacityTargetHourlyInput']
     .forEach(id => document.getElementById(id)?.addEventListener('input', calculateDailyCapacityUI));
+document.getElementById('dailyCapacityScheduleBody')?.addEventListener('input', event => {
+    const input = event.target.closest('[data-capacity-period]');
+    if (input) setDailyCapacityPeriod(Number(input.dataset.capacityPeriod), input.value);
+});
+document.addEventListener('click', event => {
+    const choice = event.target.closest('[data-capacity-time-choice]');
+    if (choice) {
+        setDailyCapacityTimeMenuValue(choice.dataset.capacityTimeChoice);
+        return;
+    }
+    if (!event.target.closest('#dailyCapacityTimeMenu, .daily-capacity-time-picker')) {
+        closeDailyCapacityTimeMenu();
+    }
+});
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeDailyCapacityTimeMenu(true);
+});
+window.addEventListener('resize', () => closeDailyCapacityTimeMenu());
 
 // Action table. Handlers that take the element's data-arg receive it as
 // the sole argument. Menu items that used to also call closeActionsMenu()
@@ -57,10 +79,15 @@ const ACTIONS = {
     settings:       () => { openSettingsModal(); closeActionsMenu(); },
     reset:          () => { resetForm();        closeActionsMenu(); },
     'tools-open':   () => openToolsModal(),
+    'mobile-home':  () => scrollToTop(),
     'tools-back':   () => toolsBack(),
     'daily-capacity-open': () => openDailyCapacityTool(),
     'capacity-sam-unit': arg => setDailyCapacitySamUnit(arg),
-    'capacity-time-unit': arg => setDailyCapacityTimeUnit(arg),
+    'daily-capacity-config-open': () => openDailyCapacityConfig(),
+    'daily-capacity-config-close': () => closeDailyCapacityConfig(),
+    'capacity-time-open': (arg, el) => openDailyCapacityTimeMenu(arg, el),
+    'capacity-time-format': arg => setDailyCapacityTimeFormat(arg),
+    'capacity-time-period': () => toggleDailyCapacityPeriod(),
     // SAM unit toggle
     'sam-unit':     arg => setSamUnit(arg),
     // stopwatch

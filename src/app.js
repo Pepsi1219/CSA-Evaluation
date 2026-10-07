@@ -9,7 +9,7 @@
 // ============================================================
 import { APP_VERSION } from './version.js';
 import {
-    parseNum, pcsFromEff, calcDailyCapacity, calcAvgMin, calcActualEff,
+    parseNum, pcsFromEff, calcDailyCapacity, calcScheduledWorkMinutes, calcDailyTarget, calcRecoveryProgress, calcCapacityRecovery, calcAvgMin, calcActualEff,
     newSamFromEff, calcActualPcsPerHr, calcPassRate, calcTrainingDay,
 } from './calc.js';
 import {
@@ -264,20 +264,191 @@ export function closeStopwatchModal() {
 // ---- Tools menu / daily-capacity calculator ----
 let _toolsReturnFocus = null;
 let _dailyCapacitySamUnit = 'min';
-let _dailyCapacityTimeUnit = 'hour';
+let _dailyCapacityClockTimer = null;
+let _dailyCapacityTimeMenuPart = null;
+let _dailyCapacityTimeMenuTrigger = null;
+let _dailyCapacityTimeFormat = '24';
+const DAILY_CAPACITY_DEFAULT_PERIODS = Object.freeze([60, 60, 60, 30, 30, 60, 60, 60, 60, 30, 60, 30]);
+let _dailyCapacityPeriods = [...DAILY_CAPACITY_DEFAULT_PERIODS];
+
+function _displayCapacityHour(hour24) {
+    const hour = _dailyCapacityTimeFormat === '12' ? (hour24 % 12 || 12) : hour24;
+    return String(hour).padStart(2, '0');
+}
+
+function _syncCapacityTimeControls() {
+    const input = document.getElementById('capacityEndTimeInput');
+    if (!input) return;
+    const [hourText, minute] = input.value.split(':');
+    const hour24 = Number(hourText);
+    const hourButton = document.getElementById('capacityEndHour');
+    const minuteButton = document.getElementById('capacityEndMinute');
+    const periodButton = document.getElementById('capacityEndPeriod');
+    if (hourButton) hourButton.textContent = _displayCapacityHour(hour24);
+    if (minuteButton) minuteButton.textContent = minute;
+    if (periodButton) {
+        periodButton.textContent = hour24 < 12 ? 'AM' : 'PM';
+        periodButton.hidden = _dailyCapacityTimeFormat !== '12';
+    }
+}
+
+export function setDailyCapacityTimeFormat(format) {
+    if (format !== '12' && format !== '24') return;
+    _dailyCapacityTimeFormat = format;
+    document.querySelectorAll('[data-action="capacity-time-format"]').forEach(button => {
+        button.classList.toggle('active', button.dataset.arg === format);
+    });
+    closeDailyCapacityTimeMenu();
+    _syncCapacityTimeControls();
+}
+
+export function toggleDailyCapacityPeriod() {
+    if (_dailyCapacityTimeFormat !== '12') return;
+    const input = document.getElementById('capacityEndTimeInput');
+    if (!input) return;
+    let [hour, minute] = input.value.split(':').map(Number);
+    hour = (hour + 12) % 24;
+    input.value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    _syncCapacityTimeControls();
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+export function openDailyCapacityTimeMenu(part, trigger) {
+    if (part !== 'hour' && part !== 'minute') return;
+    const menu = document.getElementById('dailyCapacityTimeMenu');
+    const input = document.getElementById('capacityEndTimeInput');
+    if (!menu || !input) return;
+    if (_dailyCapacityTimeMenuTrigger === trigger && menu.style.display !== 'none') {
+        closeDailyCapacityTimeMenu();
+        return;
+    }
+    const [hour, minute] = input.value.split(':');
+    const selected = part === 'hour' ? _displayCapacityHour(Number(hour)) : minute;
+    const firstValue = part === 'hour' && _dailyCapacityTimeFormat === '12' ? 1 : 0;
+    const count = part === 'hour' && _dailyCapacityTimeFormat === '12' ? 12 : part === 'hour' ? 24 : 60;
+    menu.dataset.part = part;
+    menu.innerHTML = Array.from({ length: count }, (_, index) => {
+        const option = String(index + firstValue).padStart(2, '0');
+        const isSelected = option === selected;
+        return `<button type="button" role="option" aria-selected="${isSelected}" data-capacity-time-choice="${option}" class="daily-capacity-time-option${isSelected ? ' selected' : ''}">${option}</button>`;
+    }).join('');
+    _dailyCapacityTimeMenuPart = part;
+    _dailyCapacityTimeMenuTrigger = trigger;
+    trigger.setAttribute('aria-expanded', 'true');
+    menu.style.display = 'block';
+    const rect = trigger.getBoundingClientRect();
+    const width = Math.min(104, window.innerWidth - 16);
+    const height = Math.min(count * 40 + 8, 320, Math.floor(window.innerHeight * 0.4));
+    const below = window.innerHeight - rect.bottom - 8;
+    const top = below >= height
+        ? rect.bottom + 4
+        : Math.max(8, rect.top - height - 4);
+    menu.style.top = `${top}px`;
+    menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`;
+    menu.style.width = `${width}px`;
+    menu.style.height = `${height}px`;
+    menu.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+}
+
+export function setDailyCapacityTimeMenuValue(value) {
+    if (!_dailyCapacityTimeMenuPart || !_dailyCapacityTimeMenuTrigger) return;
+    const input = document.getElementById('capacityEndTimeInput');
+    if (!input) return;
+    let [hour, minute] = input.value.split(':').map(Number);
+    if (_dailyCapacityTimeMenuPart === 'hour') {
+        if (_dailyCapacityTimeFormat === '12') {
+            const isPm = document.getElementById('capacityEndPeriod')?.textContent === 'PM';
+            hour = (Number(value) % 12) + (isPm ? 12 : 0);
+        } else {
+            hour = Number(value);
+        }
+    } else {
+        minute = Number(value);
+    }
+    input.value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+    _syncCapacityTimeControls();
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    closeDailyCapacityTimeMenu(true);
+}
+
+export function closeDailyCapacityTimeMenu(restoreFocus = false) {
+    const menu = document.getElementById('dailyCapacityTimeMenu');
+    if (menu) menu.style.display = 'none';
+    if (_dailyCapacityTimeMenuTrigger) {
+        _dailyCapacityTimeMenuTrigger.setAttribute('aria-expanded', 'false');
+        if (restoreFocus) _dailyCapacityTimeMenuTrigger.focus({ preventScroll: true });
+    }
+    _dailyCapacityTimeMenuPart = null;
+    _dailyCapacityTimeMenuTrigger = null;
+}
+
+function _resetDailyCapacityPeriods() {
+    _dailyCapacityPeriods = [...DAILY_CAPACITY_DEFAULT_PERIODS];
+}
+
+export function openDailyCapacityConfig() {
+    const body = document.getElementById('dailyCapacityScheduleBody');
+    const dialog = document.getElementById('dailyCapacityConfig');
+    if (!body || !dialog) return;
+    body.innerHTML = _dailyCapacityPeriods.map((minutes, index) => {
+        const hour = String(index + 8).padStart(2, '0');
+        return `<tr><th scope="row">${hour}:00 – ${hour}:59</th><td><input type="number" min="0" max="60" step="1" value="${minutes}" data-capacity-period="${index}" aria-label="${hour}:00 ${t('daily_capacity_work_minutes')}"></td></tr>`;
+    }).join('');
+    dialog.style.display = 'flex';
+    dialog.querySelector('[data-action="daily-capacity-config-close"]')?.focus({ preventScroll: true });
+}
+
+export function closeDailyCapacityConfig() {
+    const dialog = document.getElementById('dailyCapacityConfig');
+    if (dialog) dialog.style.display = 'none';
+    document.querySelector('[data-action="daily-capacity-config-open"]')?.focus({ preventScroll: true });
+}
+
+export function setDailyCapacityPeriod(index, value) {
+    if (!Number.isInteger(index) || index < 0 || index >= _dailyCapacityPeriods.length) return;
+    const minutes = Number(value);
+    if (!Number.isFinite(minutes)) return;
+    _dailyCapacityPeriods[index] = Math.max(0, Math.min(60, Math.round(minutes)));
+    const input = document.querySelector(`[data-capacity-period="${index}"]`);
+    if (input) input.value = String(_dailyCapacityPeriods[index]);
+    calculateDailyCapacityUI();
+}
+
+function _updateDailyCapacityClock() {
+    const now = new Date();
+    const clock = document.getElementById('dailyCapacityClock');
+    if (clock) {
+        clock.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    }
+    calculateDailyCapacityUI();
+}
 
 function _setToolsPage(page) {
     const showCapacity = page === 'capacity';
+    if (!showCapacity) closeDailyCapacityTimeMenu();
     const menuPanel = document.getElementById('toolsMenuPanel');
     const capacityPanel = document.getElementById('dailyCapacityPanel');
     const title = document.getElementById('toolsPageTitle');
+    const clock = document.getElementById('dailyCapacityClock');
     if (menuPanel) menuPanel.style.display = showCapacity ? 'none' : '';
     if (capacityPanel) capacityPanel.style.display = showCapacity ? '' : 'none';
+    if (clock) {
+        clock.style.visibility = showCapacity ? 'visible' : 'hidden';
+        clock.setAttribute('aria-hidden', showCapacity ? 'false' : 'true');
+    }
     if (title) {
         title.dataset.key = showCapacity ? 'daily_capacity_title' : 'tools_title';
         title.textContent = t(title.dataset.key);
     }
-    if (showCapacity) calculateDailyCapacityUI();
+    if (showCapacity) {
+        _updateDailyCapacityClock();
+        if (_dailyCapacityClockTimer === null) {
+            _dailyCapacityClockTimer = setInterval(_updateDailyCapacityClock, 1000);
+        }
+    } else if (_dailyCapacityClockTimer !== null) {
+        clearInterval(_dailyCapacityClockTimer);
+        _dailyCapacityClockTimer = null;
+    }
 }
 
 export function openToolsModal() {
@@ -293,6 +464,12 @@ export function openToolsModal() {
 export function closeToolsModal() {
     const modal = document.getElementById('toolsModal');
     if (modal) modal.style.display = 'none';
+    document.getElementById('dailyCapacityConfig').style.display = 'none';
+    _resetDailyCapacityPeriods();
+    if (_dailyCapacityClockTimer !== null) {
+        clearInterval(_dailyCapacityClockTimer);
+        _dailyCapacityClockTimer = null;
+    }
     document.body.style.overflow = '';
     if (_toolsReturnFocus instanceof HTMLElement && _toolsReturnFocus.isConnected) {
         _toolsReturnFocus.focus({ preventScroll: true });
@@ -303,6 +480,7 @@ export function closeToolsModal() {
 export function toolsBack() {
     const capacityPanel = document.getElementById('dailyCapacityPanel');
     if (capacityPanel?.style.display !== 'none') {
+        _resetDailyCapacityPeriods();
         _setToolsPage('menu');
         document.querySelector('#toolsMenuPanel .tools-card')?.focus({ preventScroll: true });
         return;
@@ -330,36 +508,97 @@ export function setDailyCapacitySamUnit(unit) {
     calculateDailyCapacityUI();
 }
 
-export function setDailyCapacityTimeUnit(unit) {
-    if (unit !== 'min' && unit !== 'hour') return;
-    _dailyCapacityTimeUnit = unit;
-    document.querySelectorAll('[data-action="capacity-time-unit"]').forEach(button => {
-        button.classList.toggle('active', button.dataset.arg === unit);
-    });
-    calculateDailyCapacityUI();
-}
-
 export function calculateDailyCapacityUI() {
     const samValue = parseNum(document.getElementById('capacitySamInput')?.value);
     const efficiency = parseNum(document.getElementById('capacityEfficiencyInput')?.value);
-    const workValue = parseNum(document.getElementById('capacityWorkTimeInput')?.value);
     const workerValue = parseNum(document.getElementById('capacityWorkersInput')?.value);
     const samMinutes = _dailyCapacitySamUnit === 'sec' ? samValue / 60 : samValue;
-    const workMinutes = _dailyCapacityTimeUnit === 'hour' ? workValue * 60 : workValue;
-    const valid = samMinutes > 0 && efficiency >= 0 && workMinutes > 0
+    const endTime = document.getElementById('capacityEndTimeInput')?.value || '';
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+    const now = new Date();
+    const endMinuteOfDay = endTime ? endHour * 60 + endMinute : NaN;
+    const remainingStartMinute = Math.max(8 * 60, now.getHours() * 60 + now.getMinutes());
+    const workMinutes = endTime
+        ? calcScheduledWorkMinutes(_dailyCapacityPeriods, 8 * 60, endMinuteOfDay)
+        : null;
+    const targetHourlyRaw = document.getElementById('capacityTargetHourlyInput')?.value.trim() || '';
+    const targetHourlyOutput = parseNum(targetHourlyRaw);
+    const targetDailyOutput = calcDailyTarget(targetHourlyOutput, workMinutes);
+    document.getElementById('capacityTargetDaily').textContent = targetDailyOutput === null
+        ? '—'
+        : targetDailyOutput.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const remainingMinutes = endTime
+        ? calcScheduledWorkMinutes(_dailyCapacityPeriods, remainingStartMinute, endMinuteOfDay)
+        : null;
+    const remainingTimeEl = document.getElementById('capacityRemainingTime');
+    if (remainingTimeEl) {
+        if (remainingMinutes === null) {
+            remainingTimeEl.textContent = '—';
+        } else {
+            const roundedMinutes = Math.ceil(remainingMinutes);
+            const hours = Math.floor(roundedMinutes / 60);
+            const minutes = roundedMinutes % 60;
+            remainingTimeEl.textContent = `${hours} ${t('daily_capacity_hour')} ${minutes} ${t('capacity_recovery_minutes')}`;
+        }
+    }
+    const valid = samMinutes > 0 && efficiency >= 0 && workMinutes > 0 && remainingMinutes !== null
         && Number.isInteger(workerValue) && workerValue > 0;
     const totalEl = document.getElementById('dailyCapacityTotal');
     const perHourEl = document.getElementById('dailyCapacityPerHour');
+    const recoveryIds = ['capacityCurrentDeficit', 'capacityHourlyDeficit',
+        'capacityRequiredPerHour', 'capacityRequiredEfficiency', 'capacityRequiredOt'];
+    const clearRecovery = () => {
+        recoveryIds.forEach(id => { document.getElementById(id).textContent = '—'; });
+        document.getElementById('capacityCurrentDeficitRow').removeAttribute('data-status');
+        const status = document.getElementById('capacityRecoveryStatus');
+        status.textContent = '';
+        status.removeAttribute('data-status');
+    };
     if (!totalEl || !perHourEl) return;
     if (!valid) {
         totalEl.textContent = '—';
         perHourEl.textContent = '—';
+        clearRecovery();
         return;
     }
     const capacity = calcDailyCapacity(samMinutes, efficiency, workMinutes, workerValue);
     const numberFormat = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
     totalEl.textContent = capacity.total.toLocaleString(undefined, numberFormat);
     perHourEl.textContent = capacity.perHour.toLocaleString(undefined, numberFormat);
+    const recoveryInputValid = targetHourlyRaw !== '' && Number.isFinite(targetHourlyOutput) && targetHourlyOutput > 0
+        && targetDailyOutput !== null
+        && remainingMinutes !== null;
+    const remainingHours = recoveryInputValid ? remainingMinutes / 60 : null;
+    const progress = recoveryInputValid
+        ? calcRecoveryProgress(capacity.perHour, capacity.total, targetDailyOutput, targetHourlyOutput, Math.max(workMinutes / 60, remainingHours), remainingHours)
+        : null;
+    if (!progress) { clearRecovery(); return; }
+    document.getElementById('capacityCurrentDeficit').textContent = progress.dailyGap.toLocaleString(undefined, numberFormat);
+    document.getElementById('capacityHourlyDeficit').textContent = progress.hourlyGap.toLocaleString(undefined, numberFormat);
+    document.getElementById('capacityCurrentDeficitRow').dataset.status = progress.deficit > 0 ? 'bad' : 'ok';
+    if (remainingHours === 0) {
+        ['capacityRequiredPerHour', 'capacityRequiredEfficiency', 'capacityRequiredOt'].forEach(id => {
+            document.getElementById(id).textContent = '—';
+        });
+        const status = document.getElementById('capacityRecoveryStatus');
+        status.dataset.status = 'bad';
+        status.textContent = t('capacity_recovery_shift_ended');
+        return;
+    }
+    const recovery = calcCapacityRecovery(samMinutes, efficiency, workerValue, progress.deficit, remainingHours);
+    if (!recovery) { clearRecovery(); return; }
+    // Round required rates upward so the displayed plan never understates them.
+    const upward2 = value => Math.ceil(value * 100 - 1e-9) / 100;
+    document.getElementById('capacityRequiredPerHour').textContent = upward2(recovery.requiredPerHour).toLocaleString(undefined, numberFormat);
+    document.getElementById('capacityRequiredEfficiency').textContent = upward2(recovery.requiredEfficiency).toLocaleString(undefined, numberFormat);
+    const hours = Math.floor(recovery.otMinutes / 60);
+    const minutes = recovery.otMinutes % 60;
+    document.getElementById('capacityRequiredOt').textContent = `${hours} ${t('daily_capacity_hour')} ${minutes} ${t('capacity_recovery_minutes')}`;
+    const status = document.getElementById('capacityRecoveryStatus');
+    const statusKey = recovery.deficit === 0 ? 'capacity_recovery_on_track'
+        : recovery.withinNormalTime ? 'capacity_recovery_feasible' : 'capacity_recovery_impossible';
+    status.dataset.status = recovery.deficit === 0 || recovery.withinNormalTime ? 'ok' : 'bad';
+    status.textContent = t(statusKey);
 }
 
 // iOS Safari doesn't resize the layout viewport when the on-screen keyboard
@@ -2678,6 +2917,14 @@ export function changeLanguage(lang) {
         if (translations[lang][key]) el.placeholder = translations[lang][key];
     });
 
+    document.querySelectorAll('[data-key-aria-label]').forEach(el => {
+        const key = el.getAttribute('data-key-aria-label');
+        if (translations[lang][key]) el.setAttribute('aria-label', translations[lang][key]);
+    });
+
+    // Recovery values include translated time units and a translated verdict.
+    calculateDailyCapacityUI();
+
     // training day labels (generated dynamically)
     document.querySelectorAll('.day-label').forEach((el, idx) => {
         el.innerText = `${t('day_unit')} ${idx + 1}`;
@@ -3563,6 +3810,10 @@ document.addEventListener('keydown', e => {
 });
 
 // Back-to-Top FAB — appears once the user has scrolled past a screen-ish of content.
+export function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 const _backToTopBtn = document.getElementById('backToTopBtn');
 if (_backToTopBtn) {
     const SCROLL_THRESHOLD = 320;
@@ -3577,9 +3828,7 @@ if (_backToTopBtn) {
             _ticking = true;
         }
     }, { passive: true });
-    _backToTopBtn.addEventListener('click', () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
+    _backToTopBtn.addEventListener('click', scrollToTop);
     updateBackToTop();  // set correct initial state (in case page loads scrolled)
 }
 

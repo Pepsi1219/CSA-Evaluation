@@ -238,26 +238,6 @@
             <span class="lang-text" data-key="header2">บันทึกผลงานจริง</span>
         </h3>
 
-        <!-- Stopwatch Launch Button -->
-        <button type="button" class="sw-launch-btn" data-action="sw-open">
-            <div class="sw-launch-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                     stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="13" r="8"/>
-                    <path d="M12 9v4l2 2"/>
-                    <path d="M5 3 2 6"/><path d="m22 6-3-3"/>
-                </svg>
-            </div>
-            <div class="sw-launch-text">
-                <span class="sw-launch-title lang-text" data-key="sw_open">จับเวลา</span>
-                <span class="sw-launch-sub lang-text" data-key="sw_open_sub">แตะเพื่อเปิดนาฬิกาจับเวลา</span>
-            </div>
-            <svg class="sw-launch-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="9 18 15 12 9 6"/>
-            </svg>
-        </button>
-
         <div class="form-row-three">
             <div class="input-group">
                 <label class="lang-text" data-key="total_min">เวลารวม (นาที)</label>
@@ -384,8 +364,47 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · <span id="appVersion">v1.30.1</span></p>
+    <p>© CSA Evaluation · <span id="appVersion">v1.30.6</span></p>
 </footer>
+
+<!-- ============ Mobile bottom navigation ============ -->
+<nav class="mobile-bottom-nav" aria-label="นำทางหลัก" data-key-aria-label="nav_label">
+    <button type="button" class="mobile-nav-item is-active" data-action="mobile-home" aria-current="page">
+        <span class="mobile-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3.5" y="3.5" width="17" height="17" rx="3"/>
+                <path d="M7.5 9h4m-2-2v4M15 8h2m-2 4h2M7.5 16h4m3.5-1.5 2 2m0-2-2 2"/>
+            </svg>
+        </span>
+        <span class="mobile-nav-label lang-text" data-key="nav_target">เป้าหมาย</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-action="sw-open">
+        <span class="mobile-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="13" r="7.5"/><path d="M12 9v4.5l2.7 1.7M9.5 2.5h5M12 2.5v3"/>
+            </svg>
+        </span>
+        <span class="mobile-nav-label lang-text" data-key="nav_timer">จับเวลา</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-action="history">
+        <span class="mobile-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4.5 8A8 8 0 1 1 4 14.5M4.5 4.5V8H8"/>
+                <path d="M12 8.5V13l3 1.8"/>
+            </svg>
+        </span>
+        <span class="mobile-nav-label lang-text" data-key="nav_history">ประวัติ</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-action="tutorial-open">
+        <span class="mobile-nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m2.5 9 9.5-5 9.5 5-9.5 5-9.5-5Z"/>
+                <path d="M6.5 11.3V16c0 1.7 2.5 3 5.5 3s5.5-1.3 5.5-3v-4.7M21.5 9v6"/>
+            </svg>
+        </span>
+        <span class="mobile-nav-label lang-text" data-key="nav_lessons">บทเรียน</span>
+    </button>
+</nav>
 
 <!-- ============ Back-to-Top Button ============ -->
 <button id="backToTopBtn" class="back-to-top" aria-label="กลับด้านบน" title="กลับด้านบน">
@@ -909,7 +928,7 @@
                 <span class="lang-text" data-key="tools_back">กลับ</span>
             </button>
             <h2 class="tools-header-title lang-text" id="toolsPageTitle" data-key="tools_title">เครื่องมือ</h2>
-            <div class="sw-header-spacer" aria-hidden="true"></div>
+            <time id="dailyCapacityClock" class="daily-capacity-clock" data-key-aria-label="daily_capacity_current_time" aria-label="เวลาปัจจุบัน" aria-hidden="true" style="visibility:hidden;">--:--</time>
         </div>
 
         <section class="tools-menu-panel" id="toolsMenuPanel">
@@ -929,7 +948,6 @@
         </section>
 
         <section class="daily-capacity-panel" id="dailyCapacityPanel" style="display:none;">
-            <p class="tools-page-intro lang-text" data-key="daily_capacity_desc">กรอกเวลามาตรฐาน เวลาใช้งานต่อวัน และจำนวนพนักงาน</p>
             <div class="daily-capacity-grid">
                 <div class="input-group">
                     <div class="label-row">
@@ -947,13 +965,28 @@
                 </div>
                 <div class="input-group">
                     <div class="label-row">
-                        <label for="capacityWorkTimeInput" class="lang-text" data-key="daily_capacity_work_time">เวลาทำงานรวมต่อวัน</label>
-                        <div class="unit-toggle-group" role="group" aria-label="Working time unit">
-                            <button type="button" class="unit-toggle-btn" data-action="capacity-time-unit" data-arg="min"><span class="lang-text" data-key="unit_min">นาที</span></button>
-                            <button type="button" class="unit-toggle-btn active" data-action="capacity-time-unit" data-arg="hour"><span class="lang-text" data-key="daily_capacity_hour">ชั่วโมง</span></button>
+                        <div class="daily-capacity-end-label">
+                            <label for="capacityEndHour" class="lang-text" data-key="daily_capacity_end_time">เวลาเลิกงาน</label>
+                            <button type="button" class="capacity-config-trigger" data-action="daily-capacity-config-open" data-key-title="daily_capacity_config" data-key-aria-label="daily_capacity_config" title="ตั้งค่าเวลาผลิต">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V4a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
+                            </button>
+                        </div>
+                        <div class="unit-toggle-group daily-capacity-time-format" role="group" data-key-aria-label="daily_capacity_time_format" aria-label="รูปแบบเวลา">
+                            <button type="button" class="unit-toggle-btn" data-action="capacity-time-format" data-arg="12"><span class="lang-text" data-key="daily_capacity_time_12h">12 ชม.</span></button>
+                            <button type="button" class="unit-toggle-btn active" data-action="capacity-time-format" data-arg="24"><span class="lang-text" data-key="daily_capacity_time_24h">24 ชม.</span></button>
                         </div>
                     </div>
-                    <input type="text" id="capacityWorkTimeInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="daily_capacity_work_time">
+                    <div class="glass-input daily-capacity-time-picker" role="group" aria-label="เวลาเลิกงาน">
+                        <button type="button" id="capacityEndHour" data-action="capacity-time-open" data-arg="hour" data-key-aria-label="daily_capacity_end_hour" aria-label="ชั่วโมง" aria-haspopup="listbox" aria-expanded="false">17</button>
+                        <span aria-hidden="true">:</span>
+                        <button type="button" id="capacityEndMinute" data-action="capacity-time-open" data-arg="minute" data-key-aria-label="daily_capacity_end_minute" aria-label="นาที" aria-haspopup="listbox" aria-expanded="false">00</button>
+                        <button type="button" id="capacityEndPeriod" class="daily-capacity-time-period" data-action="capacity-time-period" data-key-aria-label="daily_capacity_time_period" aria-label="AM/PM" hidden>PM</button>
+                    </div>
+                    <input type="hidden" id="capacityEndTimeInput" value="17:00">
+                    <div class="daily-capacity-remaining" aria-live="polite">
+                        <span class="lang-text" data-key="capacity_recovery_remaining">เวลาทำงานปกติที่เหลือ</span>
+                        <strong id="capacityRemainingTime">—</strong>
+                    </div>
                 </div>
                 <div class="input-group">
                     <label for="capacityWorkersInput" class="lang-text" data-key="daily_capacity_workers">จำนวนพนักงาน</label>
@@ -962,15 +995,65 @@
             </div>
             <div class="daily-capacity-results" aria-live="polite">
                 <div class="daily-capacity-result-main">
-                    <span class="daily-capacity-result-label lang-text" data-key="daily_capacity_total">กำลังการผลิตรวมต่อวัน</span>
+                    <span class="daily-capacity-result-label lang-text" data-key="daily_capacity_total">เป้าหมายการผลิตรวมต่อวัน</span>
                     <strong><span id="dailyCapacityTotal">—</span><span class="daily-capacity-result-unit lang-text" data-key="daily_capacity_pieces_day">ชิ้น/วัน</span></strong>
                 </div>
                 <div class="daily-capacity-result-worker">
-                    <span class="lang-text" data-key="daily_capacity_per_hour">กำลังการผลิตต่อชั่วโมง</span>
+                    <span class="lang-text" data-key="daily_capacity_per_hour">เป้าหมายการผลิตต่อชั่วโมง</span>
                     <strong><span id="dailyCapacityPerHour">—</span><span class="daily-capacity-result-unit lang-text" data-key="daily_capacity_pieces_hour">ชิ้น/ชั่วโมง</span></strong>
                 </div>
             </div>
+            <section class="capacity-recovery" aria-labelledby="capacityRecoveryTitle">
+                <h3 id="capacityRecoveryTitle" class="lang-text" data-key="capacity_recovery_title">วางแผนชดเชยยอดผลิต</h3>
+                <div class="capacity-recovery-targets">
+                    <div class="input-group">
+                        <label for="capacityTargetHourlyInput" class="capacity-target-label lang-text" data-key="capacity_recovery_target_hourly">เป้าหมายต่อชั่วโมง</label>
+                        <input type="text" id="capacityTargetHourlyInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="capacity_recovery_target_hourly">
+                    </div>
+                    <div class="input-group">
+                        <span class="capacity-target-label lang-text" data-key="capacity_recovery_target_daily">เป้าหมายต่อวัน</span>
+                        <output id="capacityTargetDaily" class="glass-input capacity-target-derived-value" aria-live="polite">—</output>
+                    </div>
+                </div>
+                <div class="capacity-recovery-progress" aria-live="polite">
+                    <div id="capacityCurrentDeficitRow" class="capacity-recovery-progress-metric">
+                        <span class="lang-text" data-key="capacity_recovery_current_deficit">ส่วนต่างเป้าหมายรวมต่อวัน</span>
+                        <strong><span id="capacityCurrentDeficit">—</span><span class="daily-capacity-result-unit lang-text" data-key="daily_capacity_pieces_day">ชิ้น/วัน</span></strong>
+                    </div>
+                    <div class="capacity-recovery-progress-metric">
+                        <span class="lang-text" data-key="capacity_recovery_hourly_gap">ส่วนต่างเป้าหมายต่อชั่วโมง</span>
+                        <strong><span id="capacityHourlyDeficit">—</span><span class="daily-capacity-result-unit lang-text" data-key="daily_capacity_pieces_hour">ชิ้น/ชั่วโมง</span></strong>
+                    </div>
+                </div>
+                <div class="capacity-recovery-results" aria-live="polite">
+                    <div class="capacity-recovery-card">
+                        <h4 class="lang-text" data-key="capacity_recovery_eff_title">ทางเลือก A · เพิ่มประสิทธิภาพไลน์ (Improve Line Efficiency %)</h4>
+                        <div class="capacity-recovery-metric"><span class="lang-text" data-key="capacity_recovery_new_target">เป้าผลิตใหม่ต่อชั่วโมง</span><strong><span id="capacityRequiredPerHour">—</span> <span class="lang-text" data-key="daily_capacity_pieces_hour">ชิ้น/ชั่วโมง</span></strong></div>
+                        <div class="capacity-recovery-metric"><span class="lang-text" data-key="capacity_recovery_required_eff">Efficiency ที่ต้องทำ</span><strong><span id="capacityRequiredEfficiency">—</span>%</strong></div>
+                        <p id="capacityRecoveryStatus" class="capacity-recovery-status"></p>
+                    </div>
+                    <div class="capacity-recovery-card">
+                        <h4 class="lang-text" data-key="capacity_recovery_ot_title">ทางเลือก B · เพิ่มเวลาทำงาน (Overtime Hours)</h4>
+                        <div class="capacity-recovery-metric"><span class="lang-text" data-key="capacity_recovery_ot_time">เวลา OT ขั้นต่ำ</span><strong id="capacityRequiredOt">—</strong></div>
+                        <p class="capacity-recovery-hint lang-text" data-key="capacity_recovery_ot_assumption">คำนวณจากอัตราผลิตต่อชั่วโมงตาม Efficiency เป้าหมาย</p>
+                    </div>
+                </div>
+            </section>
         </section>
+        <div id="dailyCapacityConfig" class="capacity-config-backdrop" style="display:none;" role="presentation">
+            <section class="capacity-config-dialog" role="dialog" aria-modal="true" aria-labelledby="dailyCapacityConfigTitle">
+                <header class="capacity-config-header">
+                    <h3 id="dailyCapacityConfigTitle" class="lang-text" data-key="daily_capacity_config">ตั้งค่าเวลาผลิต</h3>
+                    <button type="button" class="capacity-config-close" data-action="daily-capacity-config-close" data-key-title="tools_close" data-key-aria-label="tools_close" title="ปิด" aria-label="ปิด">×</button>
+                </header>
+                <p class="capacity-config-note lang-text" data-key="daily_capacity_config_reset_note">การตั้งค่านี้ใช้ชั่วคราว และคืนค่าเริ่มต้นเมื่อออกจากหน้านี้</p>
+                <table class="capacity-config-table">
+                    <thead><tr><th class="lang-text" data-key="daily_capacity_period">ช่วงเวลา</th><th class="lang-text" data-key="daily_capacity_work_minutes">นาทีทำงาน</th></tr></thead>
+                    <tbody id="dailyCapacityScheduleBody"></tbody>
+                </table>
+            </section>
+        </div>
+        <div id="dailyCapacityTimeMenu" class="daily-capacity-time-menu" role="listbox" style="display:none;" aria-label="เวลาเลิกงาน"></div>
     </div>
 </div>
 

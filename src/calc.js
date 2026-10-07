@@ -36,6 +36,77 @@ function calcDailyCapacity(samMinutes, effPercent, workingMinutes, workers) {
     return { perHour, total };
 }
 
+// Sum productive minutes across an hourly schedule for a wall-clock window.
+// Partial periods use that period's configured productive-minute ratio.
+function calcScheduledWorkMinutes(periods, startMinute, endMinute) {
+    if (!Array.isArray(periods) || periods.length !== 12
+        || !periods.every(value => Number.isSafeInteger(value) && value >= 0 && value <= 60)
+        || !Number.isInteger(startMinute) || !Number.isInteger(endMinute)
+        || startMinute < 0 || startMinute > 24 * 60 || endMinute < 0 || endMinute > 24 * 60) return null;
+    const scheduleStart = 8 * 60;
+    const scheduleEnd = 20 * 60;
+    const start = Math.max(startMinute, scheduleStart);
+    const end = Math.min(endMinute, scheduleEnd);
+    if (end <= start) return 0;
+    let total = 0;
+    for (let index = 0; index < periods.length; index += 1) {
+        const periodStart = scheduleStart + index * 60;
+        const overlap = Math.max(0, Math.min(end, periodStart + 60) - Math.max(start, periodStart));
+        total += overlap * periods[index] / 60;
+    }
+    return total;
+}
+
+function calcDailyTarget(targetPerHour, productiveMinutes) {
+    if (!(targetPerHour > 0) || !Number.isFinite(targetPerHour)
+        || !(productiveMinutes > 0) || !Number.isFinite(productiveMinutes)) return null;
+    return targetPerHour * productiveMinutes / 60;
+}
+
+// Convert the two fields of a clock-style recovery duration into hours.
+// Keep minutes bounded to a real clock field so 1 h 30 min is unambiguous.
+function calcRecoveryRemainingHours(hours, minutes) {
+    if (!Number.isSafeInteger(hours) || hours < 0
+        || !Number.isSafeInteger(minutes) || minutes < 0 || minutes > 59) return null;
+    const totalHours = hours + minutes / 60;
+    return totalHours > 0 ? totalHours : null;
+}
+
+// Compare a requested daily target with the current calculated capacity.
+// Recovery rounds a positive daily gap upward to a whole piece.
+function calcRecoveryProgress(currentPerHour, currentDailyOutput, targetDailyOutput, targetPerHour, totalWorkingHours, remainingHours) {
+    if (!(currentPerHour > 0) || !Number.isFinite(currentPerHour)
+        || !(currentDailyOutput > 0) || !Number.isFinite(currentDailyOutput)
+        || !(targetDailyOutput > 0) || !Number.isFinite(targetDailyOutput)
+        || !(targetPerHour > 0) || !Number.isFinite(targetPerHour)
+        || !(totalWorkingHours > 0) || !Number.isFinite(totalWorkingHours)
+        || !(remainingHours >= 0) || !Number.isFinite(remainingHours)
+        || remainingHours > totalWorkingHours) return null;
+    const dailyGap = targetDailyOutput - currentDailyOutput;
+    const hourlyGap = targetPerHour - currentPerHour;
+    const deficit = Math.max(0, Math.ceil(dailyGap - 1e-9));
+    return { dailyGap, hourlyGap, deficit };
+}
+
+// Recovery uses the baseline unrounded hourly target and the requested-target gap.
+function calcCapacityRecovery(samMinutes, effPercent, workers, deficitPieces, remainingHours) {
+    if (!(samMinutes > 0) || !Number.isFinite(samMinutes)
+        || !(effPercent > 0) || !Number.isFinite(effPercent)
+        || !(workers > 0) || !Number.isSafeInteger(workers)
+        || !Number.isSafeInteger(deficitPieces) || deficitPieces < 0
+        || !(remainingHours > 0) || !Number.isFinite(remainingHours)) return null;
+    const deficit = deficitPieces;
+    const targetPerHour = calcDailyCapacity(samMinutes, effPercent, 60, workers).perHour;
+    const requiredPerHour = targetPerHour + deficit / remainingHours;
+    const requiredEfficiency = requiredPerHour * samMinutes / (60 * workers) * 100;
+    const otMinutes = deficit === 0 ? 0 : Math.max(1, Math.ceil(deficit / targetPerHour * 60 - 1e-9));
+    if (![targetPerHour, requiredPerHour, requiredEfficiency, otMinutes].every(Number.isFinite)) return null;
+    return {
+        deficit, targetPerHour, requiredPerHour, requiredEfficiency, otMinutes,
+        withinNormalTime: requiredEfficiency <= 100 + 1e-9,
+    };
+}
+
 // Average cycle time in minutes from recorded total time + rep count.
 // Returns null when there isn't enough data to compute it.
 function calcAvgMin(totalMin, totalSec, totalCount) {
@@ -106,6 +177,11 @@ export {
     parseNum,
     pcsFromEff,
     calcDailyCapacity,
+    calcScheduledWorkMinutes,
+    calcDailyTarget,
+    calcRecoveryRemainingHours,
+    calcRecoveryProgress,
+    calcCapacityRecovery,
     calcAvgMin,
     calcActualEff,
     newSamFromEff,

@@ -966,10 +966,7 @@
                 <div class="input-group">
                     <div class="label-row">
                         <div class="daily-capacity-end-label">
-                            <label for="capacityEndHour" class="lang-text" data-key="daily_capacity_end_time">เวลาเลิกงาน</label>
-                            <button type="button" class="capacity-config-trigger" data-action="daily-capacity-config-open" data-key-title="daily_capacity_config" data-key-aria-label="daily_capacity_config" title="ตั้งค่าเวลาผลิต">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1a1.7 1.7 0 0 1-2.4 2.4l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.2a1.7 1.7 0 0 1-3.4 0v-.2a1.7 1.7 0 0 0-2.9-1.2l-.1.1a1.7 1.7 0 1 1-2.4-2.4l.1-.1a1.7 1.7 0 0 0-1.2-2.9H4a1.7 1.7 0 0 1 0-3.4h.2a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a1.7 1.7 0 1 1 2.4-2.4l.1.1a1.7 1.7 0 0 0 2.9-1.2V4a1.7 1.7 0 0 1 3.4 0v.2a1.7 1.7 0 0 0 2.9 1.2l.1-.1a1.7 1.7 0 1 1 2.4 2.4l-.1.1a1.7 1.7 0 0 0 1.2 2.9h.2a1.7 1.7 0 0 1 0 3.4h-.2a1.7 1.7 0 0 0-1.2 2.9Z"/></svg>
-                            </button>
+                            <button type="button" class="daily-capacity-config-label lang-text" data-action="daily-capacity-config-open" data-key="daily_capacity_end_time" data-key-aria-label="daily_capacity_config" aria-label="เวลาเลิกงาน เปิดตารางเวลาผลิต">เวลาเลิกงาน</button>
                         </div>
                         <div class="unit-toggle-group daily-capacity-time-format" role="group" data-key-aria-label="daily_capacity_time_format" aria-label="รูปแบบเวลา">
                             <button type="button" class="unit-toggle-btn" data-action="capacity-time-format" data-arg="12"><span class="lang-text" data-key="daily_capacity_time_12h">12 ชม.</span></button>
@@ -984,7 +981,6 @@
                     </div>
                     <input type="hidden" id="capacityEndTimeInput" value="17:00">
                     <div class="daily-capacity-remaining" aria-live="polite">
-                        <span class="lang-text" data-key="capacity_recovery_remaining">เวลาทำงานปกติที่เหลือ</span>
                         <strong id="capacityRemainingTime">—</strong>
                     </div>
                 </div>

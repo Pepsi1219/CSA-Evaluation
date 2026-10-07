@@ -3219,9 +3219,10 @@ body.boot-login .container { visibility: hidden; }
 .daily-capacity-grid > .input-group > .label-row label { margin-left: 2px; }
 .daily-capacity-remaining {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: baseline;
-    gap: 6px;
+    flex: 0 0 auto;
+    margin-top: calc(-1 * var(--sp-2));
     color: var(--text-3);
     font-size: 12px;
     line-height: 1.35;
@@ -3232,8 +3233,7 @@ body.boot-login .container { visibility: hidden; }
     align-items: center;
     gap: 4px;
     min-height: 48px;
-    padding-top: 4px;
-    padding-bottom: 4px;
+    padding: 4px 8px;
     font-variant-numeric: tabular-nums;
 }
 .daily-capacity-time-picker button {
@@ -3319,7 +3319,8 @@ body.boot-login .container { visibility: hidden; }
     align-items: center;
     justify-content: center;
     padding: 20px;
-    background: rgb(0 0 0 / 45%);
+    background: rgb(20 21 42 / 58%);
+    backdrop-filter: blur(3px);
 }
 .capacity-config-dialog {
     width: min(100%, 430px);
@@ -3328,20 +3329,48 @@ body.boot-login .container { visibility: hidden; }
     padding: 18px;
     border: 1px solid var(--border);
     border-radius: var(--r-md);
-    background: var(--surface-1);
+    background: var(--surface);
     box-shadow: 0 18px 50px rgb(0 0 0 / 24%);
 }
 .capacity-config-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .capacity-config-header h3 { margin: 0; color: var(--text-1); font-size: 17px; }
 .capacity-config-close { font-size: 22px; }
 .capacity-config-note { margin: 6px 0 12px; color: var(--text-3); font-size: 12px; line-height: 1.45; }
-.capacity-config-table { width: 100%; border-collapse: collapse; }
+.capacity-config-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    border-radius: var(--r-sm);
+    background: var(--surface);
+}
 .capacity-config-table th,
-.capacity-config-table td { padding: 5px 3px; border-bottom: 1px solid var(--border); text-align: left; }
-.capacity-config-table th { color: var(--text-2); font-size: 12px; font-weight: 600; }
+.capacity-config-table td { padding: 8px 6px; border-bottom: 1px solid var(--border); background: var(--surface); text-align: left; }
+.capacity-config-table thead th { padding: 9px 6px; background: var(--surface-3); color: var(--text-2); font-size: 12px; font-weight: 700; }
 .capacity-config-table tbody th { color: var(--text-1); font-size: 13px; font-weight: 500; }
+.capacity-config-table tbody tr:nth-child(even) th,
+.capacity-config-table tbody tr:nth-child(even) td { background: var(--surface-2); }
+.capacity-config-table tbody tr:last-child th,
+.capacity-config-table tbody tr:last-child td { border-bottom: 0; }
 .capacity-config-table td { width: 120px; }
-.capacity-config-table input { width: 100%; min-height: 38px; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-2); color: var(--text-1); text-align: center; }
+.capacity-config-table input { width: 100%; min-height: 40px; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text-1); text-align: center; }
+.daily-capacity-config-label {
+    display: inline;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-2);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-align: left;
+    cursor: pointer;
+}
+.daily-capacity-config-label:hover,
+.daily-capacity-config-label:focus-visible {
+    color: var(--text-1);
+}
 .capacity-recovery {
     margin-top: 24px;
     padding-top: 18px;
@@ -3352,7 +3381,7 @@ body.boot-login .container { visibility: hidden; }
 .capacity-recovery-targets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .capacity-recovery-targets .input-group { min-width: 0; }
 .capacity-target-label { display: flex; align-items: center; min-height: 44px; margin-left: 2px; color: var(--text-2); font-size: 12px; font-weight: 600; }
-.capacity-target-derived-value { display: flex; align-items: center; min-height: 56px; cursor: default; font-variant-numeric: tabular-nums; font-weight: 700; }
+.capacity-target-derived-value { display: flex; align-items: center; min-height: 0; cursor: default; font-variant-numeric: tabular-nums; font-weight: 700; }
 .capacity-recovery-time-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
 .capacity-recovery-time-field { display: flex; align-items: center; min-width: 0; gap: 6px; }
 .capacity-recovery-time-field .glass-input { min-width: 0; padding-right: var(--sp-2); text-align: center; }

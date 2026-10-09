@@ -15,7 +15,7 @@ import {
     calcPassRate,
 } from './calc.js';
 import { t, currentLang, pcsPerHr, gaTrack, HISTORY_MAX } from './state.js';
-import { getSamMinutes } from './app.js';
+import { formatResultNumber, getSamMinutes } from './app.js';
 import {
     FIREBASE_ENABLED, isSignedIn, getHistoryCache,
     fsSaveEntry, fsDeleteEntry, fsSetNote, subscribeHistoryChange,
@@ -173,7 +173,7 @@ function historyRowHtml(e) {
     const { computed } = e;
     const title = e.label || fmtHistoryTs(e.ts);
     const metaParts = [];
-    if (computed.actualEff !== null) metaParts.push(`${computed.actualEff}% eff`);
+    if (computed.actualEff !== null) metaParts.push(`${formatResultNumber(computed.actualEff)}% eff`);
     if (computed.targetPcs > 0)      metaParts.push(`${computed.targetPcs} ${pcsPerHr[currentLang] || 'pcs/hr'}`);
     if (computed.passRate !== null)  metaParts.push(`${computed.passRate}% pass`);
     const notePreview = e.note
@@ -252,11 +252,11 @@ function renderCompareTable() {
         { key: 'sam_label',    get: e => e.inputs.sam > 0 ? e.inputs.sam : '—' },
         { key: 'eff_target',   get: e => e.inputs.effTarget > 0 ? `${e.inputs.effTarget}%` : '—' },
         { key: 'qty_label',    get: e => e.computed.targetPcs > 0 ? e.computed.targetPcs : '—' },
-        { key: 'actual_eff',   get: e => e.computed.actualEff !== null ? `${e.computed.actualEff}%` : '—' },
-        { key: 'actual_pcs',   get: e => e.computed.actualPcs !== null ? e.computed.actualPcs : '—' },
+        { key: 'actual_eff',   get: e => e.computed.actualEff !== null ? `${formatResultNumber(e.computed.actualEff)}%` : '—' },
+        { key: 'actual_pcs',   get: e => e.computed.actualPcs !== null ? formatResultNumber(e.computed.actualPcs) : '—' },
         { key: 'pass_rate',    get: e => e.computed.passRate !== null ? `${e.computed.passRate}%` : '—' },
         { key: 'compare_gap',  get: e => (e.computed.actualEff !== null && e.inputs.effTarget > 0)
-                                          ? `${e.computed.actualEff - e.inputs.effTarget}%` : '—' },
+                          ? `${formatResultNumber(e.computed.actualEff - e.inputs.effTarget)}%` : '—' },
         { key: 'history_note', get: e => e.note ? escapeHtml(e.note) : '—' },
     ];
 

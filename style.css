@@ -588,6 +588,20 @@ label {
 
 /* Formula modal — reuses .modal-overlay / .feedback-modal shell */
 .formula-modal { max-width: 480px; }
+.precision-modal-select {
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    color: var(--text-1);
+    font: inherit;
+}
+.precision-modal-select:focus-visible {
+    outline: 2px solid var(--accent-500);
+    outline-offset: 2px;
+}
 .fx-block {
     margin-bottom: var(--sp-4);
 }
@@ -1283,6 +1297,10 @@ label {
     }
     #display { font-size: 2.7rem; }
     .form-row { gap: var(--sp-3); }
+    .form-row { grid-template-columns: 1fr 1fr; }
+    .form-row-sam { grid-template-columns: 1fr 1fr; }
+    .form-row-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .form-row-three > .input-group { min-width: 0; }
     .glass-title { font-size: 14px; letter-spacing: -0.01em; }
     .brand-sub { display: none; }
     /* Keep SAM + efficiency side by side on phones; compact the unit
@@ -1354,13 +1372,6 @@ label {
 
 @media (max-width: 380px) {
     .glass-title { font-size: 12.5px; }
-    .form-row { grid-template-columns: 1fr; }
-    /* ...except the SAM row, which the user wants kept as two columns. */
-    .form-row-sam { grid-template-columns: 1fr 1fr; }
-    /* Three-column rows would give ~90 px per input on iPhone SE and wrap
-       labels 2–3 lines; drop to 2 columns and let the third wrap under. */
-    .form-row-three { grid-template-columns: 1fr 1fr; }
-
     /* Stopwatch header controls (80 + 140 + 80 = 300 px) overflow a 320 px
        screen inside sw-page's 24 px padding. Shrink fixed side widths and
        hide the Back label — the chevron is still tappable. */
@@ -2100,7 +2111,7 @@ label {
 .sw-save-panel {
     position: sticky;
     bottom: 0;
-    padding: 20px var(--sp-6) env(safe-area-inset-bottom, 28px);
+    padding: 20px var(--sp-6) calc(16px + env(safe-area-inset-bottom, 0px));
     margin: 0 calc(-1 * var(--sp-6));
     background: linear-gradient(to top, var(--bg-app) 72%, transparent 100%);
     /* visualViewport handler animates translateY when iOS keyboard opens */
@@ -2130,14 +2141,17 @@ label {
     width: 90px; text-align: center; outline: none;
 }
 .sw-rounds-input:focus { border-color: var(--accent-500); box-shadow: 0 0 0 3px var(--accent-50); }
-/* Save row — PNG export sits left as a secondary chip; primary Save
-   button takes the rest of the width. Keeps the primary CTA thumb-
-   reachable on the right while surfacing the export as a peer action. */
-.sw-save-row { display: flex; align-items: stretch; gap: 8px; }
+/* Keep both save actions in a balanced row with matching tap targets. */
+.sw-save-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 10px;
+}
 .sw-save-to-form-btn {
-    flex: 1 1 auto;
+    width: 100%; min-width: 0; min-height: 68px;
     display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
-    padding: 17px;
+    padding: 14px 12px;
     background: var(--accent-grad);
     border: none; border-radius: var(--r-md);
     color: #fff; font-family: var(--font);
@@ -2148,16 +2162,15 @@ label {
 .sw-save-to-form-btn:hover  { filter: brightness(1.1); }
 .sw-save-to-form-btn:active { transform: scale(0.98); }
 .sw-png-btn {
-    flex: 0 0 auto;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 2px;
-    min-width: 68px;
-    padding: 10px 12px;
+    min-width: 0; min-height: 68px;
+    display: flex; flex-direction: row; align-items: center; justify-content: center;
+    gap: 8px;
+    padding: 14px 12px;
     background: var(--surface);
     border: 1.5px solid var(--border);
     border-radius: var(--r-md);
     color: var(--text-1); font-family: var(--font);
-    font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+    font-size: 14px; font-weight: 700; letter-spacing: 0.05em;
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.12s var(--ease-spring);
 }
@@ -3407,14 +3420,12 @@ body.boot-login .container { visibility: hidden; }
 .capacity-recovery-status[data-status="ok"] { color: var(--success); }
 .capacity-recovery-status[data-status="bad"] { color: var(--danger); }
 @media (max-width: 560px) {
+    .daily-capacity-grid { grid-template-columns: 1fr; }
     .daily-capacity-grid { gap: var(--sp-3); }
     .capacity-recovery .daily-capacity-grid { grid-template-columns: 1fr; }
     .capacity-recovery-targets { gap: var(--sp-2); }
     .capacity-recovery-progress { grid-template-columns: 1fr; }
     .daily-capacity-panel { padding-left: 0; padding-right: 0; }
-}
-@media (max-width: 380px) {
-    .daily-capacity-grid { grid-template-columns: 1fr; }
 }
 .ie-sam-visually-hidden {
     position: absolute;
@@ -3923,9 +3934,8 @@ body.boot-login .container { visibility: hidden; }
 /* Compact on narrow screens — element ranks collapse to a 2-col grid;
    the capture controls stay as three peer circles (the shared
    .sw-controls layout handles narrow widths). */
-@media (max-width: 380px) {
+@media (max-width: 560px) {
     .ie-elem-ranks { grid-template-columns: 1fr 1fr; }
-    .daily-capacity-grid { grid-template-columns: 1fr; }
 }
 
 /* Rating button inside the result table — pill styled by state:
@@ -4062,7 +4072,7 @@ body.boot-login .container { visibility: hidden; }
 }
 .ie-rating-actions .ie-cta-btn { margin-top: 0; }
 
-@media (max-width: 480px) {
+@media (max-width: 560px) {
     .ie-rating-grid { grid-template-columns: 1fr; }
     .ie-rating-cell { grid-template-columns: 3.5em 2em 1fr; padding: 8px 8px; font-size: 13px; }
 }

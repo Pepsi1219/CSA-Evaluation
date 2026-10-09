@@ -10,7 +10,7 @@
 import {
     calculateAll, tsRecalculate,
     exportCSV, printReport, pwaInstall, toggleTheme,
-    openSettingsModal, resetForm, setSamUnit, closeActionsMenu, scrollToTop,
+    openSettingsModal, openResultPrecisionModal, resetForm, setSamUnit, closeActionsMenu, scrollToTop,
     openToolsModal, closeToolsModal, toolsBack, openDailyCapacityTool,
     setDailyCapacitySamUnit, calculateDailyCapacityUI,
     openDailyCapacityConfig, closeDailyCapacityConfig, setDailyCapacityPeriod,
@@ -76,6 +76,7 @@ const ACTIONS = {
     history:        () => { openHistoryModal(); closeActionsMenu(); },
     install:        () => { pwaInstall();       closeActionsMenu(); },
     theme:          () => toggleTheme(),
+    'result-precision': () => { openResultPrecisionModal(); closeActionsMenu(); },
     settings:       () => { openSettingsModal(); closeActionsMenu(); },
     reset:          () => { resetForm();        closeActionsMenu(); },
     'tools-open':   () => openToolsModal(),

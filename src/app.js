@@ -61,10 +61,18 @@ const SW_LAPS_MAX         = 1000;   // hard ceiling on restored lap count (anti-
 // STORAGE_KEY_HISTORY + HISTORY_MAX moved to history.js (their consumers live there)
 const STORAGE_KEY_THEME       = 'csa_theme';
 const STORAGE_KEY_TRAIN_CURVE = 'csa_train_curve';
+const STORAGE_KEY_RESULT_PRECISION = 'csa_result_precision_v1';
 const FORM_FIELD_IDS = ['samInput','effTargetInput','totalMin','totalTime','totalCount','passQty','failQty','duration'];
+const RESULT_PRECISION_PRESETS = new Set(['up', 'down', '1', '2', '3', '4']);
 
 // --- 1. Local State (currentLang lives in state.js) ---
 let samUnit = 'min'; // unit the user types SAM in: 'min' or 'sec'
+let resultPrecision = (() => {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY_RESULT_PRECISION);
+        return RESULT_PRECISION_PRESETS.has(saved) ? saved : '2';
+    } catch { return '2'; }
+})();
 
 // Training-plan curve shape: 'scurve' (default — Hermite smoothstep, realistic
 // learning curve) or 'linear' (flat rate/day). Persisted per user via
@@ -2887,13 +2895,83 @@ const LANG_META = {
 
 function setResultUnit(id, value, unit) {
     const el = document.getElementById(id);
+    el.dataset.csvValue = String(value);
     el.textContent = '';
-    el.append(String(value));
+    el.append(formatResultNumber(value));
     const u = document.createElement('span');
     u.className = 'result-unit';
     u.textContent = unit;
     el.append(u);
 }
+
+function clearResult(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = '';
+    delete el.dataset.csvValue;
+}
+
+export function formatResultNumber(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return String(value);
+    if (resultPrecision === 'up') return String(Math.ceil(number));
+    if (resultPrecision === 'down') return String(Math.floor(number));
+    return number.toFixed(Number(resultPrecision));
+}
+
+export function setResultPrecision(preset) {
+    if (!RESULT_PRECISION_PRESETS.has(preset) || preset === resultPrecision) return;
+    resultPrecision = preset;
+    try { localStorage.setItem(STORAGE_KEY_RESULT_PRECISION, preset); } catch {}
+    calculateAll();
+    _flushHeavyUpdate();
+}
+
+function renderResultPrecisionDetails(preset) {
+    const isIntegerMode = preset === 'up' || preset === 'down';
+    const mode = isIntegerMode ? preset : 'digits';
+    const desc = document.getElementById('precisionModalDesc');
+    const formula = document.getElementById('precisionModalFormula');
+    if (desc) {
+        desc.textContent = t(`precision_desc_${mode}`).replaceAll('{d}', String(preset));
+    }
+    if (formula) {
+        formula.textContent = t(`precision_formula_${mode}`).replaceAll('{d}', isIntegerMode ? '' : String(preset));
+    }
+}
+
+export function openResultPrecisionModal() {
+    const modal = document.getElementById('resultPrecisionModal');
+    const select = document.getElementById('precisionModalSelect');
+    if (!modal || !select) return;
+    select.value = resultPrecision;
+    renderResultPrecisionDetails(select.value);
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+export function closeResultPrecisionModal() {
+    const modal = document.getElementById('resultPrecisionModal');
+    if (!modal) return;
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function confirmResultPrecision() {
+    const select = document.getElementById('precisionModalSelect');
+    if (select) setResultPrecision(select.value);
+    closeResultPrecisionModal();
+}
+
+document.getElementById('precisionModalSelect')?.addEventListener('change', event => {
+    renderResultPrecisionDetails(event.target.value);
+});
+document.getElementById('resultPrecisionCloseBtn')?.addEventListener('click', closeResultPrecisionModal);
+document.getElementById('resultPrecisionCancelBtn')?.addEventListener('click', closeResultPrecisionModal);
+document.getElementById('resultPrecisionApplyBtn')?.addEventListener('click', confirmResultPrecision);
+document.getElementById('resultPrecisionModal')?.addEventListener('click', event => {
+    if (event.target.id === 'resultPrecisionModal') closeResultPrecisionModal();
+});
 
 // --- 4. Training Grid: generated dynamically inside calculateAll() ---
 
@@ -2910,6 +2988,14 @@ export function changeLanguage(lang) {
         const key = el.getAttribute('data-key');
         if (translations[lang][key]) el.innerText = translations[lang][key];
     });
+
+    document.querySelectorAll('#precisionModalSelect option[data-i18n-option]').forEach(option => {
+        const key = option.dataset.i18nOption;
+        if (translations[lang][key]) option.textContent = translations[lang][key];
+    });
+    if (document.getElementById('resultPrecisionModal')?.style.display === 'flex') {
+        renderResultPrecisionDetails(document.getElementById('precisionModalSelect').value);
+    }
 
     // placeholder attributes
     document.querySelectorAll('[data-key-placeholder]').forEach(el => {
@@ -3101,7 +3187,7 @@ export function calculateAll() {
         const eff = calcActualEff(sam, avgMin);
         if (eff !== null) {
             currentActualEff = eff;
-            document.getElementById('actualEffPerc').value = `${currentActualEff} %`;
+            document.getElementById('actualEffPerc').value = `${formatResultNumber(currentActualEff)} %`;
             setResultUnit('actualPcs', calcActualPcsPerHr(avgMin), pcsPerHr[currentLang] || 'pcs/hr');
             // Ambient status tint — how does actual compare to target?
             const effStatus = statusForEfficiency(currentActualEff, effTarget);
@@ -3182,8 +3268,8 @@ function _runHeavyUpdate() {
                 <div class="day-card filled">
                     <label class="day-label">${t('day_unit')} ${i}</label>
                     <div class="day-card-body">
-                        <span class="day-eff">${dayEff}%</span>
-                        <span class="day-pcs">${dayPcs} ${pcsPerHr[currentLang] || 'pcs/hr'}</span>
+                        <span class="day-eff">${formatResultNumber(dayEff)}%</span>
+                        <span class="day-pcs">${formatResultNumber(dayPcs)} ${pcsPerHr[currentLang] || 'pcs/hr'}</span>
                     </div>
                 </div>`;
             }
@@ -3541,8 +3627,8 @@ const FORMULA_DEFS = {
             const eff = calcActualEff(sam, avg);
             if (eff === null) return null;
             return {
-                substituted: `(${trimNum(sam)} ÷ ${avg.toFixed(4)}) × 100 = ${eff}`,
-                result: `${eff} %`,
+                substituted: `(${trimNum(sam)} ÷ ${avg.toFixed(4)}) × 100 = ${formatResultNumber(eff)}`,
+                result: `${formatResultNumber(eff)} %`,
             };
         },
     },
@@ -3558,8 +3644,8 @@ const FORMULA_DEFS = {
             const pcs = calcActualPcsPerHr(avg);
             if (pcs === null) return null;
             return {
-                substituted: `60 ÷ ${avg.toFixed(4)} = ${pcs}`,
-                result: `${pcs} ${pcsPerHr[currentLang] || 'pcs/hr'}`,
+                substituted: `60 ÷ ${avg.toFixed(4)} = ${formatResultNumber(pcs)}`,
+                result: `${formatResultNumber(pcs)} ${pcsPerHr[currentLang] || 'pcs/hr'}`,
             };
         },
     },
@@ -3872,16 +3958,38 @@ document.addEventListener('click', e => {
 
 document.addEventListener('keydown', e => {
     // The shared numpad can be opened from the main form or another modal.
+    const numpadOpen = document.getElementById('numpadModal')?.style.display === 'flex';
+    if (numpadOpen) {
+        if (/^\d$/.test(e.key)) {
+            e.preventDefault();
+            numpadPress(e.key);
+            return;
+        }
+        if (e.key === 'Backspace') {
+            e.preventDefault();
+            numpadPress('back');
+            return;
+        }
+        if (e.key === '.' || e.key === ',') {
+            e.preventDefault();
+            numpadPress('.');
+            return;
+        }
+    }
     // Treat Enter exactly like its Done button before an underlying form can
     // receive a submit/activation event.
-    if (e.key === 'Enter' && document.getElementById('numpadModal')?.style.display === 'flex') {
+    if (e.key === 'Enter' && numpadOpen) {
         e.preventDefault();
         closeNumpad();
         return;
     }
     if (e.key === 'Escape') {
         // Numpad sits above every other modal, so it swallows ESC first.
-        if (document.getElementById('numpadModal')?.style.display === 'flex') { closeNumpad(); return; }
+        if (numpadOpen) { closeNumpad(); return; }
+        if (document.getElementById('resultPrecisionModal')?.style.display === 'flex') {
+            closeResultPrecisionModal();
+            return;
+        }
         if (document.getElementById('toolsModal')?.style.display === 'flex') { toolsBack(); return; }
         if (document.getElementById('ieCtHelpModal')?.style.display === 'flex') { closeIeCtHelp(); return; }
         if (document.getElementById('ieSamHelpModal')?.style.display === 'flex') { closeIeSamHelp(); return; }

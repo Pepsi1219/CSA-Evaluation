@@ -194,6 +194,7 @@ test('calcActualEff', async (t) => {
     await t.test('computes efficiency % from SAM and avg cycle time', () => {
         assert.equal(calcActualEff(0.5, 0.5), 100);
         assert.equal(calcActualEff(0.4, 0.5), 80);
+        assert.equal(calcActualEff(0.5, 0.55), 100 / 1.1);
     });
     await t.test('returns null when sam or avgMin is invalid', () => {
         assert.equal(calcActualEff(0, 0.5), null);
@@ -219,6 +220,7 @@ test('calcActualPcsPerHr', async (t) => {
     await t.test('computes output pieces/hour from avg cycle time', () => {
         assert.equal(calcActualPcsPerHr(0.5), 120);
         assert.equal(calcActualPcsPerHr(1), 60);
+        assert.equal(calcActualPcsPerHr(0.55), 60 / 0.55);
     });
     await t.test('returns null when avgMin is invalid', () => {
         assert.equal(calcActualPcsPerHr(0), null);

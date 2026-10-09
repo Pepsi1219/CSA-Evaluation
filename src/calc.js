@@ -117,7 +117,7 @@ function calcAvgMin(totalMin, totalSec, totalCount) {
 // Actual efficiency % from SAM and measured average cycle time (minutes).
 function calcActualEff(sam, avgMin) {
     if (!(sam > 0) || !(avgMin > 0)) return null;
-    return Math.round((sam / avgMin) * 100);
+    return (sam / avgMin) * 100;
 }
 
 // Target cycle time (minutes/piece) needed to hit a target efficiency %,
@@ -131,7 +131,7 @@ function newSamFromEff(sam, effPercent) {
 // Actual output in pieces/hour from measured average cycle time (minutes).
 function calcActualPcsPerHr(avgMin) {
     if (!(avgMin > 0)) return null;
-    return Math.round(60 / avgMin);
+    return 60 / avgMin;
 }
 
 // Pass rate % from pass/fail quantities. Null when there's no quantity yet.

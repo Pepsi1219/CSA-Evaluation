@@ -52,37 +52,65 @@ const _changeHandlers = new Set();
 // other; also lets tests import the pure merge helper without pulling any
 // history state through.
 let _tutorialCache = { done: {}, quiz: null, cert: null };
+let _tutorialKnown = { done: {}, quiz: null, cert: null };
 let _unsubTutorial = null;
 const _tutorialChangeHandlers = new Set();
 
+function stableJson(value) {
+    const stable = item => {
+        if (Array.isArray(item)) return item.map(stable);
+        if (item && typeof item === 'object') {
+            return Object.fromEntries(Object.keys(item).sort().map(key => [key, stable(item[key])]));
+        }
+        return item;
+    };
+    return JSON.stringify(stable(value));
+}
+
 // ---- Pure: merge two tutorial-progress objects. Used at first-sign-in
 // reconciliation (local ⨯ cloud) and any later cross-device reconciliation.
-// Rules: `done` is a union — once done, always done. `quiz` keeps the
-// higher pct (passed beats not-passed at equal pct via the pct boolean
-// coercion). `cert` keeps whichever exists; if both, the earlier one wins
+// Rules: `done` is a union — once done, always done. `quiz` keeps a passing
+// result, then the higher `best` score (`pct` for legacy records). `cert`
+// keeps whichever exists; if both, the earlier `at` (`ts` for legacy) wins
 // (the first certificate issued is the canonical one — reprinting later
 // mustn't reset the id or date). Exported for unit testing.
 export function mergeTutorialProgress(a, b) {
     a = a && typeof a === 'object' ? a : {};
     b = b && typeof b === 'object' ? b : {};
-    const done = { ...(a.done || {}), ...(b.done || {}) };
-    // union: any truthy in either side stays truthy
-    for (const k of Object.keys(done)) if (!(a.done?.[k] || b.done?.[k])) delete done[k];
+    const done = {};
+    // Completion is monotonic, including when a stale snapshot says false.
+    for (const k of new Set([...Object.keys(a.done || {}), ...Object.keys(b.done || {})])) {
+        if (a.done?.[k] || b.done?.[k]) done[k] = true;
+    }
 
     let quiz = null;
     const aq = a.quiz, bq = b.quiz;
     if (aq && bq) {
         // Prefer passed over not-passed; if both same pass state, higher pct wins.
         if (aq.passed !== bq.passed) quiz = aq.passed ? aq : bq;
-        else quiz = (aq.pct || 0) >= (bq.pct || 0) ? aq : bq;
+        else {
+            const aScore = aq.best ?? aq.pct ?? 0;
+            const bScore = bq.best ?? bq.pct ?? 0;
+            quiz = aScore !== bScore ? (aScore > bScore ? aq : bq)
+                : (aq.at ?? Infinity) !== (bq.at ?? Infinity)
+                    ? ((aq.at ?? Infinity) < (bq.at ?? Infinity) ? aq : bq)
+                    : (stableJson(aq) <= stableJson(bq) ? aq : bq);
+        }
     } else quiz = aq || bq || null;
 
     let cert = null;
     if (a.cert && b.cert) {
-        cert = (a.cert.ts || 0) <= (b.cert.ts || 0) ? a.cert : b.cert;
+        const aTime = a.cert.at ?? a.cert.ts ?? Infinity;
+        const bTime = b.cert.at ?? b.cert.ts ?? Infinity;
+        cert = aTime !== bTime ? (aTime < bTime ? a.cert : b.cert)
+            : (String(a.cert.id ?? '') <= String(b.cert.id ?? '') ? a.cert : b.cert);
     } else cert = a.cert || b.cert || null;
 
     return { done, quiz, cert };
+}
+
+function sameTutorialProgress(a, b) {
+    return stableJson(a) === stableJson(b);
 }
 
 // ---- Pure: normalize a raw list of entries into the canonical cache shape.
@@ -91,12 +119,58 @@ export function mergeTutorialProgress(a, b) {
 export function mergeHistorySnapshot(entries) {
     const byId = new Map();
     for (const e of entries) {
-        if (e && e.id != null) byId.set(e.id, e);
+        if (e && typeof e.id === 'string' && e.id && !e.id.includes('/')) byId.set(e.id, e);
     }
     const list = [...byId.values()];
     list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
     if (list.length > HISTORY_MAX) list.length = HISTORY_MAX;
     return list;
+}
+
+// The old unscoped localStorage keys may contain another operator's data on a
+// shared phone. Claim each legacy key for the first account that imports it;
+// existing per-uid migration flags identify data already used by older builds.
+export function claimLegacyOwner(storage, uid, kind) {
+    const flagPrefix = kind === 'history' ? 'csa_migrated_'
+        : kind === 'tutorial' ? 'csa_tut_reconciled_' : null;
+    if (!flagPrefix || !uid) return false;
+    const ownerKey = `csa_${kind}_legacy_owner`;
+    const owner = storage.getItem(ownerKey);
+    if (owner) return owner === uid;
+    for (let i = 0; i < storage.length; i += 1) {
+        const key = storage.key(i);
+        if (key?.startsWith(flagPrefix) && key !== flagPrefix + uid) return false;
+    }
+    storage.setItem(ownerKey, uid);
+    return true;
+}
+
+const ACCOUNT_STATE_KEYS = ['csa_form_v1', 'csa_stopwatch_v1', 'csa_ie_v1'];
+const ACCOUNT_STATE_OWNER = 'csa_account_state_owner';
+
+// The app's form and timers intentionally keep their existing fast local keys.
+// Swap those keys at a confirmed account change, before app state is restored.
+// An old unowned state is accepted only when a cached login existed at boot;
+// otherwise its owner cannot be established safely on a shared phone.
+export function prepareAccountLocalState(storage, uid, allowLegacy = false) {
+    if (!uid) return false;
+    const owner = storage.getItem(ACCOUNT_STATE_OWNER);
+    if (owner === uid) return false;
+    for (const key of ACCOUNT_STATE_KEYS) {
+        const current = storage.getItem(key);
+        if (owner && current !== null) storage.setItem(`${key}_${owner}`, current);
+        if (!owner && !allowLegacy && current !== null) {
+            const unclaimed = `${key}_legacy_unclaimed`;
+            if (storage.getItem(unclaimed) === null) storage.setItem(unclaimed, current);
+        }
+        if (owner || !allowLegacy) {
+            const next = storage.getItem(`${key}_${uid}`);
+            if (next === null) storage.removeItem(key);
+            else storage.setItem(key, next);
+        }
+    }
+    storage.setItem(ACCOUNT_STATE_OWNER, uid);
+    return !!owner && owner !== uid;
 }
 
 // ---- Init. Idempotent; safe to await more than once. ----
@@ -160,14 +234,24 @@ export async function signOutUser() {
 // boot flow handles that by revealing the login card when onAuthChange
 // eventually reports null.
 const CACHED_USER_KEY = 'csa_seen_user';
+const CACHED_USER_UID_KEY = 'csa_seen_uid';
 export function hasCachedUserMarker() {
     try { return localStorage.getItem(CACHED_USER_KEY) === '1'; } catch { return false; }
 }
-export function setCachedUserMarker() {
-    try { localStorage.setItem(CACHED_USER_KEY, '1'); } catch {}
+export function getCachedUserUid() {
+    try { return localStorage.getItem(CACHED_USER_UID_KEY); } catch { return null; }
+}
+export function setCachedUserMarker(uid) {
+    try {
+        localStorage.setItem(CACHED_USER_KEY, '1');
+        if (uid) localStorage.setItem(CACHED_USER_UID_KEY, uid);
+    } catch {}
 }
 export function clearCachedUserMarker() {
-    try { localStorage.removeItem(CACHED_USER_KEY); } catch {}
+    try {
+        localStorage.removeItem(CACHED_USER_KEY);
+        localStorage.removeItem(CACHED_USER_UID_KEY);
+    } catch {}
 }
 
 export function getCurrentUser() { return _currentUser; }
@@ -243,15 +327,23 @@ function _tutorialDoc(uid) { return doc(_db, 'users', uid, 'tutorial', 'state');
 // can reconcile with the local copy before rendering.
 export function subscribeTutorial(uid) {
     if (_unsubTutorial) { _unsubTutorial(); _unsubTutorial = null; }
+    _tutorialKnown = { done: {}, quiz: null, cert: null };
     return new Promise(resolve => {
         let resolved = false;
         _unsubTutorial = onSnapshot(_tutorialDoc(uid),
             snap => {
                 const raw = snap.exists() ? snap.data() : null;
-                _tutorialCache = raw && typeof raw === 'object'
+                const cloud = raw && typeof raw === 'object'
                     ? { done: raw.done || {}, quiz: raw.quiz || null, cert: raw.cert || null }
                     : { done: {}, quiz: null, cert: null };
+                _tutorialKnown = mergeTutorialProgress(_tutorialKnown, cloud);
+                _tutorialCache = _tutorialKnown;
                 _tutorialChangeHandlers.forEach(fn => { try { fn(); } catch (_) {} });
+                // A stale whole-document write from another device can erase
+                // progress we already saw. Restore the union in the background.
+                if (!sameTutorialProgress(cloud, _tutorialKnown)) {
+                    setDoc(_tutorialDoc(uid), _tutorialKnown).catch(() => {});
+                }
                 if (!resolved) { resolved = true; resolve(); }
             },
             _err => { if (!resolved) { resolved = true; resolve(); } }
@@ -268,36 +360,43 @@ export function subscribeTutorialChange(cb) {
     return () => _tutorialChangeHandlers.delete(cb);
 }
 
-// Write the full progress doc. Fire-and-forget from the caller's view —
-// the snapshot listener updates the cache. setDoc merges are safe against
-// concurrent writes from another device because our merge helper is a
-// union (progress only grows).
+// Write the full progress doc. The snapshot listener merges any stale remote
+// write with progress already seen during this session and repairs it.
 export function fsSaveTutorial(state) {
     if (!isSignedIn()) return Promise.resolve();
     // Never persist undefined/null shape — coerce to the empty defaults.
-    const safe = {
+    const safe = mergeTutorialProgress(_tutorialKnown, {
         done: state?.done || {},
         quiz: state?.quiz || null,
         cert: state?.cert || null,
-    };
+    });
+    _tutorialKnown = safe;
     return setDoc(_tutorialDoc(_currentUser.uid), safe);
 }
 
-// One-time reconciliation on first sign-in for a given uid: merge whatever
-// progress this device already had in localStorage with whatever the cloud
-// has, and push the union to Firestore. Idempotent per uid via a flag.
-// tutorial.js reads back through getTutorialCache().
-export async function reconcileTutorial(uid, localProgress) {
+// Reconcile this account's local backup on every sign-in. The old unscoped
+// local key is imported only once, by its original owner where identifiable.
+export async function reconcileTutorial(uid, localProgress, accountProgress) {
     const flag = `csa_tut_reconciled_${uid}`;
-    try { if (localStorage.getItem(flag)) return; } catch (_) { return; }
-    const merged = mergeTutorialProgress(_tutorialCache, localProgress);
+    let importLegacy = false;
+    try {
+        importLegacy = !localStorage.getItem(flag)
+            && claimLegacyOwner(localStorage, uid, 'tutorial');
+    } catch (_) { /* Cloud progress and account-local backup still work. */ }
+    let merged = mergeTutorialProgress(_tutorialCache, accountProgress);
+    if (importLegacy) merged = mergeTutorialProgress(merged, localProgress);
+    _tutorialKnown = mergeTutorialProgress(_tutorialKnown, merged);
     // Only write if the merge would actually change what's on the cloud —
     // avoids a wasted round-trip on every fresh sign-in where local is empty.
-    const same = JSON.stringify(merged) === JSON.stringify(_tutorialCache);
+    const same = sameTutorialProgress(merged, _tutorialCache);
     if (!same) {
-        try { await setDoc(_tutorialDoc(uid), merged); } catch (_) {}
+        _tutorialCache = _tutorialKnown;
+        _tutorialChangeHandlers.forEach(fn => { try { fn(); } catch (_) {} });
     }
-    try { localStorage.setItem(flag, '1'); } catch (_) {}
+    if (!same) await setDoc(_tutorialDoc(uid), merged);
+    if (importLegacy) {
+        try { localStorage.setItem(flag, '1'); } catch (_) {}
+    }
 }
 
 // ---- One-time migration: copy this device's localStorage history into the
@@ -305,7 +404,9 @@ export async function reconcileTutorial(uid, localProgress) {
 // per-uid flag; never deletes the localStorage copy. ----
 export async function migrateLocalHistory(uid, localEntries) {
     const flag = `csa_migrated_${uid}`;
-    try { if (localStorage.getItem(flag)) return; } catch (_) { return; }
+    try {
+        if (localStorage.getItem(flag) || !claimLegacyOwner(localStorage, uid, 'history')) return;
+    } catch (_) { return; }
     if (Array.isArray(localEntries) && localEntries.length) {
         const batch = writeBatch(_db);
         for (const e of localEntries) {

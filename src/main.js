@@ -28,8 +28,8 @@ import {
     FIREBASE_ENABLED, initFirebase, onAuthChange, subscribeHistory,
     subscribeTutorial, reconcileTutorial,
     migrateLocalHistory, _setCurrentUser, signInWithCode, authErrorKey,
-    emailToCode, hasCachedUserMarker, setCachedUserMarker,
-    clearCachedUserMarker,
+    emailToCode, hasCachedUserMarker, getCachedUserUid, setCachedUserMarker,
+    clearCachedUserMarker, prepareAccountLocalState,
 } from './auth.js';
 import { loadLocalHistory } from './history.js';
 import { loadLocalTutProgress } from './tutorial.js';
@@ -138,6 +138,14 @@ function hideLoginOverlay() {
 // Phase C — bring the app up for a signed-in (or Firebase-disabled) user.
 // ============================================================
 let _appStarted = false;
+const _cachedMarkerAtBoot = hasCachedUserMarker();
+const _cachedUidAtBoot = getCachedUserUid();
+function prepareLocalState(user) {
+    try {
+        return prepareAccountLocalState(localStorage, user.uid,
+            _cachedMarkerAtBoot && (!_cachedUidAtBoot || _cachedUidAtBoot === user.uid));
+    } catch (_) { return false; }
+}
 function runAppInit() {
     restoreFormState();
     restoreStopwatchState();
@@ -170,8 +178,22 @@ function enterAppOptimistic() {
 // case) or from enterApp() (fresh sign-in / stale-marker recovery).
 function attachCloudSync(user) {
     if (_cloudAttached || !user) return;
+    if (_cachedUidAtBoot && _cachedUidAtBoot !== user.uid) {
+        showLoginOverlay();
+        prepareLocalState(user);
+        setCachedUserMarker(user.uid);
+        window.location.reload();
+        return;
+    }
+    // A different Firebase account can replace a stale cached login. Clear
+    // the visible old form/timer state before reloading into the new account.
+    if (prepareLocalState(user)) {
+        showLoginOverlay();
+        window.location.reload();
+        return;
+    }
     _cloudAttached = true;
-    setCachedUserMarker();
+    setCachedUserMarker(user.uid);
     // Belt-and-braces: if the boot timeout (or any earlier code path) put the
     // login card back up while Firebase was still resolving, kill it now.
     // Auth resolved to a real user → the card must not be visible.
@@ -187,7 +209,7 @@ function attachCloudSync(user) {
         .then(() => migrateLocalHistory(user.uid, loadLocalHistory()))
         .catch(() => {});
     subscribeTutorial(user.uid)
-        .then(() => reconcileTutorial(user.uid, loadLocalTutProgress()))
+        .then(() => reconcileTutorial(user.uid, loadLocalTutProgress(), loadLocalTutProgress(user.uid)))
         .catch(() => {});
     // Reveal the account row in Settings and the header sign-out entry.
     // Show the employee code (strip the synthetic @ie-calc.internal suffix —
@@ -201,6 +223,7 @@ function attachCloudSync(user) {
 }
 
 function enterApp(user) {
+    if (user) prepareLocalState(user);
     enterAppOptimistic();
     if (user) attachCloudSync(user);
 }
@@ -220,7 +243,7 @@ async function boot() {
     // first paint instead of a spinner. The inline sync script in
     // index.html already stamped the matching body class for CSS; here we
     // wire up the JS-side state (run app init, or reveal the login form).
-    if (hasCachedUserMarker()) enterAppOptimistic();
+    if (_cachedMarkerAtBoot) enterAppOptimistic();
     else showLoginOverlay();
 
     initFirebase();

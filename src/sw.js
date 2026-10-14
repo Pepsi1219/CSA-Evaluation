@@ -20,7 +20,7 @@
 // The byte change is what forces old clients to drop stale caches, so it can't
 // be derived from an import (this file is not an ES module). test/version.test.js
 // fails the build if this literal drifts.
-const CACHE = 'csa-v1.30.6';
+const CACHE = 'csa-v1.30.7';
 const NET_TIMEOUT_MS = 3000;
 
 // Injected at build time by vite-plugin-pwa. In dev the manifest is empty,
@@ -68,8 +68,12 @@ self.addEventListener('fetch', e => {
     e.respondWith((async () => {
         try {
             const res = await fetchWithTimeout(e.request);
-            const clone = res.clone();
-            caches.open(CACHE).then(c => c.put(e.request, clone)).catch(() => {});
+            // Never replace a working offline copy with a transient server
+            // error or redirect response.
+            if (res.ok && !res.redirected) {
+                const clone = res.clone();
+                caches.open(CACHE).then(c => c.put(e.request, clone)).catch(() => {});
+            }
             return res;
         } catch (_) {
             const cached = await caches.match(e.request);

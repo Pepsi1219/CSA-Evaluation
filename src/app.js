@@ -2831,7 +2831,7 @@ export function exportCSV() {
         ['ค่า SAM', 'SAM Value', val('samInput'), samUnit === 'sec' ? 'วินาที / sec' : 'นาที / min'],
         ['เป้าหมายประสิทธิภาพ', 'Target Efficiency', val('effTargetInput'), '%'],
         ['เป้าหมายชิ้นงาน', 'Target Output', num('targetDisplay'), 'ชิ้น/ชม. / pcs/hr'],
-        ['ค่า SAM ใหม่ (เป้าหมาย)', 'New SAM (Target)', num('newSamDisplay'), samUnit === 'sec' ? 'วินาที / sec' : 'นาที / min'],
+        ['ค่า Cycle Time ใหม่', 'New Cycle Time', num('newSamDisplay'), samUnit === 'sec' ? 'วินาที / sec' : 'นาที / min'],
         [],
         ['— บันทึกผลงานจริง', '— Record Actual Results', '', ''],
         ['เวลารวม (นาที)', 'Total Time (Min)', val('totalMin'), 'นาที / min'],
@@ -3063,10 +3063,12 @@ export function closeActionsMenu() {
 }
 
 export function resetForm() {
-    ['samInput','effTargetInput','passQty','failQty','duration'].forEach(id => {
+    ['samInput','passQty','failQty','duration'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = "";
     });
+    const effEl = document.getElementById('effTargetInput');
+    if (effEl) effEl.value = '60';
     setSamUnit('min', false);   // back to the default unit (no value conversion)
     resetTimer();               // restores totals + runs calculateAll()/save
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -3086,19 +3088,28 @@ function saveFormState() {
 }
 
 export function restoreFormState() {
+    const effEl = document.getElementById('effTargetInput');
     try {
         const raw = localStorage.getItem(STORAGE_KEY_FORM);
-        if (!raw) return;
+        if (!raw) {
+            if (effEl) effEl.value = '60';
+            return;
+        }
         const state = JSON.parse(raw);
         FORM_FIELD_IDS.forEach(id => {
             const el = document.getElementById(id);
             if (el && state[id] !== undefined) el.value = state[id];
         });
+        if (effEl && (state.effTargetInput === undefined || state.effTargetInput === '')) {
+            effEl.value = '60';
+        }
         if (state.__samUnit === 'min' || state.__samUnit === 'sec') {
             samUnit = state.__samUnit;
         }
         updateSamUnitUI();
-    } catch (_) { /* corrupt/unavailable storage — start fresh */ }
+    } catch (_) { /* corrupt/unavailable storage — start fresh */
+        if (effEl) effEl.value = '60';
+    }
     // Reflect the persisted train-curve pick in the pill toggle. Cheap to call
     // regardless of whether the storage read above succeeded.
     renderTrainCurveToggle();
@@ -3329,24 +3340,34 @@ function saveFeedbackQueue(q) {
 }
 function queueFeedback(entry) {
     const q = loadFeedbackQueue();
-    q.push({ ...entry, queuedAt: Date.now() });
+    q.push({ ...entry, queuedAt: Date.now(), id: `f_${Date.now()}_${Math.random().toString(36).slice(2)}` });
     // Cap oldest-first to keep localStorage bounded
     if (q.length > FEEDBACK_QUEUE_MAX) q.splice(0, q.length - FEEDBACK_QUEUE_MAX);
     saveFeedbackQueue(q);
     gaTrack('feedback_queued');
 }
-export async function drainFeedbackQueue() {
-    if (!navigator.onLine) return;
-    const q = loadFeedbackQueue();
-    if (!q.length) return;
-    const remaining = [];
-    for (const entry of q) {
-        try { await sendToGoogleForms(entry.rating, entry.message, entry.email); }
-        catch (_) { remaining.push(entry); }
-    }
-    saveFeedbackQueue(remaining);
-    const sent = q.length - remaining.length;
-    if (sent > 0) gaTrack('feedback_queue_drained', { sent });
+let _feedbackDrainPromise = null;
+export function drainFeedbackQueue() {
+    if (_feedbackDrainPromise) return _feedbackDrainPromise;
+    if (!navigator.onLine) return Promise.resolve();
+    _feedbackDrainPromise = (async () => {
+        const batch = loadFeedbackQueue();
+        if (!batch.length) return;
+        const remaining = [];
+        for (const entry of batch) {
+            try { await sendToGoogleForms(entry.rating, entry.message, entry.email); }
+            catch (_) { remaining.push(entry); }
+        }
+        // A new submission may have joined the queue while these requests
+        // were in flight. Preserve it when writing the drain result.
+        const key = entry => entry.id || JSON.stringify(entry);
+        const attempted = new Set(batch.map(key));
+        const added = loadFeedbackQueue().filter(entry => !attempted.has(key(entry)));
+        saveFeedbackQueue([...remaining, ...added].slice(-FEEDBACK_QUEUE_MAX));
+        const sent = batch.length - remaining.length;
+        if (sent > 0) gaTrack('feedback_queue_drained', { sent });
+    })().finally(() => { _feedbackDrainPromise = null; });
+    return _feedbackDrainPromise;
 }
 
 // Drain whenever the browser reports connectivity restored.

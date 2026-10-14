@@ -43,7 +43,9 @@ export function loadLocalHistory() {
         const raw = localStorage.getItem(STORAGE_KEY_HISTORY);
         const parsed = raw ? JSON.parse(raw) : [];
         // Guard against a corrupted "null"/object payload — always hand back an array.
-        return Array.isArray(parsed) ? parsed : [];
+        return Array.isArray(parsed)
+            ? parsed.filter(e => e && typeof e.id === 'string' && e.id && !e.id.includes('/'))
+            : [];
     } catch (_) { return []; }
 }
 export function loadHistory() {
@@ -170,31 +172,31 @@ function showHistoryCompareView() {
 }
 
 function historyRowHtml(e) {
-    const { computed } = e;
+    const computed = e.computed || {};
     const title = e.label || fmtHistoryTs(e.ts);
     const metaParts = [];
-    if (computed.actualEff !== null) metaParts.push(`${formatResultNumber(computed.actualEff)}% eff`);
+    if (Number.isFinite(computed.actualEff)) metaParts.push(`${formatResultNumber(computed.actualEff)}% eff`);
     if (computed.targetPcs > 0)      metaParts.push(`${computed.targetPcs} ${pcsPerHr[currentLang] || 'pcs/hr'}`);
-    if (computed.passRate !== null)  metaParts.push(`${computed.passRate}% pass`);
+    if (Number.isFinite(computed.passRate)) metaParts.push(`${computed.passRate}% pass`);
     const notePreview = e.note
         ? `<div class="history-row-note" title="${escapeHtml(e.note)}">📝 ${escapeHtml(e.note)}</div>`
         : '';
     return `
-    <div class="history-row" data-id="${e.id}">
+    <div class="history-row" data-id="${escapeHtml(e.id)}">
         <label class="history-row-check">
-            <input type="checkbox" class="history-check" value="${e.id}">
+            <input type="checkbox" class="history-check" value="${escapeHtml(e.id)}">
         </label>
         <div class="history-row-main">
             <div class="history-row-title">${escapeHtml(title)}</div>
             <div class="history-row-meta">${escapeHtml(metaParts.join(' · ') || '—')}</div>
             ${notePreview}
-            <button type="button" class="history-note-btn" data-id="${e.id}">
+            <button type="button" class="history-note-btn" data-id="${escapeHtml(e.id)}">
                 <span class="lang-text" data-key="${e.note ? 'history_note_edit' : 'history_note_add'}">
                     ${e.note ? t('history_note_edit') : t('history_note_add')}
                 </span>
             </button>
         </div>
-        <button type="button" class="history-delete-btn" data-id="${e.id}" aria-label="Delete">
+        <button type="button" class="history-delete-btn" data-id="${escapeHtml(e.id)}" aria-label="Delete">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
         </button>
     </div>`;
@@ -249,20 +251,20 @@ function renderCompareTable() {
     if (selected.length < 2) return;
 
     const rows = [
-        { key: 'sam_label',    get: e => e.inputs.sam > 0 ? e.inputs.sam : '—' },
-        { key: 'eff_target',   get: e => e.inputs.effTarget > 0 ? `${e.inputs.effTarget}%` : '—' },
-        { key: 'qty_label',    get: e => e.computed.targetPcs > 0 ? e.computed.targetPcs : '—' },
-        { key: 'actual_eff',   get: e => e.computed.actualEff !== null ? `${formatResultNumber(e.computed.actualEff)}%` : '—' },
-        { key: 'actual_pcs',   get: e => e.computed.actualPcs !== null ? formatResultNumber(e.computed.actualPcs) : '—' },
-        { key: 'pass_rate',    get: e => e.computed.passRate !== null ? `${e.computed.passRate}%` : '—' },
-        { key: 'compare_gap',  get: e => (e.computed.actualEff !== null && e.inputs.effTarget > 0)
+        { key: 'sam_label',    get: e => e.inputs?.sam > 0 ? e.inputs.sam : '—' },
+        { key: 'eff_target',   get: e => e.inputs?.effTarget > 0 ? `${e.inputs.effTarget}%` : '—' },
+        { key: 'qty_label',    get: e => e.computed?.targetPcs > 0 ? e.computed.targetPcs : '—' },
+        { key: 'actual_eff',   get: e => Number.isFinite(e.computed?.actualEff) ? `${formatResultNumber(e.computed.actualEff)}%` : '—' },
+        { key: 'actual_pcs',   get: e => Number.isFinite(e.computed?.actualPcs) ? formatResultNumber(e.computed.actualPcs) : '—' },
+        { key: 'pass_rate',    get: e => Number.isFinite(e.computed?.passRate) ? `${e.computed.passRate}%` : '—' },
+        { key: 'compare_gap',  get: e => (Number.isFinite(e.computed?.actualEff) && e.inputs?.effTarget > 0)
                           ? `${formatResultNumber(e.computed.actualEff - e.inputs.effTarget)}%` : '—' },
-        { key: 'history_note', get: e => e.note ? escapeHtml(e.note) : '—' },
+        { key: 'history_note', get: e => e.note || '—' },
     ];
 
     const headerCells = selected.map(e => `<th>${escapeHtml(e.label || fmtHistoryTs(e.ts))}</th>`).join('');
     const bodyRows = rows.map(r => `
-        <tr><th scope="row">${t(r.key)}</th>${selected.map(e => `<td>${r.get(e)}</td>`).join('')}</tr>`).join('');
+        <tr><th scope="row">${t(r.key)}</th>${selected.map(e => `<td>${escapeHtml(r.get(e))}</td>`).join('')}</tr>`).join('');
 
     compareTableWrap.innerHTML = `
         <table class="compare-table">

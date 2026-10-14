@@ -7,7 +7,7 @@
 // { th, en, ... } objects and resolved with L() — Thai-first, falling back
 // to Thai for any language not yet translated, so more languages can be
 // added later without touching the engine. Progress persists in
-// localStorage under csa_tutorial_v1.
+// localStorage under csa_tutorial_v1 (local mode) or a uid-scoped backup.
 //
 // Depends on globals resolved at call time (all defined by load order):
 //   currentLang (script.js), t() (script.js), gaTrack() (script.js).
@@ -15,7 +15,7 @@
 
 import { currentLang, gaTrack } from './state.js';
 import {
-    FIREBASE_ENABLED, isSignedIn, getTutorialCache,
+    FIREBASE_ENABLED, isSignedIn, getCurrentUser, getTutorialCache,
     fsSaveTutorial, subscribeTutorialChange, mergeTutorialProgress,
 } from './auth.js';
 
@@ -203,9 +203,9 @@ const QUIZ_DATA = [
 // loadLocalTutProgress is the pure localStorage read, exported so auth.js's
 // one-time reconciliation can pull whatever this device already had before
 // the user first signed in on it.
-export function loadLocalTutProgress() {
+export function loadLocalTutProgress(uid = null) {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY_TUT);
+        const raw = localStorage.getItem(uid ? `${STORAGE_KEY_TUT}_${uid}` : STORAGE_KEY_TUT);
         const p = raw ? JSON.parse(raw) : null;
         if (!p || typeof p !== 'object') return { done: {}, quiz: null, cert: null };
         if (!p.done || typeof p.done !== 'object') p.done = {};
@@ -218,10 +218,10 @@ function loadTutProgress() {
     return _useCloud() ? getTutorialCache() : loadLocalTutProgress();
 }
 function saveTutProgress(p) {
-    // Always write locally first as an offline fallback + fast synchronous
-    // re-read. If signed in, also write to Firestore (fire-and-forget — the
-    // snapshot listener updates the cache and re-renders on ack).
-    try { localStorage.setItem(STORAGE_KEY_TUT, JSON.stringify(p)); } catch (_) {}
+    // Write a uid-scoped local backup first. Firestore updates the live cache
+    // through its snapshot listener and queues offline writes itself.
+    const uid = _useCloud() ? getCurrentUser().uid : null;
+    try { localStorage.setItem(uid ? `${STORAGE_KEY_TUT}_${uid}` : STORAGE_KEY_TUT, JSON.stringify(p)); } catch (_) {}
     if (_useCloud()) {
         // Union-merge against whatever's currently in the cache so a stale
         // save doesn't wipe cross-device progress recorded elsewhere.
@@ -295,6 +295,11 @@ function renderTutorial() {
     else if (_tut.view === 'cert')   { html = _renderCert(p);    progress = 100; }
 
     body.innerHTML = html;
+    const shot = body.querySelector('.tut-shot');
+    shot?.addEventListener('error', () => {
+        const fallback = shot.dataset.fallbackSrc;
+        if (fallback && shot.getAttribute('src') !== fallback) shot.src = fallback;
+    }, { once: true });
     body.scrollTop = 0;
     const bar = _tg('tutProgressBar');
     if (bar) bar.style.width = progress + '%';
@@ -405,7 +410,7 @@ function _renderLesson(p) {
         <div class="tut-shot-frame">
             <img class="tut-shot" src="${_stepImgSrc(st.img)}" alt="${_esc(L(les.title))}"
                  loading="eager" decoding="async" fetchpriority="high"
-                 onerror="this.onerror=null;this.src='${TUT_IMG}${st.img}'">
+                 data-fallback-src="${TUT_IMG}${st.img}">
         </div>
         <p class="tut-caption">${_esc(L(st.cap))}</p>
         <div class="tut-step-dots">${dots}</div>

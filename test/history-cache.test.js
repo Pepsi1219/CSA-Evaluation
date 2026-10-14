@@ -41,7 +41,7 @@ test('mergeHistorySnapshot', async (t) => {
 
     await t.test('ignores null/id-less entries', () => {
         const out = mergeHistorySnapshot([
-            null, undefined, {}, entry('a', 10),
+            null, undefined, {}, entry('a', 10), entry('bad/path', 20), entry(42, 30),
         ]);
         assert.deepEqual(out.map(e => e.id), ['a']);
     });

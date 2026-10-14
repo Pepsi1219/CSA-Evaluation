@@ -31,6 +31,9 @@ test('sw.js CACHE matches APP_VERSION', () => {
 test('package.json version matches APP_VERSION', () => {
     const pkg = JSON.parse(read('package.json'));
     assert.equal(pkg.version, APP_VERSION);
+    const lock = JSON.parse(read('package-lock.json'));
+    assert.equal(lock.version, APP_VERSION);
+    assert.equal(lock.packages[''].version, APP_VERSION);
 });
 
 test('index.html footer fallback matches APP_VERSION', () => {

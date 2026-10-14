@@ -71,9 +71,9 @@ export const translations = {
         'sam_label_base': 'ค่า SAM',
         'unit_min': 'นาที',
         'unit_sec': 'วินาที',
-        'new_sam_label': 'ค่า SAM ใหม่ (เป้าหมาย)',
+        'new_sam_label': 'ค่า Cycle Time ใหม่',
         'eff_target': 'เป้าหมายประสิทธิภาพ (%)',
-        'qty_label': 'เป้าหมายชิ้นงาน (ชิ้น/ชม.)',
+        'qty_label': 'Target Output (pcs/hrs.)',
 
         'header2': 'บันทึกผลงานจริง',
         'total_min': 'เวลารวม (นาที)',
@@ -402,9 +402,9 @@ export const translations = {
         'sam_label_base': 'SAM Value',
         'unit_min': 'Min',
         'unit_sec': 'Sec',
-        'new_sam_label': 'New SAM (Target)',
+        'new_sam_label': 'New Cycle Time',
         'eff_target': 'Target Efficiency (%)',
-        'qty_label': 'Target Cut Piece (pcs/hrs.)',
+        'qty_label': 'Target Output (pcs/hrs.)',
 
         'header2': 'Record Actual Results',
         'total_min': 'Total Time (Min)',

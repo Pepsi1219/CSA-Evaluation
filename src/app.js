@@ -275,13 +275,13 @@ let _dailyCapacitySamUnit = 'min';
 let _dailyCapacityClockTimer = null;
 let _dailyCapacityTimeMenuPart = null;
 let _dailyCapacityTimeMenuTrigger = null;
-let _dailyCapacityTimeFormat = '24';
+const DAILY_CAPACITY_INPUTS_KEY = 'csa_daily_capacity_inputs_v1';
 const DAILY_CAPACITY_DEFAULT_PERIODS = Object.freeze([60, 60, 60, 30, 30, 60, 60, 60, 60, 30, 60, 30]);
 let _dailyCapacityPeriods = [...DAILY_CAPACITY_DEFAULT_PERIODS];
+let _dailyCapacityActual = Array(DAILY_CAPACITY_DEFAULT_PERIODS.length).fill('');
 
 function _displayCapacityHour(hour24) {
-    const hour = _dailyCapacityTimeFormat === '12' ? (hour24 % 12 || 12) : hour24;
-    return String(hour).padStart(2, '0');
+    return String(hour24).padStart(2, '0');
 }
 
 function _syncCapacityTimeControls() {
@@ -291,34 +291,8 @@ function _syncCapacityTimeControls() {
     const hour24 = Number(hourText);
     const hourButton = document.getElementById('capacityEndHour');
     const minuteButton = document.getElementById('capacityEndMinute');
-    const periodButton = document.getElementById('capacityEndPeriod');
     if (hourButton) hourButton.textContent = _displayCapacityHour(hour24);
     if (minuteButton) minuteButton.textContent = minute;
-    if (periodButton) {
-        periodButton.textContent = hour24 < 12 ? 'AM' : 'PM';
-        periodButton.hidden = _dailyCapacityTimeFormat !== '12';
-    }
-}
-
-export function setDailyCapacityTimeFormat(format) {
-    if (format !== '12' && format !== '24') return;
-    _dailyCapacityTimeFormat = format;
-    document.querySelectorAll('[data-action="capacity-time-format"]').forEach(button => {
-        button.classList.toggle('active', button.dataset.arg === format);
-    });
-    closeDailyCapacityTimeMenu();
-    _syncCapacityTimeControls();
-}
-
-export function toggleDailyCapacityPeriod() {
-    if (_dailyCapacityTimeFormat !== '12') return;
-    const input = document.getElementById('capacityEndTimeInput');
-    if (!input) return;
-    let [hour, minute] = input.value.split(':').map(Number);
-    hour = (hour + 12) % 24;
-    input.value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-    _syncCapacityTimeControls();
-    input.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 export function openDailyCapacityTimeMenu(part, trigger) {
@@ -332,8 +306,8 @@ export function openDailyCapacityTimeMenu(part, trigger) {
     }
     const [hour, minute] = input.value.split(':');
     const selected = part === 'hour' ? _displayCapacityHour(Number(hour)) : minute;
-    const firstValue = part === 'hour' && _dailyCapacityTimeFormat === '12' ? 1 : 0;
-    const count = part === 'hour' && _dailyCapacityTimeFormat === '12' ? 12 : part === 'hour' ? 24 : 60;
+    const firstValue = 0;
+    const count = part === 'hour' ? 24 : 60;
     menu.dataset.part = part;
     menu.innerHTML = Array.from({ length: count }, (_, index) => {
         const option = String(index + firstValue).padStart(2, '0');
@@ -364,12 +338,7 @@ export function setDailyCapacityTimeMenuValue(value) {
     if (!input) return;
     let [hour, minute] = input.value.split(':').map(Number);
     if (_dailyCapacityTimeMenuPart === 'hour') {
-        if (_dailyCapacityTimeFormat === '12') {
-            const isPm = document.getElementById('capacityEndPeriod')?.textContent === 'PM';
-            hour = (Number(value) % 12) + (isPm ? 12 : 0);
-        } else {
-            hour = Number(value);
-        }
+        hour = Number(value);
     } else {
         minute = Number(value);
     }
@@ -420,6 +389,7 @@ export function setDailyCapacityPeriod(index, value) {
     const input = document.querySelector(`[data-capacity-period="${index}"]`);
     if (input) input.value = String(_dailyCapacityPeriods[index]);
     calculateDailyCapacityUI();
+    saveDailyCapacityInputs();
 }
 
 function _updateDailyCapacityClock() {
@@ -438,12 +408,15 @@ function _setToolsPage(page) {
     const capacityPanel = document.getElementById('dailyCapacityPanel');
     const title = document.getElementById('toolsPageTitle');
     const clock = document.getElementById('dailyCapacityClock');
+    const clockGroup = document.getElementById('dailyCapacityClockGroup');
+    const footerActions = document.getElementById('dailyCapacityFooterActions');
     if (menuPanel) menuPanel.style.display = showCapacity ? 'none' : '';
     if (capacityPanel) capacityPanel.style.display = showCapacity ? '' : 'none';
     if (clock) {
-        clock.style.visibility = showCapacity ? 'visible' : 'hidden';
         clock.setAttribute('aria-hidden', showCapacity ? 'false' : 'true');
     }
+    if (clockGroup) clockGroup.style.visibility = showCapacity ? 'visible' : 'hidden';
+    if (footerActions) footerActions.style.display = showCapacity ? 'flex' : 'none';
     if (title) {
         title.dataset.key = showCapacity ? 'daily_capacity_title' : 'tools_title';
         title.textContent = t(title.dataset.key);
@@ -473,7 +446,6 @@ export function closeToolsModal() {
     const modal = document.getElementById('toolsModal');
     if (modal) modal.style.display = 'none';
     document.getElementById('dailyCapacityConfig').style.display = 'none';
-    _resetDailyCapacityPeriods();
     if (_dailyCapacityClockTimer !== null) {
         clearInterval(_dailyCapacityClockTimer);
         _dailyCapacityClockTimer = null;
@@ -488,7 +460,6 @@ export function closeToolsModal() {
 export function toolsBack() {
     const capacityPanel = document.getElementById('dailyCapacityPanel');
     if (capacityPanel?.style.display !== 'none') {
-        _resetDailyCapacityPeriods();
         _setToolsPage('menu');
         document.querySelector('#toolsMenuPanel .tools-card')?.focus({ preventScroll: true });
         return;
@@ -497,7 +468,109 @@ export function toolsBack() {
 }
 
 export function openDailyCapacityTool() {
+    _restoreDailyCapacityInputs();
     _setToolsPage('capacity');
+}
+
+function _restoreDailyCapacityInputs() {
+    let saved;
+    try {
+        saved = JSON.parse(localStorage.getItem(DAILY_CAPACITY_INPUTS_KEY) || 'null');
+    } catch {
+        return;
+    }
+    if (!saved || typeof saved !== 'object') return;
+
+    const samInput = document.getElementById('capacitySamInput');
+    const workersInput = document.getElementById('capacityWorkersInput');
+    const efficiencyInput = document.getElementById('capacityEfficiencyInput');
+    const endTimeInput = document.getElementById('capacityEndTimeInput');
+    const targetHourlyInput = document.getElementById('capacityTargetHourlyInput');
+    if (typeof saved.sam === 'string' && samInput) samInput.value = saved.sam;
+    if (typeof saved.workers === 'string' && workersInput) workersInput.value = saved.workers;
+    if (typeof saved.efficiency === 'string' && efficiencyInput) efficiencyInput.value = saved.efficiency;
+    if (typeof saved.targetHourly === 'string' && targetHourlyInput) targetHourlyInput.value = saved.targetHourly;
+    if (typeof saved.endTime === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(saved.endTime) && endTimeInput) {
+        endTimeInput.value = saved.endTime;
+    }
+    if (saved.samUnit === 'min' || saved.samUnit === 'sec') {
+        _dailyCapacitySamUnit = saved.samUnit;
+        document.querySelectorAll('[data-action="capacity-sam-unit"]').forEach(button => {
+            button.classList.toggle('active', button.dataset.arg === _dailyCapacitySamUnit);
+        });
+    }
+    if (Array.isArray(saved.periods) && saved.periods.length === DAILY_CAPACITY_DEFAULT_PERIODS.length
+        && saved.periods.every(value => Number.isInteger(value) && value >= 0 && value <= 60)) {
+        _dailyCapacityPeriods = [...saved.periods];
+    }
+    if (Array.isArray(saved.actual)) {
+        _dailyCapacityActual = DAILY_CAPACITY_DEFAULT_PERIODS.map((_, index) =>
+            typeof saved.actual[index] === 'string' ? saved.actual[index] : '');
+    }
+    if (typeof saved.showEff100 === 'boolean') {
+        document.getElementById('dailyCapacityEff100Toggle')?.setAttribute('aria-pressed', String(saved.showEff100));
+    }
+    if (typeof saved.showEff === 'boolean') {
+        document.getElementById('dailyCapacityEffToggle')?.setAttribute('aria-pressed', String(saved.showEff));
+    }
+    _syncCapacityTimeControls();
+}
+
+export function saveDailyCapacityInputs() {
+    const samInput = document.getElementById('capacitySamInput');
+    const workersInput = document.getElementById('capacityWorkersInput');
+    const actualInputs = document.querySelectorAll('#dailyCapacityTableBody [data-capacity-actual]');
+    actualInputs.forEach(input => {
+        _dailyCapacityActual[Number(input.dataset.capacityActual)] = input.value;
+    });
+    try {
+        localStorage.setItem(DAILY_CAPACITY_INPUTS_KEY, JSON.stringify({
+            sam: samInput?.value ?? '',
+            samUnit: _dailyCapacitySamUnit,
+            workers: workersInput?.value ?? '',
+            efficiency: document.getElementById('capacityEfficiencyInput')?.value ?? '80',
+            endTime: document.getElementById('capacityEndTimeInput')?.value ?? '17:00',
+            targetHourly: document.getElementById('capacityTargetHourlyInput')?.value ?? '',
+            periods: _dailyCapacityPeriods,
+            actual: _dailyCapacityActual,
+            showEff100: document.getElementById('dailyCapacityEff100Toggle')?.getAttribute('aria-pressed') !== 'false',
+            showEff: document.getElementById('dailyCapacityEffToggle')?.getAttribute('aria-pressed') !== 'false',
+        }));
+    } catch {
+        // Storage may be unavailable in private browsing or when full.
+    }
+}
+
+export function clearDailyCapacityData() {
+    showConfirm(t('daily_capacity_clear_title'), t('daily_capacity_clear_confirm'), () => {
+        document.getElementById('capacitySamInput').value = '';
+        document.getElementById('capacityWorkersInput').value = '';
+        document.getElementById('capacityEfficiencyInput').value = '80';
+        document.getElementById('capacityEndTimeInput').value = '17:00';
+        document.getElementById('capacityTargetHourlyInput').value = '';
+        _dailyCapacitySamUnit = 'min';
+        document.querySelectorAll('[data-action="capacity-sam-unit"]').forEach(button => {
+            button.classList.toggle('active', button.dataset.arg === 'min');
+        });
+        _resetDailyCapacityPeriods();
+        _dailyCapacityActual = Array(DAILY_CAPACITY_DEFAULT_PERIODS.length).fill('');
+        document.querySelectorAll('#dailyCapacityTableBody [data-capacity-actual]').forEach(input => { input.value = ''; });
+        document.getElementById('dailyCapacityEff100Toggle').setAttribute('aria-pressed', 'true');
+        document.getElementById('dailyCapacityEffToggle').setAttribute('aria-pressed', 'true');
+        closeDailyCapacityConfig();
+        _syncCapacityTimeControls();
+        try { localStorage.removeItem(DAILY_CAPACITY_INPUTS_KEY); } catch {}
+        calculateDailyCapacityUI();
+    });
+}
+
+export function scrollDailyCapacityPage(position) {
+    const page = document.querySelector('#toolsModal .sw-page');
+    if (!page) return;
+    page.scrollTo({
+        top: position === 'bottom' ? page.scrollHeight : 0,
+        behavior: 'smooth',
+    });
 }
 
 export function setDailyCapacitySamUnit(unit) {
@@ -513,7 +586,222 @@ export function setDailyCapacitySamUnit(unit) {
     document.querySelectorAll('[data-action="capacity-sam-unit"]').forEach(button => {
         button.classList.toggle('active', button.dataset.arg === unit);
     });
+    saveDailyCapacityInputs();
     calculateDailyCapacityUI();
+}
+
+function _formatCapacityTableTime(minuteOfDay) {
+    const hour24 = Math.floor(minuteOfDay / 60);
+    const minute = minuteOfDay % 60;
+    return `${String(hour24).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function _renderDailyCapacityChart(labels, series, efficiency) {
+    const container = document.getElementById('dailyCapacityChart');
+    if (!container) return;
+
+    const namespace = 'http://www.w3.org/2000/svg';
+    const width = Math.max(320, Math.round(container.getBoundingClientRect().width || 720));
+    const height = 280;
+    const margin = { top: 14, right: 12, bottom: 36, left: 42 };
+    const showEff100 = document.getElementById('dailyCapacityEff100Toggle')?.getAttribute('aria-pressed') !== 'false';
+    const showEff = document.getElementById('dailyCapacityEffToggle')?.getAttribute('aria-pressed') !== 'false';
+    const plotWidth = width - margin.left - margin.right;
+    const plotHeight = height - margin.top - margin.bottom;
+    const values = [
+        ...(showEff100 ? series.eff100 : []),
+        ...(showEff ? series.eff : []),
+        ...series.actual,
+    ].filter(Number.isFinite);
+    const rawStep = Math.max(1, Math.max(...values, 1) / 4);
+    const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+    const step = Math.ceil(rawStep / magnitude) * magnitude;
+    const maxY = step * 4;
+    const x = index => labels.length < 2
+        ? margin.left + plotWidth / 2
+        : margin.left + index * plotWidth / (labels.length - 1);
+    const y = value => margin.top + plotHeight - value / maxY * plotHeight;
+    const svg = document.createElementNS(namespace, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-labelledby', 'dailyCapacityChartSvgTitle dailyCapacityChartSvgDesc');
+
+    const addSvg = (tag, attributes = {}, text = '') => {
+        const element = document.createElementNS(namespace, tag);
+        Object.entries(attributes).forEach(([name, value]) => element.setAttribute(name, String(value)));
+        if (text) element.textContent = text;
+        svg.append(element);
+        return element;
+    };
+    addSvg('title', { id: 'dailyCapacityChartSvgTitle' }, t('daily_capacity_chart_title'));
+    addSvg('desc', { id: 'dailyCapacityChartSvgDesc' }, `${t('daily_capacity_chart_pieces')} by ${t('daily_capacity_chart_hour')}`);
+
+    for (let tick = 0; tick <= 4; tick += 1) {
+        const value = step * tick;
+        const tickY = y(value);
+        addSvg('line', { x1: margin.left, y1: tickY, x2: width - margin.right, y2: tickY, class: 'daily-capacity-chart-gridline' });
+        addSvg('text', { x: margin.left - 8, y: tickY + 4, 'text-anchor': 'end', class: 'daily-capacity-chart-tick' }, value.toLocaleString(undefined, { maximumFractionDigits: 0 }));
+    }
+    addSvg('line', { x1: margin.left, y1: margin.top, x2: margin.left, y2: margin.top + plotHeight, class: 'daily-capacity-chart-axis' });
+    addSvg('line', { x1: margin.left, y1: margin.top + plotHeight, x2: width - margin.right, y2: margin.top + plotHeight, class: 'daily-capacity-chart-axis' });
+
+    labels.forEach((label, index) => {
+        const tick = addSvg('text', { x: x(index), y: height - margin.bottom + 20, 'text-anchor': 'middle', class: 'daily-capacity-chart-tick' }, width <= 560 ? label.slice(0, 2) : label);
+        const tickTitle = document.createElementNS(namespace, 'title');
+        tickTitle.textContent = label;
+        tick.append(tickTitle);
+    });
+    const chartSeries = [
+        ...(showEff100 ? [{ key: 'eff100', className: 'is-eff-100', name: t('daily_capacity_eff_100') }] : []),
+        ...(showEff ? [{ key: 'eff', className: 'is-eff', name: `${t('daily_capacity_eff_short')} ${Number.isFinite(efficiency) ? efficiency : ''}%` }] : []),
+        ...(series.actual.some(Number.isFinite)
+            ? [{ key: 'actual', className: 'is-actual', name: t('daily_capacity_actual') }]
+            : []),
+    ];
+    const actualLegend = document.getElementById('dailyCapacityActualLegend');
+    if (actualLegend) actualLegend.hidden = !series.actual.some(Number.isFinite);
+    chartSeries.forEach(item => {
+        let path = '';
+        const flushPath = () => {
+            if (path) addSvg('path', { d: path, class: `daily-capacity-chart-line ${item.className}` });
+            path = '';
+        };
+        series[item.key].forEach((value, index) => {
+            if (!Number.isFinite(value)) {
+                flushPath();
+                return;
+            }
+            path += `${path ? ' L' : 'M'}${x(index).toFixed(2)} ${y(value).toFixed(2)}`;
+            const point = addSvg('circle', { cx: x(index), cy: y(value), r: 3, class: `daily-capacity-chart-point ${item.className}` });
+            const pointTitle = document.createElementNS(namespace, 'title');
+            pointTitle.textContent = `${item.name} ${labels[index]}: ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+            point.append(pointTitle);
+        });
+        flushPath();
+    });
+
+    if (!values.length) {
+        addSvg('text', { x: margin.left + plotWidth / 2, y: margin.top + plotHeight / 2, 'text-anchor': 'middle', class: 'daily-capacity-chart-empty' }, t('daily_capacity_chart_empty'));
+    }
+    const effValue = document.getElementById('dailyCapacityChartEffValue');
+    if (effValue) effValue.textContent = Number.isFinite(efficiency) ? String(efficiency) : '—';
+    container.replaceChildren(svg);
+}
+
+function _updateDailyCapacityHourlyTable(samMinutes, efficiency, workers, endMinuteOfDay) {
+    const body = document.getElementById('dailyCapacityTableBody');
+    if (!body) return;
+
+    body.querySelectorAll('[data-capacity-actual]').forEach(input => {
+        _dailyCapacityActual[Number(input.dataset.capacityActual)] = input.value;
+    });
+
+    const rowCount = Number.isInteger(endMinuteOfDay)
+        ? Math.max(0, Math.min(_dailyCapacityPeriods.length, Math.ceil((endMinuteOfDay - 8 * 60) / 60)))
+        : 0;
+    if (body.children.length !== rowCount) {
+        const rows = [];
+        for (let index = 0; index < rowCount; index += 1) {
+            const row = document.createElement('tr');
+            row.dataset.capacityRow = String(index);
+            const hourCell = document.createElement('th');
+            hourCell.scope = 'row';
+            hourCell.className = 'daily-capacity-hour-label';
+            row.append(hourCell);
+            ['eff-100', 'eff-80'].forEach(kind => {
+                const cell = document.createElement('td');
+                cell.className = `daily-capacity-${kind}`;
+                row.append(cell);
+            });
+            const actualCell = document.createElement('td');
+            const actualInput = document.createElement('input');
+            actualInput.type = 'text';
+            actualInput.inputMode = 'none';
+            actualInput.pattern = '[0-9]*';
+            actualInput.dataset.numpad = 'int';
+            actualInput.dataset.numpadLabel = 'daily_capacity_actual';
+            actualInput.dataset.capacityActual = String(index);
+            actualInput.setAttribute('aria-label', `${t('daily_capacity_actual')} ${index + 1}`);
+            actualInput.value = _dailyCapacityActual[index] || '';
+            actualCell.append(actualInput);
+            row.append(actualCell);
+            const actualAccumulatedCell = document.createElement('td');
+            actualAccumulatedCell.className = 'daily-capacity-actual-acc';
+            row.append(actualAccumulatedCell);
+            const varianceCell = document.createElement('td');
+            varianceCell.className = 'daily-capacity-variance';
+            row.append(varianceCell);
+            rows.push(row);
+        }
+        body.replaceChildren(...rows);
+    }
+
+    const canCalculate = samMinutes > 0 && Number.isInteger(workers) && workers > 0;
+    const canCalculateEfficiency = Number.isFinite(efficiency) && efficiency >= 0;
+    const format = value => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    let accumulated100 = 0;
+    let accumulatedEfficiency = 0;
+    let accumulatedActual = 0;
+    let hasActual = false;
+    let lastActualIndex = -1;
+    for (let index = 0; index < rowCount; index += 1) {
+        const rawActual = String(_dailyCapacityActual[index] ?? '').trim();
+        const actualValue = parseNum(rawActual);
+        if (rawActual !== '' && Number.isFinite(actualValue) && actualValue >= 0) lastActualIndex = index;
+    }
+    const chartLabels = [];
+    const chartSeries = { eff100: [], eff: [], actual: [] };
+
+    for (let index = 0; index < rowCount; index += 1) {
+        const row = body.children[index];
+        const startMinute = 8 * 60 + index * 60;
+        const endMinute = Math.min(startMinute + 60, endMinuteOfDay);
+        const productiveMinutes = calcScheduledWorkMinutes(_dailyCapacityPeriods, startMinute, endMinute);
+        row.querySelector('.daily-capacity-hour-label').textContent = `${_formatCapacityTableTime(startMinute)} – ${_formatCapacityTableTime(endMinute - 1)}`;
+        chartLabels.push(_formatCapacityTableTime(endMinute));
+        row.querySelector('[data-capacity-actual]').setAttribute('aria-label', `${t('daily_capacity_actual')} ${_formatCapacityTableTime(startMinute)}`);
+
+        const target100 = canCalculate && productiveMinutes !== null
+            ? calcDailyCapacity(samMinutes, 100, productiveMinutes, workers).total
+            : null;
+        const targetEfficiency = target100 !== null && canCalculateEfficiency
+            ? target100 * efficiency / 100
+            : null;
+        if (target100 === null) {
+            row.querySelector('.daily-capacity-eff-100').textContent = '—';
+            chartSeries.eff100.push(null);
+        } else {
+            accumulated100 += target100;
+            row.querySelector('.daily-capacity-eff-100').textContent = format(accumulated100);
+            chartSeries.eff100.push(accumulated100);
+        }
+        if (targetEfficiency === null) {
+            row.querySelector('.daily-capacity-eff-80').textContent = '—';
+            chartSeries.eff.push(null);
+        } else {
+            accumulatedEfficiency += targetEfficiency;
+            row.querySelector('.daily-capacity-eff-80').textContent = format(accumulatedEfficiency);
+            chartSeries.eff.push(accumulatedEfficiency);
+        }
+
+        const actualValue = parseNum(_dailyCapacityActual[index]);
+        if (Number.isFinite(actualValue) && actualValue >= 0) {
+            if (String(_dailyCapacityActual[index] ?? '').trim() !== '') hasActual = true;
+            accumulatedActual += actualValue;
+        }
+        row.querySelector('.daily-capacity-actual-acc').textContent = hasActual ? format(accumulatedActual) : '';
+        chartSeries.actual.push(index <= lastActualIndex ? accumulatedActual : null);
+        const varianceCell = row.querySelector('.daily-capacity-variance');
+        if (hasActual && targetEfficiency !== null) {
+            const variance = Math.round((accumulatedActual - accumulatedEfficiency) * 100) / 100;
+            varianceCell.textContent = `${variance > 0 ? '+' : variance < 0 ? '-' : ''}${format(Math.abs(variance))}`;
+            varianceCell.dataset.status = variance > 0 ? 'ahead' : variance < 0 ? 'behind' : 'on-target';
+        } else {
+            varianceCell.textContent = '';
+            varianceCell.removeAttribute('data-status');
+        }
+    }
+    _renderDailyCapacityChart(chartLabels, chartSeries, efficiency);
 }
 
 export function calculateDailyCapacityUI() {
@@ -529,6 +817,7 @@ export function calculateDailyCapacityUI() {
     const workMinutes = endTime
         ? calcScheduledWorkMinutes(_dailyCapacityPeriods, 8 * 60, endMinuteOfDay)
         : null;
+    _updateDailyCapacityHourlyTable(samMinutes, efficiency, workerValue, endMinuteOfDay);
     const targetHourlyRaw = document.getElementById('capacityTargetHourlyInput')?.value.trim() || '';
     const targetHourlyOutput = parseNum(targetHourlyRaw);
     const targetDailyOutput = calcDailyTarget(targetHourlyOutput, workMinutes);

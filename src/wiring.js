@@ -13,9 +13,9 @@ import {
     openSettingsModal, openResultPrecisionModal, resetForm, setSamUnit, closeActionsMenu, scrollToTop,
     openToolsModal, closeToolsModal, toolsBack, openDailyCapacityTool,
     setDailyCapacitySamUnit, calculateDailyCapacityUI,
+    saveDailyCapacityInputs, clearDailyCapacityData, scrollDailyCapacityPage,
     openDailyCapacityConfig, closeDailyCapacityConfig, setDailyCapacityPeriod,
     openDailyCapacityTimeMenu, setDailyCapacityTimeMenuValue, closeDailyCapacityTimeMenu,
-    setDailyCapacityTimeFormat, toggleDailyCapacityPeriod,
     openStopwatchModal, closeStopwatchModal, swSetMode, swStartStop,
     swPauseResume, swLapOrReset, swToggleStatInfo, swContinueTiming,
     swSaveToForm, swExportPNG, swDeleteLap, swSetSingleRounds, openTsConfigModal, closeTsConfigModal,
@@ -45,11 +45,29 @@ RECALC_IDS.forEach(id => {
 document.getElementById('tsErrorInput')?.addEventListener('input', () => tsRecalculate());
 document.getElementById('swRoundsInput')?.addEventListener('input', () => swSetSingleRounds());
 ['capacitySamInput', 'capacityEfficiencyInput', 'capacityEndTimeInput', 'capacityWorkersInput',
-    'capacityTargetHourlyInput']
-    .forEach(id => document.getElementById(id)?.addEventListener('input', calculateDailyCapacityUI));
+    'capacityTargetHourlyInput'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', () => {
+        calculateDailyCapacityUI();
+        saveDailyCapacityInputs();
+    });
+});
 document.getElementById('dailyCapacityScheduleBody')?.addEventListener('input', event => {
     const input = event.target.closest('[data-capacity-period]');
     if (input) setDailyCapacityPeriod(Number(input.dataset.capacityPeriod), input.value);
+});
+document.getElementById('dailyCapacityTableBody')?.addEventListener('input', event => {
+    if (event.target.matches('[data-capacity-actual]')) {
+        calculateDailyCapacityUI();
+        saveDailyCapacityInputs();
+    }
+});
+['dailyCapacityEff100Toggle', 'dailyCapacityEffToggle'].forEach(id => {
+    document.getElementById(id)?.addEventListener('click', event => {
+        const button = event.currentTarget;
+        button.setAttribute('aria-pressed', String(button.getAttribute('aria-pressed') !== 'true'));
+        calculateDailyCapacityUI();
+        saveDailyCapacityInputs();
+    });
 });
 document.addEventListener('click', event => {
     const choice = event.target.closest('[data-capacity-time-choice]');
@@ -83,12 +101,13 @@ const ACTIONS = {
     'mobile-home':  () => scrollToTop(),
     'tools-back':   () => toolsBack(),
     'daily-capacity-open': () => openDailyCapacityTool(),
+    'daily-capacity-clear': () => clearDailyCapacityData(),
+    'daily-capacity-scroll-top': () => scrollDailyCapacityPage('top'),
+    'daily-capacity-scroll-bottom': () => scrollDailyCapacityPage('bottom'),
     'capacity-sam-unit': arg => setDailyCapacitySamUnit(arg),
     'daily-capacity-config-open': () => openDailyCapacityConfig(),
     'daily-capacity-config-close': () => closeDailyCapacityConfig(),
     'capacity-time-open': (arg, el) => openDailyCapacityTimeMenu(arg, el),
-    'capacity-time-format': arg => setDailyCapacityTimeFormat(arg),
-    'capacity-time-period': () => toggleDailyCapacityPeriod(),
     // SAM unit toggle
     'sam-unit':     arg => setSamUnit(arg),
     // stopwatch

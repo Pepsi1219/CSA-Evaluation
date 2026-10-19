@@ -982,7 +982,12 @@
                 <span class="lang-text" data-key="tools_back">กลับ</span>
             </button>
             <h2 class="tools-header-title lang-text" id="toolsPageTitle" data-key="tools_title">เครื่องมือ</h2>
-            <time id="dailyCapacityClock" class="daily-capacity-clock" data-key-aria-label="daily_capacity_current_time" aria-label="เวลาปัจจุบัน" aria-hidden="true" style="visibility:hidden;">--:--</time>
+            <div id="dailyCapacityClockGroup" class="daily-capacity-clock-group" style="visibility:hidden;">
+                <time id="dailyCapacityClock" class="daily-capacity-clock" data-key-aria-label="daily_capacity_current_time" aria-label="เวลาปัจจุบัน" aria-hidden="true">--:--</time>
+                <div class="daily-capacity-remaining" aria-live="polite">
+                    <strong id="capacityRemainingTime">—</strong>
+                </div>
+            </div>
         </div>
 
         <section class="tools-menu-panel" id="toolsMenuPanel">
@@ -995,7 +1000,6 @@
                 </span>
                 <span class="tools-card-copy">
                     <span class="tools-card-title lang-text" data-key="daily_capacity_title">กำลังการผลิตต่อวัน</span>
-                    <span class="tools-card-subtitle lang-text" data-key="daily_capacity_subtitle">คำนวณจำนวนชิ้นจาก SAM เวลา และจำนวนพนักงาน</span>
                 </span>
                 <svg class="tools-card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
             </button>
@@ -1014,35 +1018,56 @@
                     <input type="text" id="capacitySamInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="daily_capacity_sam">
                 </div>
                 <div class="input-group">
-                    <label for="capacityEfficiencyInput" class="lang-text" data-key="daily_capacity_efficiency">เป้าหมายประสิทธิภาพ (%)</label>
-                    <input type="text" id="capacityEfficiencyInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="100" data-numpad="decimal" data-numpad-label="daily_capacity_efficiency">
+                    <label for="capacityWorkersInput" class="lang-text" data-key="daily_capacity_workers">จำนวนพนักงาน</label>
+                    <input type="text" id="capacityWorkersInput" class="glass-input" inputmode="none" pattern="[0-9]*" data-numpad="int" data-numpad-label="daily_capacity_workers">
                 </div>
                 <div class="input-group">
                     <div class="label-row">
-                        <div class="daily-capacity-end-label">
-                            <button type="button" class="daily-capacity-config-label lang-text" data-action="daily-capacity-config-open" data-key="daily_capacity_end_time" data-key-aria-label="daily_capacity_config" aria-label="เวลาเลิกงาน เปิดตารางเวลาผลิต">เวลาเลิกงาน</button>
-                        </div>
-                        <div class="unit-toggle-group daily-capacity-time-format" role="group" data-key-aria-label="daily_capacity_time_format" aria-label="รูปแบบเวลา">
-                            <button type="button" class="unit-toggle-btn" data-action="capacity-time-format" data-arg="12"><span class="lang-text" data-key="daily_capacity_time_12h">12 ชม.</span></button>
-                            <button type="button" class="unit-toggle-btn active" data-action="capacity-time-format" data-arg="24"><span class="lang-text" data-key="daily_capacity_time_24h">24 ชม.</span></button>
-                        </div>
+                        <button type="button" class="daily-capacity-config-label lang-text" data-action="daily-capacity-config-open" data-key="daily_capacity_end_time" data-key-aria-label="daily_capacity_config" aria-label="เวลาเลิกงาน เปิดตารางเวลาผลิต">เวลาเลิกงาน</button>
                     </div>
                     <div class="glass-input daily-capacity-time-picker" role="group" aria-label="เวลาเลิกงาน">
                         <button type="button" id="capacityEndHour" data-action="capacity-time-open" data-arg="hour" data-key-aria-label="daily_capacity_end_hour" aria-label="ชั่วโมง" aria-haspopup="listbox" aria-expanded="false">17</button>
                         <span aria-hidden="true">:</span>
                         <button type="button" id="capacityEndMinute" data-action="capacity-time-open" data-arg="minute" data-key-aria-label="daily_capacity_end_minute" aria-label="นาที" aria-haspopup="listbox" aria-expanded="false">00</button>
-                        <button type="button" id="capacityEndPeriod" class="daily-capacity-time-period" data-action="capacity-time-period" data-key-aria-label="daily_capacity_time_period" aria-label="AM/PM" hidden>PM</button>
                     </div>
                     <input type="hidden" id="capacityEndTimeInput" value="17:00">
-                    <div class="daily-capacity-remaining" aria-live="polite">
-                        <strong id="capacityRemainingTime">—</strong>
-                    </div>
-                </div>
-                <div class="input-group">
-                    <label for="capacityWorkersInput" class="lang-text" data-key="daily_capacity_workers">จำนวนพนักงาน</label>
-                    <input type="text" id="capacityWorkersInput" class="glass-input" inputmode="none" pattern="[0-9]*" data-numpad="int" data-numpad-label="daily_capacity_workers">
                 </div>
             </div>
+            <div class="daily-capacity-hourly-wrap" role="region" tabindex="0" data-key-aria-label="daily_capacity_hourly_title" aria-label="ตารางเป้าหมายรายชั่วโมง">
+                <table class="daily-capacity-hourly-table">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="lang-text" data-key="daily_capacity_time">เวลา</th>
+                            <th scope="col" class="lang-text" data-key="daily_capacity_eff_100">Eff 100%</th>
+                            <th scope="col">
+                                <label class="daily-capacity-eff-control">
+                                    <span class="lang-text" data-key="daily_capacity_eff_short">Eff</span>
+                                    <input type="text" id="capacityEfficiencyInput" class="daily-capacity-eff-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="80" data-numpad="decimal" data-numpad-label="daily_capacity_efficiency" aria-label="เป้าหมายประสิทธิภาพ (%)">
+                                    <span aria-hidden="true">%</span>
+                                </label>
+                            </th>
+                            <th scope="col" class="lang-text" data-key="daily_capacity_actual">Actual</th>
+                            <th scope="col" class="lang-text" data-key="daily_capacity_accumulated">สะสม</th>
+                            <th scope="col" class="lang-text" data-key="daily_capacity_variance">± เป้า</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dailyCapacityTableBody"></tbody>
+                </table>
+            </div>
+            <section class="daily-capacity-chart-section" data-key-aria-label="daily_capacity_chart_title" aria-label="กราฟยอดสะสมรายชั่วโมง">
+                <div class="daily-capacity-chart-legend">
+                    <button type="button" id="dailyCapacityEff100Toggle" class="daily-capacity-chart-toggle" aria-pressed="true">
+                        <i class="daily-capacity-chart-swatch is-eff-100"></i>
+                        <span class="lang-text" data-key="daily_capacity_eff_100">Eff 100%</span>
+                    </button>
+                    <button type="button" id="dailyCapacityEffToggle" class="daily-capacity-chart-toggle" aria-pressed="true">
+                        <i class="daily-capacity-chart-swatch is-eff"></i>
+                        <span class="lang-text" data-key="daily_capacity_eff_short">Eff</span> <span id="dailyCapacityChartEffValue">80</span>%
+                    </button>
+                    <span id="dailyCapacityActualLegend"><i class="daily-capacity-chart-swatch is-actual"></i><span class="lang-text" data-key="daily_capacity_actual">Actual</span></span>
+                </div>
+                <div id="dailyCapacityChart" class="daily-capacity-chart" data-key-aria-label="daily_capacity_chart_title" role="img" aria-label="กราฟยอดสะสมรายชั่วโมง"></div>
+            </section>
             <div class="daily-capacity-results" aria-live="polite">
                 <div class="daily-capacity-result-main">
                     <span class="daily-capacity-result-label lang-text" data-key="daily_capacity_total">เป้าหมายการผลิตรวมต่อวัน</span>
@@ -1096,7 +1121,7 @@
                     <h3 id="dailyCapacityConfigTitle" class="lang-text" data-key="daily_capacity_config">ตั้งค่าเวลาผลิต</h3>
                     <button type="button" class="capacity-config-close" data-action="daily-capacity-config-close" data-key-title="tools_close" data-key-aria-label="tools_close" title="ปิด" aria-label="ปิด">×</button>
                 </header>
-                <p class="capacity-config-note lang-text" data-key="daily_capacity_config_reset_note">การตั้งค่านี้ใช้ชั่วคราว และคืนค่าเริ่มต้นเมื่อออกจากหน้านี้</p>
+                <p class="capacity-config-note lang-text" data-key="daily_capacity_config_reset_note">บันทึกการตั้งค่านี้ไว้ในอุปกรณ์ ล้างได้ด้วยปุ่มล้างข้อมูลทั้งหมด</p>
                 <table class="capacity-config-table">
                     <thead><tr><th class="lang-text" data-key="daily_capacity_period">ช่วงเวลา</th><th class="lang-text" data-key="daily_capacity_work_minutes">นาทีทำงาน</th></tr></thead>
                     <tbody id="dailyCapacityScheduleBody"></tbody>
@@ -1104,6 +1129,11 @@
             </section>
         </div>
         <div id="dailyCapacityTimeMenu" class="daily-capacity-time-menu" role="listbox" style="display:none;" aria-label="เวลาเลิกงาน"></div>
+    </div>
+    <div id="dailyCapacityFooterActions" class="daily-capacity-footer-actions" style="display:none;">
+        <button type="button" class="daily-capacity-clear-btn lang-text" data-action="daily-capacity-clear" data-key="daily_capacity_clear" data-key-title="daily_capacity_clear" data-key-aria-label="daily_capacity_clear" title="ล้างข้อมูลทั้งหมด" aria-label="ล้างข้อมูลทั้งหมด">ล้างข้อมูลทั้งหมด</button>
+        <button type="button" class="daily-capacity-jump-btn" data-action="daily-capacity-scroll-top" data-key-title="daily_capacity_scroll_top" data-key-aria-label="daily_capacity_scroll_top" title="ขึ้นไปด้านบน" aria-label="ขึ้นไปด้านบน">↑</button>
+        <button type="button" class="daily-capacity-jump-btn" data-action="daily-capacity-scroll-bottom" data-key-title="daily_capacity_scroll_bottom" data-key-aria-label="daily_capacity_scroll_bottom" title="ลงไปด้านล่าง" aria-label="ลงไปด้านล่าง">↓</button>
     </div>
 </div>
 

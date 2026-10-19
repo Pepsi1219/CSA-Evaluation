@@ -9,7 +9,7 @@
 // ============================================================
 import { APP_VERSION } from './version.js';
 import {
-    parseNum, pcsFromEff, calcDailyCapacity, calcScheduledWorkMinutes, calcCapacityRecovery, calcAvgMin, calcActualEff,
+    parseNum, pcsFromEff, calcDailyCapacity, calcScheduledWorkMinutes, calcRecoveryProgress, calcCapacityRecovery, randomizeTargetPieces, calcAvgMin, calcActualEff,
     newSamFromEff, calcActualPcsPerHr, calcPassRate, calcTrainingDay,
 } from './calc.js';
 import {
@@ -275,10 +275,12 @@ let _dailyCapacitySamUnit = 'min';
 let _dailyCapacityClockTimer = null;
 let _dailyCapacityTimeMenuPart = null;
 let _dailyCapacityTimeMenuTrigger = null;
+let _dailyCapacityRandomTrigger = null;
 const DAILY_CAPACITY_INPUTS_KEY = 'csa_daily_capacity_inputs_v1';
 const DAILY_CAPACITY_DEFAULT_PERIODS = Object.freeze([60, 60, 60, 30, 30, 60, 60, 60, 60, 30, 60, 30]);
 let _dailyCapacityPeriods = [...DAILY_CAPACITY_DEFAULT_PERIODS];
 let _dailyCapacityActual = Array(DAILY_CAPACITY_DEFAULT_PERIODS.length).fill('');
+let _dailyCapacityRandomizedActual = new Set();
 
 function _displayCapacityHour(hour24) {
     return String(hour24).padStart(2, '0');
@@ -392,6 +394,131 @@ export function setDailyCapacityPeriod(index, value) {
     saveDailyCapacityInputs();
 }
 
+export function openDailyCapacityRandomModal(trigger) {
+    const modal = document.getElementById('dailyCapacityRandomModal');
+    if (!modal) return;
+    _dailyCapacityRandomTrigger = trigger || document.activeElement;
+    const status = document.getElementById('dailyCapacityRandomStatus');
+    if (status) status.textContent = '';
+    modal.style.display = 'flex';
+    modal.querySelector('input[name="capacityActualRandomMode"]:checked')?.focus({ preventScroll: true });
+}
+
+export function closeDailyCapacityRandomModal(restoreFocus = true) {
+    const modal = document.getElementById('dailyCapacityRandomModal');
+    if (modal) modal.style.display = 'none';
+    if (restoreFocus && _dailyCapacityRandomTrigger instanceof HTMLElement && _dailyCapacityRandomTrigger.isConnected) {
+        _dailyCapacityRandomTrigger.focus({ preventScroll: true });
+    }
+    _dailyCapacityRandomTrigger = null;
+}
+
+export function randomizeDailyCapacityActuals() {
+    const status = document.getElementById('dailyCapacityRandomStatus');
+    const showStatus = key => { if (status) status.textContent = t(key); };
+    const mode = document.querySelector('input[name="capacityActualRandomMode"]:checked')?.value;
+    const belowMax = parseNum(document.getElementById('capacityActualRandomBelow')?.value);
+    const aboveMax = parseNum(document.getElementById('capacityActualRandomAbove')?.value);
+    const belowLimit = mode === 'above' ? 0 : belowMax;
+    const aboveLimit = mode === 'below' ? 0 : aboveMax;
+    const samValue = parseNum(document.getElementById('capacitySamInput')?.value);
+    const efficiency = parseNum(document.getElementById('capacityEfficiencyInput')?.value);
+    const workers = parseNum(document.getElementById('capacityWorkersInput')?.value);
+    const samMinutes = _dailyCapacitySamUnit === 'sec' ? samValue / 60 : samValue;
+    const endTime = document.getElementById('capacityEndTimeInput')?.value || '';
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+    const endMinuteOfDay = endHour * 60 + endMinute;
+    if (!['below', 'above', 'mixed'].includes(mode)
+        || (mode !== 'above' && (!Number.isFinite(belowMax) || belowMax < 0 || belowMax > 100))
+        || (mode !== 'below' && (!Number.isFinite(aboveMax) || aboveMax < 0 || aboveMax > 100))
+        || !(samMinutes > 0) || !(efficiency > 0)
+        || !Number.isInteger(workers) || workers <= 0
+        || !Number.isInteger(endMinuteOfDay)) {
+        showStatus('daily_capacity_random_invalid');
+        return;
+    }
+
+    const scheduleStart = 8 * 60;
+    const scheduleEnd = Math.min(endMinuteOfDay, 20 * 60);
+    const now = new Date();
+    const nowMinuteOfDay = now.getHours() * 60 + now.getMinutes();
+    const cutoff = Math.min(nowMinuteOfDay, scheduleEnd);
+    const completedIndices = _dailyCapacityPeriods.map((_, index) => index).filter(index => {
+        const periodStart = scheduleStart + index * 60;
+        const periodEnd = Math.min(periodStart + 60, scheduleEnd);
+        return periodEnd > periodStart && periodEnd <= cutoff;
+    });
+    if (!completedIndices.length) {
+        showStatus('daily_capacity_random_no_completed');
+        return;
+    }
+
+    const emptyIndices = completedIndices.filter(index => String(_dailyCapacityActual[index] ?? '').trim() === '');
+    if (!emptyIndices.length) {
+        showStatus('daily_capacity_random_no_empty');
+        return;
+    }
+
+    emptyIndices.forEach(index => {
+        const periodStart = scheduleStart + index * 60;
+        const periodEnd = Math.min(periodStart + 60, scheduleEnd);
+        const workMinutes = calcScheduledWorkMinutes(_dailyCapacityPeriods, periodStart, periodEnd);
+        const targetPieces = calcDailyCapacity(samMinutes, efficiency, workMinutes, workers).total;
+        _dailyCapacityActual[index] = String(randomizeTargetPieces(targetPieces, mode, belowLimit, aboveLimit));
+        _dailyCapacityRandomizedActual.add(index);
+        const input = document.querySelector(`#dailyCapacityTableBody [data-capacity-actual="${index}"]`);
+        if (input) input.value = _dailyCapacityActual[index];
+    });
+
+    calculateDailyCapacityUI();
+    saveDailyCapacityInputs();
+    closeDailyCapacityRandomModal();
+}
+
+export function markDailyCapacityActualAsManual(index) {
+    _dailyCapacityRandomizedActual.delete(index);
+}
+
+export function deleteDailyCapacityRandomActuals() {
+    const indices = [..._dailyCapacityRandomizedActual].filter(index =>
+        Number.isInteger(index) && index >= 0 && index < _dailyCapacityActual.length
+        && String(_dailyCapacityActual[index] ?? '').trim() !== '');
+    const status = document.getElementById('dailyCapacityRandomStatus');
+    if (!indices.length) {
+        if (status) status.textContent = t('daily_capacity_random_delete_empty');
+        return;
+    }
+
+    showConfirm(t('daily_capacity_random_delete_random_title'), t('daily_capacity_random_delete_random_confirm'), () => {
+        indices.forEach(index => {
+            _dailyCapacityActual[index] = '';
+            const input = document.querySelector(`#dailyCapacityTableBody [data-capacity-actual="${index}"]`);
+            if (input) input.value = '';
+        });
+        _dailyCapacityRandomizedActual.clear();
+        calculateDailyCapacityUI();
+        saveDailyCapacityInputs();
+        closeDailyCapacityRandomModal();
+    });
+}
+
+export function deleteAllDailyCapacityActuals() {
+    if (!_dailyCapacityActual.some(value => String(value ?? '').trim() !== '')) {
+        const status = document.getElementById('dailyCapacityRandomStatus');
+        if (status) status.textContent = t('daily_capacity_random_delete_empty');
+        return;
+    }
+
+    showConfirm(t('daily_capacity_random_delete_all_title'), t('daily_capacity_random_delete_all_confirm'), () => {
+        _dailyCapacityActual = Array(DAILY_CAPACITY_DEFAULT_PERIODS.length).fill('');
+        _dailyCapacityRandomizedActual.clear();
+        document.querySelectorAll('#dailyCapacityTableBody [data-capacity-actual]').forEach(input => { input.value = ''; });
+        calculateDailyCapacityUI();
+        saveDailyCapacityInputs();
+        closeDailyCapacityRandomModal();
+    });
+}
+
 function _updateDailyCapacityClock() {
     const now = new Date();
     const clock = document.getElementById('dailyCapacityClock');
@@ -406,6 +533,7 @@ function _setToolsPage(page) {
     const capacityPanel = document.getElementById('dailyCapacityPanel');
     if (!showCapacity && capacityPanel?.style.display !== 'none') saveDailyCapacityInputs();
     if (!showCapacity) closeDailyCapacityTimeMenu();
+    if (!showCapacity) closeDailyCapacityRandomModal(false);
     const menuPanel = document.getElementById('toolsMenuPanel');
     const title = document.getElementById('toolsPageTitle');
     const clock = document.getElementById('dailyCapacityClock');
@@ -446,6 +574,7 @@ export function openToolsModal() {
 export function closeToolsModal() {
     const modal = document.getElementById('toolsModal');
     if (document.getElementById('dailyCapacityPanel')?.style.display !== 'none') saveDailyCapacityInputs();
+    closeDailyCapacityRandomModal(false);
     if (modal) modal.style.display = 'none';
     document.getElementById('dailyCapacityConfig').style.display = 'none';
     if (_dailyCapacityClockTimer !== null) {
@@ -507,6 +636,10 @@ function _restoreDailyCapacityInputs() {
         _dailyCapacityActual = DAILY_CAPACITY_DEFAULT_PERIODS.map((_, index) =>
             typeof saved.actual[index] === 'string' ? saved.actual[index] : '');
     }
+    _dailyCapacityRandomizedActual = new Set(Array.isArray(saved.randomizedActual)
+        ? saved.randomizedActual.filter(index => Number.isInteger(index) && index >= 0
+            && index < _dailyCapacityActual.length && String(_dailyCapacityActual[index] ?? '').trim() !== '')
+        : []);
     if (typeof saved.showEff100 === 'boolean') {
         document.getElementById('dailyCapacityEff100Toggle')?.setAttribute('aria-pressed', String(saved.showEff100));
     }
@@ -532,6 +665,7 @@ export function saveDailyCapacityInputs() {
             endTime: document.getElementById('capacityEndTimeInput')?.value ?? '17:00',
             periods: _dailyCapacityPeriods,
             actual: _dailyCapacityActual,
+            randomizedActual: [..._dailyCapacityRandomizedActual],
             showEff100: document.getElementById('dailyCapacityEff100Toggle')?.getAttribute('aria-pressed') !== 'false',
             showEff: document.getElementById('dailyCapacityEffToggle')?.getAttribute('aria-pressed') !== 'false',
         }));
@@ -552,6 +686,7 @@ export function clearDailyCapacityData() {
         });
         _resetDailyCapacityPeriods();
         _dailyCapacityActual = Array(DAILY_CAPACITY_DEFAULT_PERIODS.length).fill('');
+        _dailyCapacityRandomizedActual.clear();
         document.querySelectorAll('#dailyCapacityTableBody [data-capacity-actual]').forEach(input => { input.value = ''; });
         document.getElementById('dailyCapacityEff100Toggle').setAttribute('aria-pressed', 'true');
         document.getElementById('dailyCapacityEffToggle').setAttribute('aria-pressed', 'true');
@@ -847,11 +982,9 @@ export function calculateDailyCapacityUI() {
         && Number.isInteger(workerValue) && workerValue > 0;
     const totalEl = document.getElementById('dailyCapacityTotal');
     const perHourEl = document.getElementById('dailyCapacityPerHour');
-    const recoveryIds = ['capacityCurrentDeficit', 'capacityHourlyDeficit',
-        'capacityRequiredPerHour', 'capacityRequiredEfficiency', 'capacityRequiredOt'];
+    const recoveryIds = ['capacityRequiredPerHour', 'capacityRequiredEfficiency', 'capacityRequiredOt'];
     const clearRecovery = () => {
         recoveryIds.forEach(id => { document.getElementById(id).textContent = '—'; });
-        document.getElementById('capacityCurrentDeficitRow').removeAttribute('data-status');
         const status = document.getElementById('capacityRecoveryStatus');
         status.textContent = '';
         status.removeAttribute('data-status');
@@ -874,36 +1007,34 @@ export function calculateDailyCapacityUI() {
     const actualPerHour = actualHours > 0 ? actualOutput / actualHours : 0;
     const remainingHours = remainingMinutes === null ? null : remainingMinutes / 60;
     const progress = targetDailyOutput > 0 && targetHourlyOutput > 0 && remainingHours !== null
-        ? {
-            dailyGap: targetDailyOutput - actualOutput,
-            hourlyGap: targetHourlyOutput - actualPerHour,
-            deficit: Math.max(0, Math.ceil(targetDailyOutput - actualOutput - 1e-9)),
-        }
+        ? calcRecoveryProgress(
+            actualPerHour,
+            actualOutput,
+            targetDailyOutput,
+            targetHourlyOutput,
+            actualHours,
+            remainingHours,
+        )
         : null;
     if (!progress) { clearRecovery(); return; }
-    document.getElementById('capacityCurrentDeficit').textContent = progress.dailyGap.toLocaleString(undefined, numberFormat);
-    document.getElementById('capacityHourlyDeficit').textContent = progress.hourlyGap.toLocaleString(undefined, numberFormat);
-    document.getElementById('capacityCurrentDeficitRow').dataset.status = progress.deficit > 0 ? 'bad' : 'ok';
-    if (remainingHours === 0) {
-        ['capacityRequiredPerHour', 'capacityRequiredEfficiency', 'capacityRequiredOt'].forEach(id => {
-            document.getElementById(id).textContent = '—';
-        });
-        const status = document.getElementById('capacityRecoveryStatus');
-        status.dataset.status = 'bad';
-        status.textContent = t('capacity_recovery_shift_ended');
-        return;
-    }
-    const recovery = calcCapacityRecovery(samMinutes, efficiency, workerValue, progress.deficit, remainingHours);
+    const outstandingPieces = Math.max(0, progress.dailyGap);
+    const recovery = calcCapacityRecovery(samMinutes, efficiency, workerValue, outstandingPieces, remainingHours);
     if (!recovery) { clearRecovery(); return; }
     // Round required rates upward so the displayed plan never understates them.
     const upward2 = value => Math.ceil(value * 100 - 1e-9) / 100;
-    document.getElementById('capacityRequiredPerHour').textContent = upward2(recovery.requiredPerHour).toLocaleString(undefined, numberFormat);
-    document.getElementById('capacityRequiredEfficiency').textContent = upward2(recovery.requiredEfficiency).toLocaleString(undefined, numberFormat);
+    const requiredRate = recovery.requiredPerHour === null
+        ? null
+        : recovery.deficit === 0 ? Math.round(recovery.targetPerHour) : Math.ceil(recovery.requiredPerHour - 1e-9);
+    document.getElementById('capacityRequiredPerHour').textContent = requiredRate === null ? '—' : requiredRate.toLocaleString();
+    document.getElementById('capacityRequiredEfficiency').textContent = recovery.requiredEfficiency === null
+        ? '—'
+        : upward2(recovery.requiredEfficiency).toLocaleString(undefined, numberFormat);
     const hours = Math.floor(recovery.otMinutes / 60);
     const minutes = recovery.otMinutes % 60;
     document.getElementById('capacityRequiredOt').textContent = `${hours} ${t('daily_capacity_hour')} ${minutes} ${t('capacity_recovery_minutes')}`;
     const status = document.getElementById('capacityRecoveryStatus');
-    const statusKey = recovery.deficit === 0 ? 'capacity_recovery_on_track'
+    const statusKey = remainingHours === 0 && recovery.deficit > 0 ? 'capacity_recovery_shift_ended'
+        : recovery.deficit === 0 ? 'capacity_recovery_on_track'
         : recovery.withinNormalTime ? 'capacity_recovery_feasible' : 'capacity_recovery_impossible';
     status.dataset.status = recovery.deficit === 0 || recovery.withinNormalTime ? 'ok' : 'bad';
     status.textContent = t(statusKey);
@@ -4213,7 +4344,11 @@ _confirmModalEl?.addEventListener('click', e => {
     if (e.target === _confirmModalEl) hideConfirm();
 });
 document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && _confirmModalEl?.style.display === 'flex') hideConfirm();
+    if (e.key === 'Escape' && _confirmModalEl?.style.display === 'flex') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        hideConfirm();
+    }
 });
 
 // Back-to-Top FAB — appears once the user has scrolled past a screen-ish of content.
@@ -4307,6 +4442,20 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         // Numpad sits above every other modal, so it swallows ESC first.
         if (numpadOpen) { closeNumpad(); return; }
+        const capacityDeleteMenu = document.getElementById('capacityActualDeleteMenu');
+        if (capacityDeleteMenu?.open) {
+            capacityDeleteMenu.open = false;
+            capacityDeleteMenu.querySelector('summary')?.focus({ preventScroll: true });
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return;
+        }
+        if (document.getElementById('dailyCapacityRandomModal')?.style.display === 'flex') {
+            closeDailyCapacityRandomModal();
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            return;
+        }
         if (document.getElementById('resultPrecisionModal')?.style.display === 'flex') {
             closeResultPrecisionModal();
             return;

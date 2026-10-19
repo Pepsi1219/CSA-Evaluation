@@ -11,6 +11,7 @@ import {
     calcTrainingDay,
     calcDailyCapacity,
     calcScheduledWorkMinutes,
+    randomizeTargetPieces,
     calcDailyTarget,
     calcRecoveryRemainingHours,
     calcRecoveryProgress,
@@ -95,6 +96,26 @@ test('calcScheduledWorkMinutes', async t => {
     });
 });
 
+test('randomizeTargetPieces', async t => {
+    await t.test('randomizes below and above target within the configured maximum', () => {
+        assert.equal(randomizeTargetPieces(100, 'below', 20, 15, () => 0.5), 90);
+        assert.equal(randomizeTargetPieces(100, 'above', 20, 15, () => 0.5), 108);
+    });
+    await t.test('mixed mode chooses a side per call and never returns a negative quantity', () => {
+        const belowRandom = [0.25, 0.5];
+        assert.equal(randomizeTargetPieces(100, 'mixed', 20, 10, () => belowRandom.shift()), 90);
+        const aboveRandom = [0.75, 0.5];
+        assert.equal(randomizeTargetPieces(100, 'mixed', 20, 10, () => aboveRandom.shift()), 105);
+        assert.equal(randomizeTargetPieces(1, 'below', 100, 10, () => 1), 0);
+    });
+    await t.test('rejects invalid targets, modes, and percentage limits', () => {
+        assert.equal(randomizeTargetPieces(-1, 'below', 10, 10), null);
+        assert.equal(randomizeTargetPieces(100, 'random', 10, 10), null);
+        assert.equal(randomizeTargetPieces(100, 'below', 101, 10), null);
+        assert.equal(randomizeTargetPieces(100, 'above', 10, NaN), null);
+    });
+});
+
 test('calcDailyTarget', async t => {
     await t.test('derives daily target from hourly target and productive hours', () => {
         assert.equal(calcDailyTarget(95, 600), 950);
@@ -107,30 +128,36 @@ test('calcDailyTarget', async t => {
 });
 
 test('calcCapacityRecovery', async t => {
-    await t.test('uses the unrounded hourly target for both recovery options', () => {
+    await t.test('divides the remaining daily gap across remaining hours', () => {
         const result = calcCapacityRecovery(0.48, 80, 1, 60, 2);
         assert.equal(result.deficit, 60);
         assert.equal(result.targetPerHour, 100);
-        assert.equal(result.requiredPerHour, 130);
-        assert.equal(result.requiredEfficiency, 104);
+        assert.equal(result.requiredPerHour, 30);
+        assert.ok(Math.abs(result.requiredEfficiency - 24) < 1e-9);
         assert.equal(result.otMinutes, 36);
-        assert.equal(result.withinNormalTime, false);
+        assert.equal(result.withinNormalTime, true);
+        const fractional = calcCapacityRecovery(0.48, 80, 1, 831.91, 2);
+        assert.equal(fractional.requiredPerHour, 415.955);
+        assert.ok(Math.abs(fractional.requiredEfficiency - 332.764) < 1e-9);
     });
     await t.test('calculates a feasible efficiency and rounds OT up to full minutes', () => {
         const result = calcCapacityRecovery(0.6, 80, 1, 120, 3);
         assert.equal(result.targetPerHour, 80);
-        assert.equal(result.requiredPerHour, 120);
-        assert.equal(result.requiredEfficiency, 120);
+        assert.equal(result.requiredPerHour, 40);
+        assert.equal(result.requiredEfficiency, 40);
         assert.equal(result.otMinutes, 90);
-        assert.equal(result.withinNormalTime, false);
+        assert.equal(result.withinNormalTime, true);
         const feasible = calcCapacityRecovery(0.6, 70, 1, 10, 2);
         assert.equal(feasible.withinNormalTime, true);
         assert.equal(calcCapacityRecovery(0.6, 80, 1, 0, 2).otMinutes, 0);
+        const afterShift = calcCapacityRecovery(0.6, 80, 1, 10, 0);
+        assert.equal(afterShift.requiredPerHour, null);
+        assert.equal(afterShift.requiredEfficiency, null);
+        assert.equal(afterShift.otMinutes, 8);
     });
     await t.test('rejects invalid inputs instead of showing an impossible plan', () => {
         assert.equal(calcCapacityRecovery(0, 80, 1, 10, 2), null);
         assert.equal(calcCapacityRecovery(0.6, 0, 1, 10, 2), null);
-        assert.equal(calcCapacityRecovery(0.6, 80, 1, 10, 0), null);
         assert.equal(calcCapacityRecovery(0.6, 80, 1.5, 10, 2), null);
         assert.equal(calcCapacityRecovery(0.6, 80, 1, -1, 2), null);
         assert.equal(calcCapacityRecovery(0.6, 80, 1, NaN, 2), null);
@@ -152,11 +179,19 @@ test('calcRecoveryRemainingHours', async t => {
 });
 
 test('calcRecoveryProgress', async t => {
-    await t.test('compares desired daily/hourly targets with current capacity', () => {
-        const progress = calcRecoveryProgress(201.6, 1612.8, 2067.69, 258.46, 8, 4);
-        assert.ok(Math.abs(progress.dailyGap - 454.89) < 1e-9);
-        assert.ok(Math.abs(progress.hourlyGap - 56.86) < 1e-9);
-        assert.equal(progress.deficit, 455);
+    await t.test('keeps daily remainder separate from behind-schedule recovery', () => {
+        const progress = calcRecoveryProgress(103, 103, 827.93, 103, 1, 6);
+        assert.ok(Math.abs(progress.dailyGap - 724.93) < 1e-9);
+        assert.equal(progress.hourlyGap, 0);
+        assert.equal(progress.expectedOutputToDate, 103);
+        assert.equal(progress.deficit, 0);
+    });
+    await t.test('calculates only the shortfall against the plan through elapsed hours', () => {
+        const progress = calcRecoveryProgress(90, 180, 827.93, 103, 2, 5);
+        assert.ok(Math.abs(progress.dailyGap - 647.93) < 1e-9);
+        assert.equal(progress.hourlyGap, 13);
+        assert.equal(progress.expectedOutputToDate, 206);
+        assert.equal(progress.deficit, 26);
     });
     await t.test('does not request recovery when desired capacity is lower', () => {
         const progress = calcRecoveryProgress(201.6, 1612.8, 1500, 187.5, 8, 4);
@@ -167,7 +202,7 @@ test('calcRecoveryProgress', async t => {
     await t.test('rejects invalid target or shift data', () => {
         assert.equal(calcRecoveryProgress(0, 1600, 1800, 225, 8, 3), null);
         assert.equal(calcRecoveryProgress(100, 1600, 0, 225, 8, 3), null);
-        assert.equal(calcRecoveryProgress(100, 1600, 1800, 225, 8, 9), null);
+        assert.equal(calcRecoveryProgress(100, 1600, 1800, 225, 8, -1), null);
     });
 });
 

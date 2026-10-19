@@ -36,6 +36,19 @@ function calcDailyCapacity(samMinutes, effPercent, workingMinutes, workers) {
     return { perHour, total };
 }
 
+function randomizeTargetPieces(targetPieces, mode, belowMaxPercent, aboveMaxPercent, random = Math.random) {
+    if (!(targetPieces >= 0) || !Number.isFinite(targetPieces)
+        || !['below', 'above', 'mixed'].includes(mode)
+        || !(belowMaxPercent >= 0 && belowMaxPercent <= 100) || !Number.isFinite(belowMaxPercent)
+        || !(aboveMaxPercent >= 0 && aboveMaxPercent <= 100) || !Number.isFinite(aboveMaxPercent)
+        || typeof random !== 'function') return null;
+    const sample = () => Math.max(0, Math.min(1, random()));
+    const below = mode === 'below' || (mode === 'mixed' && sample() < 0.5);
+    const maxPercent = below ? belowMaxPercent : aboveMaxPercent;
+    const variance = sample() * maxPercent / 100;
+    return Math.max(0, Math.round(targetPieces * (below ? 1 - variance : 1 + variance)));
+}
+
 // Sum productive minutes across an hourly schedule for a wall-clock window.
 // Partial periods use that period's configured productive-minute ratio.
 function calcScheduledWorkMinutes(periods, startMinute, endMinute) {
@@ -74,36 +87,41 @@ function calcRecoveryRemainingHours(hours, minutes) {
 
 // Compare a requested daily target with the current calculated capacity.
 // Recovery rounds a positive daily gap upward to a whole piece.
-function calcRecoveryProgress(currentPerHour, currentDailyOutput, targetDailyOutput, targetPerHour, totalWorkingHours, remainingHours) {
+function calcRecoveryProgress(currentPerHour, currentDailyOutput, targetDailyOutput, targetPerHour, elapsedHours, remainingHours) {
     if (!(currentPerHour > 0) || !Number.isFinite(currentPerHour)
         || !(currentDailyOutput > 0) || !Number.isFinite(currentDailyOutput)
         || !(targetDailyOutput > 0) || !Number.isFinite(targetDailyOutput)
         || !(targetPerHour > 0) || !Number.isFinite(targetPerHour)
-        || !(totalWorkingHours > 0) || !Number.isFinite(totalWorkingHours)
+        || !(elapsedHours >= 0) || !Number.isFinite(elapsedHours)
         || !(remainingHours >= 0) || !Number.isFinite(remainingHours)
-        || remainingHours > totalWorkingHours) return null;
+    ) return null;
     const dailyGap = targetDailyOutput - currentDailyOutput;
     const hourlyGap = targetPerHour - currentPerHour;
-    const deficit = Math.max(0, Math.ceil(dailyGap - 1e-9));
-    return { dailyGap, hourlyGap, deficit };
+    const expectedOutputToDate = Math.round(targetPerHour * elapsedHours);
+    const deficit = Math.max(0, Math.ceil(expectedOutputToDate - currentDailyOutput - 1e-9));
+    return { dailyGap, hourlyGap, expectedOutputToDate, deficit };
 }
 
-// Recovery uses the baseline unrounded hourly target and the requested-target gap.
-function calcCapacityRecovery(samMinutes, effPercent, workers, deficitPieces, remainingHours) {
+// Split the remaining daily gap across normal hours; OT keeps the baseline rate.
+function calcCapacityRecovery(samMinutes, effPercent, workers, remainingPieces, remainingHours) {
     if (!(samMinutes > 0) || !Number.isFinite(samMinutes)
         || !(effPercent > 0) || !Number.isFinite(effPercent)
         || !(workers > 0) || !Number.isSafeInteger(workers)
-        || !Number.isSafeInteger(deficitPieces) || deficitPieces < 0
-        || !(remainingHours > 0) || !Number.isFinite(remainingHours)) return null;
-    const deficit = deficitPieces;
+        || !(remainingPieces >= 0) || !Number.isFinite(remainingPieces)
+        || !(remainingHours >= 0) || !Number.isFinite(remainingHours)) return null;
+    const deficit = remainingPieces;
     const targetPerHour = calcDailyCapacity(samMinutes, effPercent, 60, workers).perHour;
-    const requiredPerHour = targetPerHour + deficit / remainingHours;
-    const requiredEfficiency = requiredPerHour * samMinutes / (60 * workers) * 100;
+    const requiredPerHour = remainingHours > 0
+        ? deficit > 0 ? deficit / remainingHours : targetPerHour
+        : null;
+    const requiredEfficiency = requiredPerHour === null ? null : requiredPerHour * samMinutes / (60 * workers) * 100;
     const otMinutes = deficit === 0 ? 0 : Math.max(1, Math.ceil(deficit / targetPerHour * 60 - 1e-9));
-    if (![targetPerHour, requiredPerHour, requiredEfficiency, otMinutes].every(Number.isFinite)) return null;
+    if (![targetPerHour, otMinutes].every(Number.isFinite)
+        || (requiredPerHour !== null && !Number.isFinite(requiredPerHour))
+        || (requiredEfficiency !== null && !Number.isFinite(requiredEfficiency))) return null;
     return {
         deficit, targetPerHour, requiredPerHour, requiredEfficiency, otMinutes,
-        withinNormalTime: requiredEfficiency <= 100 + 1e-9,
+        withinNormalTime: requiredEfficiency !== null && requiredEfficiency <= 100 + 1e-9,
     };
 }
 
@@ -177,6 +195,7 @@ export {
     parseNum,
     pcsFromEff,
     calcDailyCapacity,
+    randomizeTargetPieces,
     calcScheduledWorkMinutes,
     calcDailyTarget,
     calcRecoveryRemainingHours,

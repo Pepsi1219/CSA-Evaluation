@@ -1043,9 +1043,9 @@
                                     <span aria-hidden="true">%</span>
                                 </label>
                             </th>
-                            <th scope="col" class="lang-text" data-key="daily_capacity_actual">Actual</th>
+                            <th scope="col"><button type="button" class="daily-capacity-actual-trigger lang-text" data-action="capacity-actual-random-open" data-key="daily_capacity_actual" data-key-aria-label="daily_capacity_random_open">Actual</button></th>
                             <th scope="col" class="lang-text" data-key="daily_capacity_accumulated">สะสม</th>
-                            <th scope="col" class="lang-text" data-key="daily_capacity_variance">± เป้า</th>
+                            <th scope="col" class="lang-text" data-key="daily_capacity_variance">±</th>
                         </tr>
                     </thead>
                     <tbody id="dailyCapacityTableBody"></tbody>
@@ -1077,17 +1077,6 @@
             </div>
             <section class="capacity-recovery" aria-labelledby="capacityRecoveryTitle">
                 <h3 id="capacityRecoveryTitle" class="lang-text" data-key="capacity_recovery_title">วางแผนชดเชยยอดผลิต</h3>
-                <p class="capacity-recovery-target-source lang-text" data-key="capacity_recovery_table_source">เป้าหมายอ้างอิงจาก Eff และ Actual ในตารางรายชั่วโมง</p>
-                <div class="capacity-recovery-progress" aria-live="polite">
-                    <div id="capacityCurrentDeficitRow" class="capacity-recovery-progress-metric">
-                        <span class="lang-text" data-key="capacity_recovery_current_deficit">ส่วนต่างเป้าหมายรวมต่อวัน</span>
-                        <strong><span id="capacityCurrentDeficit">—</span><span class="daily-capacity-result-unit lang-text" data-key="daily_capacity_pieces_day">ชิ้น/วัน</span></strong>
-                    </div>
-                    <div class="capacity-recovery-progress-metric">
-                        <span class="lang-text" data-key="capacity_recovery_hourly_gap">ส่วนต่างเป้าหมายต่อชั่วโมง</span>
-                        <strong><span id="capacityHourlyDeficit">—</span><span class="daily-capacity-result-unit lang-text" data-key="daily_capacity_pieces_hour">ชิ้น/ชั่วโมง</span></strong>
-                    </div>
-                </div>
                 <div class="capacity-recovery-results" aria-live="polite">
                     <div class="capacity-recovery-card">
                         <h4 class="lang-text" data-key="capacity_recovery_eff_title">ทางเลือก A · เพิ่มประสิทธิภาพไลน์ (Improve Line Efficiency %)</h4>
@@ -1114,6 +1103,50 @@
                     <thead><tr><th class="lang-text" data-key="daily_capacity_period">ช่วงเวลา</th><th class="lang-text" data-key="daily_capacity_work_minutes">นาทีทำงาน</th></tr></thead>
                     <tbody id="dailyCapacityScheduleBody"></tbody>
                 </table>
+            </section>
+        </div>
+        <div id="dailyCapacityRandomModal" class="capacity-config-backdrop daily-capacity-random-backdrop" style="display:none;" role="presentation">
+            <section class="capacity-config-dialog daily-capacity-random-dialog" role="dialog" aria-modal="true" aria-labelledby="dailyCapacityRandomTitle" aria-describedby="dailyCapacityRandomNote">
+                <header class="capacity-config-header">
+                    <h3 id="dailyCapacityRandomTitle" class="lang-text" data-key="daily_capacity_random_title">สุ่มข้อมูล Actual</h3>
+                    <button type="button" class="capacity-config-close" data-action="capacity-actual-random-close" data-key-title="tools_close" data-key-aria-label="tools_close" title="ปิด" aria-label="ปิด">×</button>
+                </header>
+                <fieldset class="capacity-random-fieldset">
+                    <legend class="capacity-random-label lang-text" data-key="daily_capacity_random_mode">รูปแบบการสุ่ม</legend>
+                    <div class="capacity-random-modes">
+                        <label><input type="radio" name="capacityActualRandomMode" value="below"><span class="lang-text" data-key="daily_capacity_random_below">ต่ำกว่าเป้า</span></label>
+                        <label><input type="radio" name="capacityActualRandomMode" value="above"><span class="lang-text" data-key="daily_capacity_random_above">สูงกว่าเป้า</span></label>
+                        <label><input type="radio" name="capacityActualRandomMode" value="mixed" checked><span class="lang-text" data-key="daily_capacity_random_mixed">สุ่มผสม</span></label>
+                    </div>
+                </fieldset>
+                <div class="capacity-random-percent-grid">
+                    <label class="capacity-random-label" for="capacityActualRandomBelow"><span class="lang-text" data-key="daily_capacity_random_below_max">สุ่มต่ำกว่าเป้าได้สูงสุด (%)</span>
+                        <div class="capacity-random-range-control">
+                            <input id="capacityActualRandomBelow" type="range" min="0" max="100" step="1" value="10">
+                            <output id="capacityActualRandomBelowValue" for="capacityActualRandomBelow">10%</output>
+                        </div>
+                    </label>
+                    <label class="capacity-random-label" for="capacityActualRandomAbove"><span class="lang-text" data-key="daily_capacity_random_above_max">สุ่มสูงกว่าเป้าได้สูงสุด (%)</span>
+                        <div class="capacity-random-range-control">
+                            <input id="capacityActualRandomAbove" type="range" min="0" max="100" step="1" value="10">
+                            <output id="capacityActualRandomAboveValue" for="capacityActualRandomAbove">10%</output>
+                        </div>
+                    </label>
+                </div>
+                <p id="dailyCapacityRandomStatus" class="capacity-random-status" role="status" aria-live="polite"></p>
+                <div class="capacity-random-footer">
+                    <details class="capacity-random-delete-menu" id="capacityActualDeleteMenu">
+                        <summary class="icon-btn danger" data-key-title="daily_capacity_random_delete_menu" data-key-aria-label="daily_capacity_random_delete_menu" title="ตัวเลือกลบข้อมูล Actual" aria-label="ตัวเลือกลบข้อมูล Actual" aria-haspopup="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2m3 0-.9 14H5.9L5 6m4 4v6m6-6v6" /></svg>
+                        </summary>
+                        <div class="capacity-random-delete-menu-panel">
+                            <button type="button" data-action="capacity-actual-random-delete"><span class="lang-text" data-key="daily_capacity_random_delete_random">ลบเฉพาะข้อมูลที่สุ่ม</span></button>
+                            <button type="button" data-action="capacity-actual-delete-all"><span class="lang-text" data-key="daily_capacity_random_delete_all">ลบ Actual ทั้งหมด</span></button>
+                        </div>
+                    </details>
+                    <button type="button" class="btn-cancel" data-action="capacity-actual-random-close"><span class="lang-text" data-key="daily_capacity_random_cancel">ยกเลิก</span></button>
+                    <button type="button" class="btn-submit" data-action="capacity-actual-random-apply"><span class="lang-text" data-key="daily_capacity_random_apply">สุ่ม Actual</span></button>
+                </div>
             </section>
         </div>
         <div id="dailyCapacityTimeMenu" class="daily-capacity-time-menu" role="listbox" style="display:none;" aria-label="เวลาเลิกงาน"></div>

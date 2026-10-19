@@ -16,6 +16,8 @@ import {
     saveDailyCapacityInputs, clearDailyCapacityData, scrollDailyCapacityPage,
     openDailyCapacityConfig, closeDailyCapacityConfig, setDailyCapacityPeriod,
     openDailyCapacityTimeMenu, setDailyCapacityTimeMenuValue, closeDailyCapacityTimeMenu,
+    openDailyCapacityRandomModal, closeDailyCapacityRandomModal, randomizeDailyCapacityActuals,
+    markDailyCapacityActualAsManual, deleteDailyCapacityRandomActuals, deleteAllDailyCapacityActuals,
     openStopwatchModal, closeStopwatchModal, swSetMode, swStartStop,
     swPauseResume, swLapOrReset, swToggleStatInfo, swContinueTiming,
     swSaveToForm, swExportPNG, swDeleteLap, swSetSingleRounds, openTsConfigModal, closeTsConfigModal,
@@ -56,12 +58,40 @@ document.getElementById('dailyCapacityScheduleBody')?.addEventListener('input', 
 });
 document.getElementById('dailyCapacityTableBody')?.addEventListener('input', event => {
     if (event.target.matches('[data-capacity-actual]')) {
+        markDailyCapacityActualAsManual(Number(event.target.dataset.capacityActual));
         saveDailyCapacityInputs();
         calculateDailyCapacityUI();
     }
 });
 document.getElementById('dailyCapacityTableBody')?.addEventListener('change', event => {
     if (event.target.matches('[data-capacity-actual]')) saveDailyCapacityInputs();
+});
+const syncCapacityRandomPercentageInputs = () => {
+    const mode = document.querySelector('input[name="capacityActualRandomMode"]:checked')?.value;
+    const belowInput = document.getElementById('capacityActualRandomBelow');
+    const aboveInput = document.getElementById('capacityActualRandomAbove');
+    if (belowInput) belowInput.disabled = mode === 'above';
+    if (aboveInput) aboveInput.disabled = mode === 'below';
+};
+const updateCapacityRandomPercentageValue = input => {
+    const output = document.getElementById(`${input.id}Value`);
+    if (output) output.value = `${input.value}%`;
+};
+document.querySelectorAll('input[name="capacityActualRandomMode"]').forEach(input => {
+    input.addEventListener('change', syncCapacityRandomPercentageInputs);
+});
+['capacityActualRandomBelow', 'capacityActualRandomAbove'].forEach(id => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.addEventListener('input', () => updateCapacityRandomPercentageValue(input));
+    updateCapacityRandomPercentageValue(input);
+});
+syncCapacityRandomPercentageInputs();
+document.getElementById('dailyCapacityRandomModal')?.addEventListener('click', event => {
+    if (event.target.id === 'dailyCapacityRandomModal') closeDailyCapacityRandomModal();
+    if (!event.target.closest('.capacity-random-delete-menu')) {
+        document.getElementById('capacityActualDeleteMenu')?.removeAttribute('open');
+    }
 });
 window.addEventListener('pagehide', () => {
     if (document.getElementById('dailyCapacityPanel')?.style.display !== 'none') saveDailyCapacityInputs();
@@ -85,7 +115,18 @@ document.addEventListener('click', event => {
     }
 });
 document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') closeDailyCapacityTimeMenu(true);
+    if (event.key === 'Escape') {
+        const deleteMenu = document.getElementById('capacityActualDeleteMenu');
+        if (deleteMenu?.open) {
+            deleteMenu.open = false;
+            deleteMenu.querySelector('summary')?.focus({ preventScroll: true });
+            return;
+        }
+        closeDailyCapacityTimeMenu(true);
+        if (document.getElementById('dailyCapacityRandomModal')?.style.display === 'flex') {
+            closeDailyCapacityRandomModal();
+        }
+    }
 });
 window.addEventListener('resize', () => closeDailyCapacityTimeMenu());
 
@@ -112,6 +153,11 @@ const ACTIONS = {
     'capacity-sam-unit': arg => setDailyCapacitySamUnit(arg),
     'daily-capacity-config-open': () => openDailyCapacityConfig(),
     'daily-capacity-config-close': () => closeDailyCapacityConfig(),
+    'capacity-actual-random-open': (arg, el) => openDailyCapacityRandomModal(el),
+    'capacity-actual-random-close': () => closeDailyCapacityRandomModal(),
+    'capacity-actual-random-apply': () => randomizeDailyCapacityActuals(),
+    'capacity-actual-random-delete': () => deleteDailyCapacityRandomActuals(),
+    'capacity-actual-delete-all': () => deleteAllDailyCapacityActuals(),
     'capacity-time-open': (arg, el) => openDailyCapacityTimeMenu(arg, el),
     // SAM unit toggle
     'sam-unit':     arg => setSamUnit(arg),
@@ -187,5 +233,8 @@ document.addEventListener('click', e => {
     if (!el) return;
     const fn = ACTIONS[el.dataset.action];
     if (!fn) return;
+    if (el.dataset.action === 'capacity-actual-random-delete' || el.dataset.action === 'capacity-actual-delete-all') {
+        document.getElementById('capacityActualDeleteMenu')?.removeAttribute('open');
+    }
     fn(el.dataset.arg, el);
 });

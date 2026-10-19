@@ -75,8 +75,6 @@
                     <p class="brand-sub lang-text" data-key="brand_sub">เครื่องมือประเมินประสิทธิภาพ</p>
                 </div>
             </div>
-
-            <div class="header-actions">
                 <!-- All header actions collapse into one overflow menu to save space -->
                 <div class="actions-menu" id="actionsMenu">
                     <button type="button" class="actions-trigger" id="actionsTrigger" aria-haspopup="true" aria-expanded="false" aria-label="Menu">
@@ -168,7 +166,6 @@
                         </button>
                     </div>
                 </div>
-            </div>
         </div>
     </header>
 
@@ -1080,16 +1077,7 @@
             </div>
             <section class="capacity-recovery" aria-labelledby="capacityRecoveryTitle">
                 <h3 id="capacityRecoveryTitle" class="lang-text" data-key="capacity_recovery_title">วางแผนชดเชยยอดผลิต</h3>
-                <div class="capacity-recovery-targets">
-                    <div class="input-group">
-                        <label for="capacityTargetHourlyInput" class="capacity-target-label lang-text" data-key="capacity_recovery_target_hourly">เป้าหมายต่อชั่วโมง</label>
-                        <input type="text" id="capacityTargetHourlyInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="capacity_recovery_target_hourly">
-                    </div>
-                    <div class="input-group">
-                        <span class="capacity-target-label lang-text" data-key="capacity_recovery_target_daily">เป้าหมายต่อวัน</span>
-                        <output id="capacityTargetDaily" class="glass-input capacity-target-derived-value" aria-live="polite">—</output>
-                    </div>
-                </div>
+                <p class="capacity-recovery-target-source lang-text" data-key="capacity_recovery_table_source">เป้าหมายอ้างอิงจาก Eff และ Actual ในตารางรายชั่วโมง</p>
                 <div class="capacity-recovery-progress" aria-live="polite">
                     <div id="capacityCurrentDeficitRow" class="capacity-recovery-progress-metric">
                         <span class="lang-text" data-key="capacity_recovery_current_deficit">ส่วนต่างเป้าหมายรวมต่อวัน</span>

@@ -9,7 +9,7 @@
 // ============================================================
 import { APP_VERSION } from './version.js';
 import {
-    parseNum, pcsFromEff, calcDailyCapacity, calcScheduledWorkMinutes, calcDailyTarget, calcRecoveryProgress, calcCapacityRecovery, calcAvgMin, calcActualEff,
+    parseNum, pcsFromEff, calcDailyCapacity, calcScheduledWorkMinutes, calcCapacityRecovery, calcAvgMin, calcActualEff,
     newSamFromEff, calcActualPcsPerHr, calcPassRate, calcTrainingDay,
 } from './calc.js';
 import {
@@ -403,9 +403,10 @@ function _updateDailyCapacityClock() {
 
 function _setToolsPage(page) {
     const showCapacity = page === 'capacity';
+    const capacityPanel = document.getElementById('dailyCapacityPanel');
+    if (!showCapacity && capacityPanel?.style.display !== 'none') saveDailyCapacityInputs();
     if (!showCapacity) closeDailyCapacityTimeMenu();
     const menuPanel = document.getElementById('toolsMenuPanel');
-    const capacityPanel = document.getElementById('dailyCapacityPanel');
     const title = document.getElementById('toolsPageTitle');
     const clock = document.getElementById('dailyCapacityClock');
     const clockGroup = document.getElementById('dailyCapacityClockGroup');
@@ -444,6 +445,7 @@ export function openToolsModal() {
 
 export function closeToolsModal() {
     const modal = document.getElementById('toolsModal');
+    if (document.getElementById('dailyCapacityPanel')?.style.display !== 'none') saveDailyCapacityInputs();
     if (modal) modal.style.display = 'none';
     document.getElementById('dailyCapacityConfig').style.display = 'none';
     if (_dailyCapacityClockTimer !== null) {
@@ -485,11 +487,9 @@ function _restoreDailyCapacityInputs() {
     const workersInput = document.getElementById('capacityWorkersInput');
     const efficiencyInput = document.getElementById('capacityEfficiencyInput');
     const endTimeInput = document.getElementById('capacityEndTimeInput');
-    const targetHourlyInput = document.getElementById('capacityTargetHourlyInput');
     if (typeof saved.sam === 'string' && samInput) samInput.value = saved.sam;
     if (typeof saved.workers === 'string' && workersInput) workersInput.value = saved.workers;
     if (typeof saved.efficiency === 'string' && efficiencyInput) efficiencyInput.value = saved.efficiency;
-    if (typeof saved.targetHourly === 'string' && targetHourlyInput) targetHourlyInput.value = saved.targetHourly;
     if (typeof saved.endTime === 'string' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(saved.endTime) && endTimeInput) {
         endTimeInput.value = saved.endTime;
     }
@@ -530,7 +530,6 @@ export function saveDailyCapacityInputs() {
             workers: workersInput?.value ?? '',
             efficiency: document.getElementById('capacityEfficiencyInput')?.value ?? '80',
             endTime: document.getElementById('capacityEndTimeInput')?.value ?? '17:00',
-            targetHourly: document.getElementById('capacityTargetHourlyInput')?.value ?? '',
             periods: _dailyCapacityPeriods,
             actual: _dailyCapacityActual,
             showEff100: document.getElementById('dailyCapacityEff100Toggle')?.getAttribute('aria-pressed') !== 'false',
@@ -547,7 +546,6 @@ export function clearDailyCapacityData() {
         document.getElementById('capacityWorkersInput').value = '';
         document.getElementById('capacityEfficiencyInput').value = '80';
         document.getElementById('capacityEndTimeInput').value = '17:00';
-        document.getElementById('capacityTargetHourlyInput').value = '';
         _dailyCapacitySamUnit = 'min';
         document.querySelectorAll('[data-action="capacity-sam-unit"]').forEach(button => {
             button.classList.toggle('active', button.dataset.arg === 'min');
@@ -739,6 +737,7 @@ function _updateDailyCapacityHourlyTable(samMinutes, efficiency, workers, endMin
     const canCalculate = samMinutes > 0 && Number.isInteger(workers) && workers > 0;
     const canCalculateEfficiency = Number.isFinite(efficiency) && efficiency >= 0;
     const format = value => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    const formatWhole = value => Math.round(value).toLocaleString();
     let accumulated100 = 0;
     let accumulatedEfficiency = 0;
     let accumulatedActual = 0;
@@ -772,7 +771,7 @@ function _updateDailyCapacityHourlyTable(samMinutes, efficiency, workers, endMin
             chartSeries.eff100.push(null);
         } else {
             accumulated100 += target100;
-            row.querySelector('.daily-capacity-eff-100').textContent = format(accumulated100);
+            row.querySelector('.daily-capacity-eff-100').textContent = formatWhole(accumulated100);
             chartSeries.eff100.push(accumulated100);
         }
         if (targetEfficiency === null) {
@@ -780,7 +779,7 @@ function _updateDailyCapacityHourlyTable(samMinutes, efficiency, workers, endMin
             chartSeries.eff.push(null);
         } else {
             accumulatedEfficiency += targetEfficiency;
-            row.querySelector('.daily-capacity-eff-80').textContent = format(accumulatedEfficiency);
+            row.querySelector('.daily-capacity-eff-80').textContent = formatWhole(accumulatedEfficiency);
             chartSeries.eff.push(accumulatedEfficiency);
         }
 
@@ -789,12 +788,13 @@ function _updateDailyCapacityHourlyTable(samMinutes, efficiency, workers, endMin
             if (String(_dailyCapacityActual[index] ?? '').trim() !== '') hasActual = true;
             accumulatedActual += actualValue;
         }
-        row.querySelector('.daily-capacity-actual-acc').textContent = hasActual ? format(accumulatedActual) : '';
+        row.querySelector('.daily-capacity-actual-acc').textContent = index <= lastActualIndex ? format(accumulatedActual) : '';
         chartSeries.actual.push(index <= lastActualIndex ? accumulatedActual : null);
         const varianceCell = row.querySelector('.daily-capacity-variance');
         if (hasActual && targetEfficiency !== null) {
-            const variance = Math.round((accumulatedActual - accumulatedEfficiency) * 100) / 100;
-            varianceCell.textContent = `${variance > 0 ? '+' : variance < 0 ? '-' : ''}${format(Math.abs(variance))}`;
+            const variance = accumulatedActual - accumulatedEfficiency;
+            const displayedVariance = Math.round(variance);
+            varianceCell.textContent = `${displayedVariance > 0 ? '+' : displayedVariance < 0 ? '-' : ''}${format(Math.abs(displayedVariance))}`;
             varianceCell.dataset.status = variance > 0 ? 'ahead' : variance < 0 ? 'behind' : 'on-target';
         } else {
             varianceCell.textContent = '';
@@ -802,6 +802,17 @@ function _updateDailyCapacityHourlyTable(samMinutes, efficiency, workers, endMin
         }
     }
     _renderDailyCapacityChart(chartLabels, chartSeries, efficiency);
+    const actualWorkMinutes = lastActualIndex >= 0
+        ? calcScheduledWorkMinutes(
+            _dailyCapacityPeriods,
+            8 * 60,
+            Math.min(8 * 60 + (lastActualIndex + 1) * 60, endMinuteOfDay),
+        )
+        : 0;
+    return {
+        actualTotal: lastActualIndex >= 0 ? accumulatedActual : 0,
+        actualWorkMinutes: actualWorkMinutes ?? 0,
+    };
 }
 
 export function calculateDailyCapacityUI() {
@@ -817,13 +828,7 @@ export function calculateDailyCapacityUI() {
     const workMinutes = endTime
         ? calcScheduledWorkMinutes(_dailyCapacityPeriods, 8 * 60, endMinuteOfDay)
         : null;
-    _updateDailyCapacityHourlyTable(samMinutes, efficiency, workerValue, endMinuteOfDay);
-    const targetHourlyRaw = document.getElementById('capacityTargetHourlyInput')?.value.trim() || '';
-    const targetHourlyOutput = parseNum(targetHourlyRaw);
-    const targetDailyOutput = calcDailyTarget(targetHourlyOutput, workMinutes);
-    document.getElementById('capacityTargetDaily').textContent = targetDailyOutput === null
-        ? '—'
-        : targetDailyOutput.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const actualSummary = _updateDailyCapacityHourlyTable(samMinutes, efficiency, workerValue, endMinuteOfDay);
     const remainingMinutes = endTime
         ? calcScheduledWorkMinutes(_dailyCapacityPeriods, remainingStartMinute, endMinuteOfDay)
         : null;
@@ -862,12 +867,18 @@ export function calculateDailyCapacityUI() {
     const numberFormat = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
     totalEl.textContent = capacity.total.toLocaleString(undefined, numberFormat);
     perHourEl.textContent = capacity.perHour.toLocaleString(undefined, numberFormat);
-    const recoveryInputValid = targetHourlyRaw !== '' && Number.isFinite(targetHourlyOutput) && targetHourlyOutput > 0
-        && targetDailyOutput !== null
-        && remainingMinutes !== null;
-    const remainingHours = recoveryInputValid ? remainingMinutes / 60 : null;
-    const progress = recoveryInputValid
-        ? calcRecoveryProgress(capacity.perHour, capacity.total, targetDailyOutput, targetHourlyOutput, Math.max(workMinutes / 60, remainingHours), remainingHours)
+    const targetDailyOutput = capacity.total;
+    const targetHourlyOutput = capacity.perHour;
+    const actualOutput = actualSummary?.actualTotal ?? 0;
+    const actualHours = (actualSummary?.actualWorkMinutes ?? 0) / 60;
+    const actualPerHour = actualHours > 0 ? actualOutput / actualHours : 0;
+    const remainingHours = remainingMinutes === null ? null : remainingMinutes / 60;
+    const progress = targetDailyOutput > 0 && targetHourlyOutput > 0 && remainingHours !== null
+        ? {
+            dailyGap: targetDailyOutput - actualOutput,
+            hourlyGap: targetHourlyOutput - actualPerHour,
+            deficit: Math.max(0, Math.ceil(targetDailyOutput - actualOutput - 1e-9)),
+        }
         : null;
     if (!progress) { clearRecovery(); return; }
     document.getElementById('capacityCurrentDeficit').textContent = progress.dailyGap.toLocaleString(undefined, numberFormat);

@@ -44,8 +44,7 @@ RECALC_IDS.forEach(id => {
 });
 document.getElementById('tsErrorInput')?.addEventListener('input', () => tsRecalculate());
 document.getElementById('swRoundsInput')?.addEventListener('input', () => swSetSingleRounds());
-['capacitySamInput', 'capacityEfficiencyInput', 'capacityEndTimeInput', 'capacityWorkersInput',
-    'capacityTargetHourlyInput'].forEach(id => {
+['capacitySamInput', 'capacityEfficiencyInput', 'capacityEndTimeInput', 'capacityWorkersInput'].forEach(id => {
     document.getElementById(id)?.addEventListener('input', () => {
         calculateDailyCapacityUI();
         saveDailyCapacityInputs();
@@ -57,9 +56,15 @@ document.getElementById('dailyCapacityScheduleBody')?.addEventListener('input', 
 });
 document.getElementById('dailyCapacityTableBody')?.addEventListener('input', event => {
     if (event.target.matches('[data-capacity-actual]')) {
-        calculateDailyCapacityUI();
         saveDailyCapacityInputs();
+        calculateDailyCapacityUI();
     }
+});
+document.getElementById('dailyCapacityTableBody')?.addEventListener('change', event => {
+    if (event.target.matches('[data-capacity-actual]')) saveDailyCapacityInputs();
+});
+window.addEventListener('pagehide', () => {
+    if (document.getElementById('dailyCapacityPanel')?.style.display !== 'none') saveDailyCapacityInputs();
 });
 ['dailyCapacityEff100Toggle', 'dailyCapacityEffToggle'].forEach(id => {
     document.getElementById(id)?.addEventListener('click', event => {

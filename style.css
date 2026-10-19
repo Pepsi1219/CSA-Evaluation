@@ -3222,12 +3222,12 @@ body.boot-login .container { visibility: hidden; }
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--sp-4);
 }
-.daily-capacity-grid > .input-group { margin-bottom: 0; }
+.daily-capacity-grid > .input-group { gap: var(--sp-1); margin-bottom: 0; }
 .daily-capacity-grid > .input-group > label,
 .daily-capacity-grid > .input-group > .label-row {
     display: flex;
     align-items: center;
-    min-height: 44px;
+    min-height: 32px;
     margin: 0;
 }
 .daily-capacity-grid > .input-group > .label-row { flex-wrap: nowrap; justify-content: space-between; }
@@ -3320,7 +3320,7 @@ body.boot-login .container { visibility: hidden; }
 .daily-capacity-chart-swatch { width: 14px; height: 3px; border-radius: 2px; background: var(--chart-eff-100); }
 .daily-capacity-chart-swatch.is-eff { background: var(--chart-eff-80); }
 .daily-capacity-chart-swatch.is-actual { background: var(--chart-actual); }
-.daily-capacity-chart { width: 100%; min-width: 0; }
+.daily-capacity-chart { width: calc(100% + 40px); min-width: 0; margin-left: -20px; }
 .daily-capacity-chart svg { display: block; width: 100%; height: 280px; overflow: visible; }
 .daily-capacity-chart-gridline { stroke: var(--border); stroke-dasharray: 3 4; stroke-width: 1; }
 .daily-capacity-chart-axis { stroke: var(--text-3); stroke-width: 1; }
@@ -3504,10 +3504,7 @@ body.boot-login .container { visibility: hidden; }
 }
 .capacity-recovery h3 { margin: 0 0 6px; color: var(--text-1); font-size: 17px; }
 .capacity-recovery-hint { display: block; margin-top: 5px; color: var(--text-3); font-size: 12px; line-height: 1.45; }
-.capacity-recovery-targets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
-.capacity-recovery-targets .input-group { min-width: 0; }
-.capacity-target-label { display: flex; align-items: center; min-height: 44px; margin-left: 2px; color: var(--text-2); font-size: 12px; font-weight: 600; }
-.capacity-target-derived-value { display: flex; align-items: center; min-height: 0; cursor: default; font-variant-numeric: tabular-nums; font-weight: 700; }
+.capacity-recovery-target-source { margin: 0 0 12px; color: var(--text-3); font-size: 12px; line-height: 1.4; }
 .capacity-recovery-time-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
 .capacity-recovery-time-field { display: flex; align-items: center; min-width: 0; gap: 6px; }
 .capacity-recovery-time-field .glass-input { min-width: 0; padding-right: var(--sp-2); text-align: center; }
@@ -3535,7 +3532,6 @@ body.boot-login .container { visibility: hidden; }
 @media (max-width: 560px) {
     .daily-capacity-grid { gap: var(--sp-3); }
     .capacity-recovery .daily-capacity-grid { grid-template-columns: 1fr; }
-    .capacity-recovery-targets { gap: var(--sp-2); }
     .capacity-recovery-progress { grid-template-columns: 1fr; }
     .daily-capacity-panel { padding-left: 0; padding-right: 0; }
 }

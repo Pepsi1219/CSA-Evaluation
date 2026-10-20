@@ -702,12 +702,14 @@ export function toolsBack() {
 }
 
 export function openDailyCapacityTool() {
+    if (document.getElementById('toolsModal')?.style.display === 'none') openToolsModal();
     _restoreDailyCapacityInputs();
     _setToolsPage('capacity');
     calculateDailyCapacityUI();
 }
 
 export function openManpowerTool() {
+    if (document.getElementById('toolsModal')?.style.display === 'none') openToolsModal();
     _restoreManpowerInputs();
     _setToolsPage('manpower');
     calculateManpowerUI();

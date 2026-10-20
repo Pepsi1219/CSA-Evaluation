@@ -3115,7 +3115,9 @@ body.boot-login .container { visibility: hidden; }
     font-size: 12px;
     font-weight: 500;
     line-height: 1.4;
-    white-space: nowrap;
+    align-self: stretch;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 .ie-flow-help-btn {
     position: absolute;

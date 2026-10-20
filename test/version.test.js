@@ -11,7 +11,8 @@ const read = f => fs.readFileSync(path.join(root, f), 'utf8');
 
 // version.js is the single source of truth. There is no build step, so a few
 // artifacts must physically carry the version string too (the service-worker
-// cache name, package.json, the footer fallback). These tests fail `npm test`
+// cache name, package metadata and lockfile, and the footer fallback).
+// These tests fail `npm test`
 // the moment any of them drift from APP_VERSION — which is exactly the bug
 // (CSV showed v1.13.0 while the app was v1.14.0) this guards against.
 

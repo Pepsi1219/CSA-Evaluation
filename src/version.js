@@ -1,17 +1,16 @@
 // ============================================================
 // VERSION — single source of truth for the app version string.
 // Consumed by:
-//   - script.js → footer text (#appVersion) + CSV export "App version" row
-//   - sw.js     → CACHE name literal (kept in sync, enforced by the test below)
-//   - test/version.test.js → fails `npm test` if package.json / sw.js drift
+//   - main.js → footer text (#appVersion); app.js → CSV export version row
+//   - src/sw.js → CACHE name literal, kept in sync by test/version.test.js
+//   - index.html footer fallback, package.json, and package-lock.json
 //
-// Bump APP_VERSION on every deploy that changes shipped assets, and bump the
-// matching `csa-vX.Y.Z` literal in public/sw.js so old clients drop their stale
-// cache (see CLAUDE.md). The version test guarantees the two never disagree.
+// Increment the patch segment for every app change and synchronize every
+// mirror above; test/version.test.js verifies that they all match.
 // Imported by main.js (footer), app.js (CSV row); test/version.test.js reads it.
 // ============================================================
 
-export const APP_VERSION = '1.30.7';
+export const APP_VERSION = '1.30.8';
 
 // Also expose as a global on the SW's self object so the service worker
 // (which is not an ES module here) can reference it. No-op in Node tests

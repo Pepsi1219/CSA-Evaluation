@@ -2,7 +2,7 @@
   "name": "csa-evaluation-calculator",
   "private": true,
   "type": "module",
-  "version": "1.30.7",
+  "version": "1.30.8",
   "description": "CSA Evaluation Calculator — Vite-built PWA. Displays as \"Industrial Engineering Calculator\".",
   "scripts": {
     "dev": "vite",

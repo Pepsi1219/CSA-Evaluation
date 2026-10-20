@@ -36,6 +36,21 @@ function calcDailyCapacity(samMinutes, effPercent, workingMinutes, workers) {
     return { perHour, total };
 }
 
+function calcRequiredManpower(demand, standardTime, availableTime, efficiencyRatio) {
+    if (!Number.isSafeInteger(demand) || ![standardTime, availableTime, efficiencyRatio].every(value =>
+        Number.isFinite(value) && value > 0)) return null;
+    const workContent = demand * standardTime;
+    const effectiveAvailableTime = availableTime * efficiencyRatio;
+    const required = workContent / effectiveAvailableTime;
+    if (![workContent, effectiveAvailableTime, required].every(Number.isFinite)) return null;
+    return {
+        workContent,
+        effectiveAvailableTime,
+        required,
+        headcount: Math.ceil(required),
+    };
+}
+
 function randomizeTargetPieces(targetPieces, mode, belowMaxPercent, aboveMaxPercent, random = Math.random) {
     if (!(targetPieces >= 0) || !Number.isFinite(targetPieces)
         || !['below', 'above', 'mixed'].includes(mode)
@@ -195,6 +210,7 @@ export {
     parseNum,
     pcsFromEff,
     calcDailyCapacity,
+    calcRequiredManpower,
     randomizeTargetPieces,
     calcScheduledWorkMinutes,
     calcDailyTarget,

@@ -11,7 +11,9 @@ import {
     calculateAll, tsRecalculate,
     exportCSV, printReport, pwaInstall, toggleTheme,
     openSettingsModal, openResultPrecisionModal, resetForm, setSamUnit, closeActionsMenu, scrollToTop,
-    openToolsModal, closeToolsModal, toolsBack, openDailyCapacityTool,
+    openToolsModal, closeToolsModal, toolsBack, openDailyCapacityTool, openManpowerTool, clearManpowerData,
+    calculateManpowerUI, saveManpowerInputs,
+    setManpowerSamUnit,
     setDailyCapacitySamUnit, calculateDailyCapacityUI,
     saveDailyCapacityInputs, clearDailyCapacityData, scrollDailyCapacityPage,
     openDailyCapacityConfig, closeDailyCapacityConfig, setDailyCapacityPeriod,
@@ -50,6 +52,12 @@ document.getElementById('swRoundsInput')?.addEventListener('input', () => swSetS
     document.getElementById(id)?.addEventListener('input', () => {
         calculateDailyCapacityUI();
         saveDailyCapacityInputs();
+    });
+});
+['manpowerDemandInput', 'manpowerStandardTimeInput', 'manpowerAvailableTimeInput', 'manpowerEfficiencyInput'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', () => {
+        calculateManpowerUI();
+        saveManpowerInputs();
     });
 });
 document.getElementById('dailyCapacityScheduleBody')?.addEventListener('input', event => {
@@ -95,6 +103,7 @@ document.getElementById('dailyCapacityRandomModal')?.addEventListener('click', e
 });
 window.addEventListener('pagehide', () => {
     if (document.getElementById('dailyCapacityPanel')?.style.display !== 'none') saveDailyCapacityInputs();
+    if (document.getElementById('manpowerPanel')?.style.display !== 'none') saveManpowerInputs();
 });
 ['dailyCapacityEff100Toggle', 'dailyCapacityEffToggle'].forEach(id => {
     document.getElementById(id)?.addEventListener('click', event => {
@@ -147,6 +156,9 @@ const ACTIONS = {
     'mobile-home':  () => scrollToTop(),
     'tools-back':   () => toolsBack(),
     'daily-capacity-open': () => openDailyCapacityTool(),
+    'manpower-open': () => openManpowerTool(),
+    'manpower-clear': () => clearManpowerData(),
+    'manpower-sam-unit': arg => setManpowerSamUnit(arg),
     'daily-capacity-clear': () => clearDailyCapacityData(),
     'daily-capacity-scroll-top': () => scrollDailyCapacityPage('top'),
     'daily-capacity-scroll-bottom': () => scrollDailyCapacityPage('bottom'),

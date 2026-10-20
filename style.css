@@ -3177,9 +3177,31 @@ body.boot-login .container { visibility: hidden; }
     text-align: center;
 }
 .tools-menu-panel,
-.daily-capacity-panel { padding: 12px 20px 24px; }
+.daily-capacity-panel,
+.manpower-panel { padding: 12px 20px 24px; }
+.tools-menu-panel { flex-direction: column; gap: 12px; }
+.manpower-panel { color: var(--text-1); }
+.manpower-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
+.manpower-grid > .input-group { gap: var(--sp-1); margin: 0; }
+.manpower-grid > .input-group > label,
+.manpower-grid > .input-group > .label-row { display: flex; align-items: center; min-height: 32px; margin: 0; }
+.manpower-grid > .input-group > .label-row { flex-wrap: nowrap; justify-content: space-between; }
+.manpower-grid > .input-group > .label-row label { margin-left: 2px; }
+.manpower-formula { display: grid; gap: 8px; margin-top: 18px; padding: 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
+.manpower-equation-scroll { width: 100%; overflow-x: auto; }
+.manpower-equation { min-width: max-content; margin: 4px auto; color: var(--text-1); font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif; font-size: 30px; }
+.manpower-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.manpower-result-detail,
+.manpower-result-main { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
+.manpower-result-detail > span,
+.manpower-result-main > span { color: var(--text-2); font-size: 12px; line-height: 1.4; }
+.manpower-result-detail strong,
+.manpower-result-main strong { margin-left: auto; color: var(--text-1); font-size: 16px; font-variant-numeric: tabular-nums; text-align: right; }
+.manpower-result-main { border-color: var(--accent-300); background: var(--accent-50); }
+.manpower-result-main strong { color: var(--accent-700); font-size: 24px; }
+.manpower-balance-note { margin: 14px 0 0; color: var(--text-2); font-size: 12px; line-height: 1.5; }
 .tools-page-intro {
-    margin: 0 0 14px;
+    margin: 0;
     color: var(--text-2);
     font-size: 14px;
     line-height: 1.5;
@@ -3566,7 +3588,9 @@ body.boot-login .container { visibility: hidden; }
     .daily-capacity-grid { gap: var(--sp-3); }
     .capacity-recovery .daily-capacity-grid { grid-template-columns: 1fr; }
     .capacity-recovery-progress { grid-template-columns: 1fr; }
-    .daily-capacity-panel { padding-left: 0; padding-right: 0; }
+    .daily-capacity-panel,
+    .manpower-panel { padding-left: 0; padding-right: 0; }
+    .manpower-results { grid-template-columns: 1fr; }
 }
 .ie-sam-visually-hidden {
     position: absolute;

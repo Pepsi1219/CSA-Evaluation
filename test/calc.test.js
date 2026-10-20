@@ -10,6 +10,7 @@ import {
     calcPassRate,
     calcTrainingDay,
     calcDailyCapacity,
+    calcRequiredManpower,
     calcScheduledWorkMinutes,
     randomizeTargetPieces,
     calcDailyTarget,
@@ -77,6 +78,26 @@ test('calcDailyCapacity', async t => {
         assert.deepEqual(calcDailyCapacity(0.5, 0, 480, 10), { perHour: 0, total: 0 });
         assert.deepEqual(calcDailyCapacity(0.5, 100, 0, 10), { perHour: 0, total: 0 });
         assert.deepEqual(calcDailyCapacity(0.5, 100, 480, 0), { perHour: 0, total: 0 });
+    });
+});
+
+test('calcRequiredManpower', async t => {
+    await t.test('calculates work content, effective time, and rounds headcount up', () => {
+        assert.deepEqual(calcRequiredManpower(1000, 2.5, 480, 0.85), {
+            workContent: 2500,
+            effectiveAvailableTime: 408,
+            required: 2500 / 408,
+            headcount: 7,
+        });
+    });
+    await t.test('does not add a worker when the required count is already whole', () => {
+        assert.equal(calcRequiredManpower(4, 2, 480, 1).headcount, 1);
+    });
+    await t.test('returns null for non-positive, invalid, or overflowing inputs', () => {
+        assert.equal(calcRequiredManpower(0, 2, 480, 0.85), null);
+        assert.equal(calcRequiredManpower(1.5, 2, 480, 0.85), null);
+        assert.equal(calcRequiredManpower(100, 2, 480, 0), null);
+        assert.equal(calcRequiredManpower(1e308, 2, 480, 0.85), null);
     });
 });
 

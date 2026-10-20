@@ -9,7 +9,7 @@
 // ============================================================
 import { APP_VERSION } from './version.js';
 import {
-    parseNum, pcsFromEff, calcDailyCapacity, calcScheduledWorkMinutes, calcRecoveryProgress, calcCapacityRecovery, randomizeTargetPieces, calcAvgMin, calcActualEff,
+    parseNum, pcsFromEff, calcDailyCapacity, calcRequiredManpower, calcScheduledWorkMinutes, calcRecoveryProgress, calcCapacityRecovery, randomizeTargetPieces, calcAvgMin, calcActualEff,
     newSamFromEff, calcActualPcsPerHr, calcPassRate, calcTrainingDay,
 } from './calc.js';
 import {
@@ -272,11 +272,13 @@ export function closeStopwatchModal() {
 // ---- Tools menu / daily-capacity calculator ----
 let _toolsReturnFocus = null;
 let _dailyCapacitySamUnit = 'min';
+let _manpowerSamUnit = 'min';
 let _dailyCapacityClockTimer = null;
 let _dailyCapacityTimeMenuPart = null;
 let _dailyCapacityTimeMenuTrigger = null;
 let _dailyCapacityRandomTrigger = null;
 const DAILY_CAPACITY_INPUTS_KEY = 'csa_daily_capacity_inputs_v1';
+const MANPOWER_INPUTS_KEY = 'csa_manpower_inputs_v1';
 const DAILY_CAPACITY_DEFAULT_PERIODS = Object.freeze([60, 60, 60, 30, 30, 60, 60, 60, 60, 30, 60, 30]);
 let _dailyCapacityPeriods = [...DAILY_CAPACITY_DEFAULT_PERIODS];
 let _dailyCapacityActual = Array(DAILY_CAPACITY_DEFAULT_PERIODS.length).fill('');
@@ -528,10 +530,105 @@ function _updateDailyCapacityClock() {
     calculateDailyCapacityUI();
 }
 
+function _restoreManpowerInputs() {
+    let saved;
+    try {
+        saved = JSON.parse(localStorage.getItem(MANPOWER_INPUTS_KEY) || 'null');
+    } catch {
+        return;
+    }
+    if (!saved || typeof saved !== 'object') return;
+    for (const [key, id] of Object.entries({
+        demand: 'manpowerDemandInput',
+        standardTime: 'manpowerStandardTimeInput',
+        availableTime: 'manpowerAvailableTimeInput',
+        efficiency: 'manpowerEfficiencyInput',
+    })) {
+        const input = document.getElementById(id);
+        if (typeof saved[key] === 'string' && input) input.value = saved[key];
+    }
+    if (saved.samUnit === 'min' || saved.samUnit === 'sec') _manpowerSamUnit = saved.samUnit;
+    document.querySelectorAll('[data-action="manpower-sam-unit"]').forEach(button => {
+        button.classList.toggle('active', button.dataset.arg === _manpowerSamUnit);
+    });
+}
+
+export function saveManpowerInputs() {
+    try {
+        localStorage.setItem(MANPOWER_INPUTS_KEY, JSON.stringify({
+            demand: document.getElementById('manpowerDemandInput')?.value ?? '',
+            standardTime: document.getElementById('manpowerStandardTimeInput')?.value ?? '',
+            samUnit: _manpowerSamUnit,
+            availableTime: document.getElementById('manpowerAvailableTimeInput')?.value ?? '',
+            efficiency: document.getElementById('manpowerEfficiencyInput')?.value ?? '',
+        }));
+    } catch {
+        // Storage may be unavailable in private browsing or when full.
+    }
+}
+
+export function calculateManpowerUI() {
+    const demand = parseNum(document.getElementById('manpowerDemandInput')?.value);
+    const standardTimeValue = parseNum(document.getElementById('manpowerStandardTimeInput')?.value);
+    const standardTimeMinutes = _manpowerSamUnit === 'sec' ? standardTimeValue / 60 : standardTimeValue;
+    const availableTime = parseNum(document.getElementById('manpowerAvailableTimeInput')?.value);
+    const efficiencyPercent = parseNum(document.getElementById('manpowerEfficiencyInput')?.value);
+    const efficiency = efficiencyPercent / 100;
+    const setFormulaValue = (id, value, symbol) => {
+        const slot = document.getElementById(id);
+        const node = document.createElementNS('http://www.w3.org/1998/Math/MathML', Number.isFinite(value) ? 'mn' : 'mi');
+        node.textContent = Number.isFinite(value)
+            ? value.toLocaleString(undefined, { maximumFractionDigits: 3 })
+            : symbol;
+        if (!Number.isFinite(value) && symbol.length > 1) node.setAttribute('mathvariant', 'italic');
+        slot.replaceChildren(node);
+    };
+    setFormulaValue('manpowerFormulaDemand', demand, 'D');
+    setFormulaValue('manpowerFormulaSam', standardTimeMinutes, 'ST');
+    setFormulaValue('manpowerFormulaAvailableTime', availableTime, 'A');
+    setFormulaValue('manpowerFormulaEfficiency', efficiency, 'Eff');
+    const result = calcRequiredManpower(
+        demand,
+        standardTimeMinutes,
+        availableTime,
+        efficiency,
+    );
+    const resultIds = ['manpowerWorkContent', 'manpowerEffectiveTime', 'manpowerRequiredExact', 'manpowerHeadcount'];
+    if (!result) {
+        resultIds.forEach(id => { document.getElementById(id).textContent = '—'; });
+        return;
+    }
+    const format = value => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    document.getElementById('manpowerWorkContent').textContent = format(result.workContent);
+    document.getElementById('manpowerEffectiveTime').textContent = format(result.effectiveAvailableTime);
+    document.getElementById('manpowerRequiredExact').textContent = format(result.required);
+    document.getElementById('manpowerHeadcount').textContent = result.headcount.toLocaleString();
+}
+
+export function setManpowerSamUnit(unit) {
+    if (unit !== 'min' && unit !== 'sec') return;
+    if (unit !== _manpowerSamUnit) {
+        const input = document.getElementById('manpowerStandardTimeInput');
+        const raw = parseNum(input?.value);
+        if (input && Number.isFinite(raw)) {
+            input.value = trimNum(unit === 'sec' ? raw * 60 : raw / 60);
+        }
+    }
+    _manpowerSamUnit = unit;
+    document.querySelectorAll('[data-action="manpower-sam-unit"]').forEach(button => {
+        button.classList.toggle('active', button.dataset.arg === unit);
+    });
+    saveManpowerInputs();
+    calculateManpowerUI();
+}
+
 function _setToolsPage(page) {
     const showCapacity = page === 'capacity';
+    const showManpower = page === 'manpower';
     const capacityPanel = document.getElementById('dailyCapacityPanel');
+    const manpowerPanel = document.getElementById('manpowerPanel');
     if (!showCapacity && capacityPanel?.style.display !== 'none') saveDailyCapacityInputs();
+    if (!showManpower && manpowerPanel?.style.display !== 'none') saveManpowerInputs();
     if (!showCapacity) closeDailyCapacityTimeMenu();
     if (!showCapacity) closeDailyCapacityRandomModal(false);
     const menuPanel = document.getElementById('toolsMenuPanel');
@@ -539,15 +636,19 @@ function _setToolsPage(page) {
     const clock = document.getElementById('dailyCapacityClock');
     const clockGroup = document.getElementById('dailyCapacityClockGroup');
     const footerActions = document.getElementById('dailyCapacityFooterActions');
-    if (menuPanel) menuPanel.style.display = showCapacity ? 'none' : '';
+    const manpowerClearButton = document.getElementById('manpowerClearButton');
+    if (menuPanel) menuPanel.style.display = showCapacity || showManpower ? 'none' : 'flex';
     if (capacityPanel) capacityPanel.style.display = showCapacity ? '' : 'none';
+    if (manpowerPanel) manpowerPanel.style.display = showManpower ? '' : 'none';
     if (clock) {
         clock.setAttribute('aria-hidden', showCapacity ? 'false' : 'true');
     }
     if (clockGroup) clockGroup.style.visibility = showCapacity ? 'visible' : 'hidden';
-    if (footerActions) footerActions.style.display = showCapacity ? 'flex' : 'none';
+    if (footerActions) footerActions.style.display = showCapacity || showManpower ? 'flex' : 'none';
+    if (manpowerClearButton) manpowerClearButton.style.display = showManpower ? '' : 'none';
+    footerActions?.querySelector('[data-action="daily-capacity-clear"]')?.style.setProperty('display', showCapacity ? '' : 'none');
     if (title) {
-        title.dataset.key = showCapacity ? 'daily_capacity_title' : 'tools_title';
+        title.dataset.key = showCapacity ? 'daily_capacity_title' : showManpower ? 'manpower_title' : 'tools_title';
         title.textContent = t(title.dataset.key);
     }
     if (showCapacity) {
@@ -574,6 +675,7 @@ export function openToolsModal() {
 export function closeToolsModal() {
     const modal = document.getElementById('toolsModal');
     if (document.getElementById('dailyCapacityPanel')?.style.display !== 'none') saveDailyCapacityInputs();
+    if (document.getElementById('manpowerPanel')?.style.display !== 'none') saveManpowerInputs();
     closeDailyCapacityRandomModal(false);
     if (modal) modal.style.display = 'none';
     document.getElementById('dailyCapacityConfig').style.display = 'none';
@@ -590,7 +692,8 @@ export function closeToolsModal() {
 
 export function toolsBack() {
     const capacityPanel = document.getElementById('dailyCapacityPanel');
-    if (capacityPanel?.style.display !== 'none') {
+    const manpowerPanel = document.getElementById('manpowerPanel');
+    if (capacityPanel?.style.display !== 'none' || manpowerPanel?.style.display !== 'none') {
         _setToolsPage('menu');
         document.querySelector('#toolsMenuPanel .tools-card')?.focus({ preventScroll: true });
         return;
@@ -601,6 +704,29 @@ export function toolsBack() {
 export function openDailyCapacityTool() {
     _restoreDailyCapacityInputs();
     _setToolsPage('capacity');
+    calculateDailyCapacityUI();
+}
+
+export function openManpowerTool() {
+    _restoreManpowerInputs();
+    _setToolsPage('manpower');
+    calculateManpowerUI();
+    document.getElementById('manpowerDemandInput')?.focus({ preventScroll: true });
+}
+
+export function clearManpowerData() {
+    showConfirm(t('manpower_clear_title'), t('manpower_clear_confirm'), () => {
+        document.getElementById('manpowerDemandInput').value = '';
+        document.getElementById('manpowerStandardTimeInput').value = '';
+        document.getElementById('manpowerAvailableTimeInput').value = '480';
+        document.getElementById('manpowerEfficiencyInput').value = '80';
+        _manpowerSamUnit = 'min';
+        document.querySelectorAll('[data-action="manpower-sam-unit"]').forEach(button => {
+            button.classList.toggle('active', button.dataset.arg === 'min');
+        });
+        try { localStorage.removeItem(MANPOWER_INPUTS_KEY); } catch {}
+        calculateManpowerUI();
+    });
 }
 
 function _restoreDailyCapacityInputs() {
@@ -998,8 +1124,9 @@ export function calculateDailyCapacityUI() {
     }
     const capacity = calcDailyCapacity(samMinutes, efficiency, workMinutes, workerValue);
     const numberFormat = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-    totalEl.textContent = capacity.total.toLocaleString(undefined, numberFormat);
-    perHourEl.textContent = capacity.perHour.toLocaleString(undefined, numberFormat);
+    const wholeNumberFormat = { maximumFractionDigits: 0 };
+    totalEl.textContent = capacity.total.toLocaleString(undefined, wholeNumberFormat);
+    perHourEl.textContent = capacity.perHour.toLocaleString(undefined, wholeNumberFormat);
     const targetDailyOutput = capacity.total;
     const targetHourlyOutput = capacity.perHour;
     const actualOutput = actualSummary?.actualTotal ?? 0;

@@ -12,6 +12,7 @@ import {
     exportCSV, printReport, pwaInstall, toggleTheme,
     openSettingsModal, openResultPrecisionModal, resetForm, setSamUnit, closeActionsMenu, scrollToTop,
     openToolsModal, closeToolsModal, toolsBack, openDailyCapacityTool, openManpowerTool, clearManpowerData,
+    openRestTimeTool, calculateRestTimeUI, saveRestTimeInputs, clearRestTimeData, setRestTimeSamUnit,
     calculateManpowerUI, saveManpowerInputs,
     setManpowerSamUnit,
     setDailyCapacitySamUnit, calculateDailyCapacityUI,
@@ -60,6 +61,12 @@ document.getElementById('swRoundsInput')?.addEventListener('input', () => swSetS
         saveManpowerInputs();
     });
 });
+['restTimeSamInput', 'restTimeAllowanceInput', 'restTimeWorkInput', 'restTimeAmvInput'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', () => {
+        calculateRestTimeUI();
+        saveRestTimeInputs();
+    });
+});
 document.getElementById('dailyCapacityScheduleBody')?.addEventListener('input', event => {
     const input = event.target.closest('[data-capacity-period]');
     if (input) setDailyCapacityPeriod(Number(input.dataset.capacityPeriod), input.value);
@@ -104,6 +111,7 @@ document.getElementById('dailyCapacityRandomModal')?.addEventListener('click', e
 window.addEventListener('pagehide', () => {
     if (document.getElementById('dailyCapacityPanel')?.style.display !== 'none') saveDailyCapacityInputs();
     if (document.getElementById('manpowerPanel')?.style.display !== 'none') saveManpowerInputs();
+    if (document.getElementById('restTimePanel')?.style.display !== 'none') saveRestTimeInputs();
 });
 ['dailyCapacityEff100Toggle', 'dailyCapacityEffToggle'].forEach(id => {
     document.getElementById(id)?.addEventListener('click', event => {
@@ -158,6 +166,9 @@ const ACTIONS = {
     'daily-capacity-open': () => openDailyCapacityTool(),
     'manpower-open': () => openManpowerTool(),
     'manpower-clear': () => clearManpowerData(),
+    'rest-time-open': () => openRestTimeTool(),
+    'rest-time-clear': () => clearRestTimeData(),
+    'rest-time-sam-unit': arg => setRestTimeSamUnit(arg),
     'manpower-sam-unit': arg => setManpowerSamUnit(arg),
     'daily-capacity-clear': () => clearDailyCapacityData(),
     'daily-capacity-scroll-top': () => scrollDailyCapacityPage('top'),

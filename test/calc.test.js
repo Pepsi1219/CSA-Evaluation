@@ -10,6 +10,7 @@ import {
     calcPassRate,
     calcTrainingDay,
     calcDailyCapacity,
+    calcRestTime,
     calcRequiredManpower,
     calcScheduledWorkMinutes,
     randomizeTargetPieces,
@@ -78,6 +79,35 @@ test('calcDailyCapacity', async t => {
         assert.deepEqual(calcDailyCapacity(0.5, 0, 480, 10), { perHour: 0, total: 0 });
         assert.deepEqual(calcDailyCapacity(0.5, 100, 0, 10), { perHour: 0, total: 0 });
         assert.deepEqual(calcDailyCapacity(0.5, 100, 480, 0), { perHour: 0, total: 0 });
+    });
+});
+
+test('calcRestTime', async t => {
+    await t.test('calculates hourly rest and shift total from target output', () => {
+        const result = calcRestTime(1, 0, 480, 55);
+        assert.equal(result.restMinutesPerHour, 5);
+        assert.equal(result.restMinutesForShift, 40);
+        assert.equal(result.productionMinutesPerHour, 55);
+        assert.equal(result.actualPerHour, 3600 / 55);
+        assert.equal(result.targetPiecesForShift, 480);
+        assert.equal(result.targetMet, true);
+        assert.equal(result.standardPerHour, 60);
+    });
+    await t.test('includes allowance in the SAM reference rate', () => {
+        const result = calcRestTime(1, 10, 60, 55);
+        assert.equal(result.standardPerHour, 60 / 1.1);
+        assert.ok(Math.abs(result.restMinutesPerHour - 10) < 1e-10);
+    });
+    await t.test('reports no available rest when AMV cannot meet the SAM target', () => {
+        const result = calcRestTime(1, 0, 60, 70);
+        assert.equal(result.restMinutesPerHour, 0);
+        assert.equal(result.targetMet, false);
+    });
+    await t.test('returns null for invalid inputs', () => {
+        assert.equal(calcRestTime(0, 0, 60, 55), null);
+        assert.equal(calcRestTime(1, -1, 60, 55), null);
+        assert.equal(calcRestTime(1, 0, 0, 55), null);
+        assert.equal(calcRestTime(1, 0, 60, 0), null);
     });
 });
 

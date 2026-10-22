@@ -36,6 +36,29 @@ function calcDailyCapacity(samMinutes, effPercent, workingMinutes, workers) {
     return { perHour, total };
 }
 
+function calcRestTime(samMinutes, allowancePercent, workingMinutes, amvSeconds) {
+    if (!(samMinutes > 0) || !Number.isFinite(samMinutes)
+        || !(allowancePercent >= 0) || !Number.isFinite(allowancePercent)
+        || !(workingMinutes > 0) || !Number.isFinite(workingMinutes)
+        || !(amvSeconds > 0) || !Number.isFinite(amvSeconds)) return null;
+    const standardPerHour = 60 / (samMinutes * (1 + allowancePercent / 100));
+    const actualPerHour = 3600 / amvSeconds;
+    const productionMinutesPerHour = Math.min(60, standardPerHour * amvSeconds / 60);
+    const restMinutesPerHour = 60 - productionMinutesPerHour;
+    const shiftHours = workingMinutes / 60;
+    if (![standardPerHour, actualPerHour, productionMinutesPerHour, restMinutesPerHour, shiftHours]
+        .every(Number.isFinite)) return null;
+    return {
+        standardPerHour,
+        actualPerHour,
+        productionMinutesPerHour,
+        restMinutesPerHour,
+        restMinutesForShift: restMinutesPerHour * shiftHours,
+        targetPiecesForShift: standardPerHour * shiftHours,
+        targetMet: actualPerHour >= standardPerHour,
+    };
+}
+
 function calcRequiredManpower(demand, standardTime, availableTime, efficiencyRatio) {
     if (!Number.isSafeInteger(demand) || ![standardTime, availableTime, efficiencyRatio].every(value =>
         Number.isFinite(value) && value > 0)) return null;
@@ -210,6 +233,7 @@ export {
     parseNum,
     pcsFromEff,
     calcDailyCapacity,
+    calcRestTime,
     calcRequiredManpower,
     randomizeTargetPieces,
     calcScheduledWorkMinutes,

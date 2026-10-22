@@ -372,7 +372,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · <span id="appVersion">v1.30.8</span></p>
+    <p>© CSA Evaluation · <span id="appVersion">v1.30.12</span></p>
 </footer>
 
 <!-- ============ Mobile bottom navigation ============ -->
@@ -1011,6 +1011,17 @@
                 </span>
                 <svg class="tools-card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
             </button>
+            <button type="button" class="tools-card" data-action="rest-time-open">
+                <span class="tools-card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+                        <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M5.6 5.6 4 4"/>
+                    </svg>
+                </span>
+                <span class="tools-card-copy">
+                    <span class="tools-card-title lang-text" data-key="rest_time_title">Rest Time</span>
+                </span>
+                <svg class="tools-card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
         </section>
 
         <section class="daily-capacity-panel" id="dailyCapacityPanel" style="display:none;">
@@ -1165,6 +1176,58 @@
                 </div>
             </div>
         </section>
+        <section class="rest-time-panel" id="restTimePanel" style="display:none;">
+            <div class="rest-time-grid">
+                <div class="input-group">
+                    <div class="label-row">
+                        <label for="restTimeSamInput" class="lang-text" data-key="rest_time_sam">SAM</label>
+                        <div class="unit-toggle-group" role="group" aria-label="SAM unit">
+                            <button type="button" class="unit-toggle-btn active" data-action="rest-time-sam-unit" data-arg="min"><span class="lang-text" data-key="unit_min">นาที</span></button>
+                            <button type="button" class="unit-toggle-btn" data-action="rest-time-sam-unit" data-arg="sec"><span class="lang-text" data-key="unit_sec">วินาที</span></button>
+                        </div>
+                    </div>
+                    <input type="text" id="restTimeSamInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="rest_time_sam">
+                </div>
+                <div class="input-group">
+                    <label for="restTimeAllowanceInput" class="lang-text" data-key="rest_time_allowance">Allowance (%)</label>
+                    <input type="text" id="restTimeAllowanceInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="15" data-numpad="decimal" data-numpad-label="rest_time_allowance">
+                </div>
+                <div class="input-group">
+                    <label class="lang-text" data-key="rest_time_standard_output">เป้าหมาย/ชั่วโมง จาก SAM + Allowance</label>
+                    <div class="rest-time-derived"><output id="restTimeStandardPerHour">—</output><span class="lang-text" data-key="rest_time_pieces_hour">ชิ้น/ชั่วโมง</span></div>
+                </div>
+                <div class="input-group">
+                    <label for="restTimeAmvInput" class="lang-text" data-key="rest_time_amv">AMV (วินาที/ชิ้น)</label>
+                    <input type="text" id="restTimeAmvInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="rest_time_amv">
+                </div>
+                <div class="input-group">
+                    <label for="restTimeWorkInput" class="lang-text" data-key="rest_time_work">เวลาทำงาน (นาที)</label>
+                    <input type="text" id="restTimeWorkInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="60" data-numpad="decimal" data-numpad-label="rest_time_work">
+                </div>
+                <div class="input-group">
+                    <label class="lang-text" data-key="rest_time_actual_output">เป้าหมาย/ชั่วโมง จาก AMV</label>
+                    <div class="rest-time-derived"><output id="restTimeActualPerHour">—</output><span class="lang-text" data-key="rest_time_pieces_hour">ชิ้น/ชั่วโมง</span></div>
+                </div>
+            </div>
+            <section class="rest-time-visual" aria-labelledby="restTimeVisualTitle">
+                <h3 id="restTimeVisualTitle" class="lang-text" data-key="rest_time_per_hour_title">เวลาในหนึ่งชั่วโมง</h3>
+                <div id="restTimeBar" class="rest-time-bar" role="img" data-key-aria-label="rest_time_bar_label" aria-label="สัดส่วนเวลาผลิตและเวลาพักต่อชั่วโมง">
+                    <span class="rest-time-bar-production"></span>
+                    <span class="rest-time-bar-rest"></span>
+                </div>
+                <div class="rest-time-legend">
+                    <div><i class="rest-time-swatch is-production" aria-hidden="true"></i><span class="lang-text" data-key="rest_time_production">เวลาผลิต</span><strong><span id="restTimeProductionPerHour">—</span> <span class="lang-text" data-key="rest_time_minutes">นาที</span></strong></div>
+                    <div><i class="rest-time-swatch is-rest" aria-hidden="true"></i><span class="lang-text" data-key="rest_time_rest">เวลาพัก</span><strong><span id="restTimePerHour">—</span> <span class="lang-text" data-key="rest_time_minutes">นาที</span></strong></div>
+                </div>
+            </section>
+            <p id="restTimeStatus" class="rest-time-status" role="status" aria-live="polite"></p>
+            <div class="rest-time-results" aria-live="polite">
+                <div class="rest-time-result-main">
+                    <span class="lang-text" data-key="rest_time_shift_total">เวลาพักรวมตามเวลาทำงาน</span>
+                    <strong><span id="restTimeShift">—</span> <span class="lang-text" data-key="rest_time_minutes">นาที</span></strong>
+                </div>
+            </div>
+        </section>
         <div id="dailyCapacityConfig" class="capacity-config-backdrop" style="display:none;" role="presentation">
             <section class="capacity-config-dialog" role="dialog" aria-modal="true" aria-labelledby="dailyCapacityConfigTitle">
                 <header class="capacity-config-header">
@@ -1227,6 +1290,7 @@
     <div id="dailyCapacityFooterActions" class="daily-capacity-footer-actions" style="display:none;">
         <button type="button" class="daily-capacity-clear-btn lang-text" data-action="daily-capacity-clear" data-key="daily_capacity_clear" data-key-title="daily_capacity_clear" data-key-aria-label="daily_capacity_clear" title="ล้างข้อมูลทั้งหมด" aria-label="ล้างข้อมูลทั้งหมด">ล้างข้อมูลทั้งหมด</button>
         <button type="button" id="manpowerClearButton" class="daily-capacity-clear-btn lang-text" data-action="manpower-clear" data-key="daily_capacity_clear" data-key-title="manpower_clear_title" data-key-aria-label="manpower_clear_title" title="ล้างข้อมูลกำลังคน" aria-label="ล้างข้อมูลกำลังคน" style="display:none;">ล้างข้อมูลทั้งหมด</button>
+        <button type="button" id="restTimeClearButton" class="daily-capacity-clear-btn lang-text" data-action="rest-time-clear" data-key="daily_capacity_clear" data-key-title="rest_time_clear_title" data-key-aria-label="rest_time_clear_title" title="ล้างข้อมูล Rest Time" aria-label="ล้างข้อมูล Rest Time" style="display:none;">ล้างข้อมูลทั้งหมด</button>
         <button type="button" class="daily-capacity-jump-btn" data-action="daily-capacity-scroll-top" data-key-title="daily_capacity_scroll_top" data-key-aria-label="daily_capacity_scroll_top" title="ขึ้นไปด้านบน" aria-label="ขึ้นไปด้านบน">↑</button>
         <button type="button" class="daily-capacity-jump-btn" data-action="daily-capacity-scroll-bottom" data-key-title="daily_capacity_scroll_bottom" data-key-aria-label="daily_capacity_scroll_bottom" title="ลงไปด้านล่าง" aria-label="ลงไปด้านล่าง">↓</button>
     </div>

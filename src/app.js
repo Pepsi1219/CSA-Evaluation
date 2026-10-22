@@ -9,7 +9,7 @@
 // ============================================================
 import { APP_VERSION } from './version.js';
 import {
-    parseNum, pcsFromEff, calcDailyCapacity, calcRequiredManpower, calcScheduledWorkMinutes, calcRecoveryProgress, calcCapacityRecovery, randomizeTargetPieces, calcAvgMin, calcActualEff,
+    parseNum, pcsFromEff, calcDailyCapacity, calcRestTime, calcRequiredManpower, calcScheduledWorkMinutes, calcRecoveryProgress, calcCapacityRecovery, randomizeTargetPieces, calcAvgMin, calcActualEff,
     newSamFromEff, calcActualPcsPerHr, calcPassRate, calcTrainingDay,
 } from './calc.js';
 import {
@@ -273,12 +273,14 @@ export function closeStopwatchModal() {
 let _toolsReturnFocus = null;
 let _dailyCapacitySamUnit = 'min';
 let _manpowerSamUnit = 'min';
+let _restTimeSamUnit = 'min';
 let _dailyCapacityClockTimer = null;
 let _dailyCapacityTimeMenuPart = null;
 let _dailyCapacityTimeMenuTrigger = null;
 let _dailyCapacityRandomTrigger = null;
 const DAILY_CAPACITY_INPUTS_KEY = 'csa_daily_capacity_inputs_v1';
 const MANPOWER_INPUTS_KEY = 'csa_manpower_inputs_v1';
+const REST_TIME_INPUTS_KEY = 'csa_rest_time_inputs_v1';
 const DAILY_CAPACITY_DEFAULT_PERIODS = Object.freeze([60, 60, 60, 30, 30, 60, 60, 60, 60, 30, 60, 30]);
 let _dailyCapacityPeriods = [...DAILY_CAPACITY_DEFAULT_PERIODS];
 let _dailyCapacityActual = Array(DAILY_CAPACITY_DEFAULT_PERIODS.length).fill('');
@@ -605,6 +607,121 @@ export function calculateManpowerUI() {
     document.getElementById('manpowerHeadcount').textContent = result.headcount.toLocaleString();
 }
 
+function _restoreRestTimeInputs() {
+    let saved;
+    try {
+        saved = JSON.parse(localStorage.getItem(REST_TIME_INPUTS_KEY) || 'null');
+    } catch {
+        return;
+    }
+    if (!saved || typeof saved !== 'object') return;
+    if (saved.samUnit === 'min' || saved.samUnit === 'sec') _restTimeSamUnit = saved.samUnit;
+    document.querySelectorAll('[data-action="rest-time-sam-unit"]').forEach(button => {
+        button.classList.toggle('active', button.dataset.arg === _restTimeSamUnit);
+    });
+    for (const [key, id] of Object.entries({
+        sam: 'restTimeSamInput',
+        allowance: 'restTimeAllowanceInput',
+        workTime: 'restTimeWorkInput',
+        amv: 'restTimeAmvInput',
+    })) {
+        const input = document.getElementById(id);
+        if (typeof saved[key] === 'string' && input) input.value = saved[key];
+    }
+}
+
+export function saveRestTimeInputs() {
+    try {
+        localStorage.setItem(REST_TIME_INPUTS_KEY, JSON.stringify({
+            sam: document.getElementById('restTimeSamInput')?.value ?? '',
+            samUnit: _restTimeSamUnit,
+            allowance: document.getElementById('restTimeAllowanceInput')?.value ?? '',
+            workTime: document.getElementById('restTimeWorkInput')?.value ?? '',
+            amv: document.getElementById('restTimeAmvInput')?.value ?? '',
+        }));
+    } catch {
+        // Storage may be unavailable in private browsing or when full.
+    }
+}
+
+export function calculateRestTimeUI() {
+    const result = calcRestTime(
+        _restTimeSamUnit === 'sec'
+            ? parseNum(document.getElementById('restTimeSamInput')?.value) / 60
+            : parseNum(document.getElementById('restTimeSamInput')?.value),
+        parseNum(document.getElementById('restTimeAllowanceInput')?.value),
+        parseNum(document.getElementById('restTimeWorkInput')?.value),
+        parseNum(document.getElementById('restTimeAmvInput')?.value),
+    );
+    const valueIds = ['restTimePerHour', 'restTimeShift', 'restTimeProductionPerHour',
+        'restTimeActualPerHour', 'restTimeStandardPerHour'];
+    const bar = document.getElementById('restTimeBar');
+    const status = document.getElementById('restTimeStatus');
+    if (!result) {
+        valueIds.forEach(id => { document.getElementById(id).textContent = '—'; });
+        if (bar) {
+            bar.style.setProperty('--rest-production-width', '0%');
+            bar.style.setProperty('--rest-break-width', '0%');
+        }
+        if (status) status.textContent = '';
+        return;
+    }
+    const format = value => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    document.getElementById('restTimePerHour').textContent = format(result.restMinutesPerHour);
+    document.getElementById('restTimeShift').textContent = format(result.restMinutesForShift);
+    document.getElementById('restTimeProductionPerHour').textContent = format(result.productionMinutesPerHour);
+    document.getElementById('restTimeActualPerHour').textContent = format(result.actualPerHour);
+    document.getElementById('restTimeStandardPerHour').textContent = format(result.standardPerHour);
+    if (bar) {
+        bar.style.setProperty('--rest-production-width', `${result.productionMinutesPerHour / 60 * 100}%`);
+        bar.style.setProperty('--rest-break-width', `${result.restMinutesPerHour / 60 * 100}%`);
+    }
+    if (status) {
+        status.dataset.status = result.targetMet ? 'ok' : 'warn';
+        status.textContent = t(result.targetMet ? 'rest_time_target_met' : 'rest_time_target_short');
+    }
+}
+
+export function openRestTimeTool() {
+    if (document.getElementById('toolsModal')?.style.display === 'none') openToolsModal();
+    _restoreRestTimeInputs();
+    _setToolsPage('rest-time');
+    calculateRestTimeUI();
+    document.getElementById('restTimeSamInput')?.focus({ preventScroll: true });
+}
+
+export function clearRestTimeData() {
+    showConfirm(t('rest_time_clear_title'), t('rest_time_clear_confirm'), () => {
+        document.getElementById('restTimeSamInput').value = '';
+        document.getElementById('restTimeAllowanceInput').value = '15';
+        document.getElementById('restTimeWorkInput').value = '60';
+        document.getElementById('restTimeAmvInput').value = '';
+        _restTimeSamUnit = 'min';
+        document.querySelectorAll('[data-action="rest-time-sam-unit"]').forEach(button => {
+            button.classList.toggle('active', button.dataset.arg === 'min');
+        });
+        try { localStorage.removeItem(REST_TIME_INPUTS_KEY); } catch {}
+        calculateRestTimeUI();
+    });
+}
+
+export function setRestTimeSamUnit(unit) {
+    if (unit !== 'min' && unit !== 'sec') return;
+    if (unit !== _restTimeSamUnit) {
+        const input = document.getElementById('restTimeSamInput');
+        const raw = parseNum(input?.value);
+        if (input && Number.isFinite(raw)) {
+            input.value = trimNum(unit === 'sec' ? raw * 60 : raw / 60);
+        }
+    }
+    _restTimeSamUnit = unit;
+    document.querySelectorAll('[data-action="rest-time-sam-unit"]').forEach(button => {
+        button.classList.toggle('active', button.dataset.arg === unit);
+    });
+    saveRestTimeInputs();
+    calculateRestTimeUI();
+}
+
 export function setManpowerSamUnit(unit) {
     if (unit !== 'min' && unit !== 'sec') return;
     if (unit !== _manpowerSamUnit) {
@@ -625,10 +742,13 @@ export function setManpowerSamUnit(unit) {
 function _setToolsPage(page) {
     const showCapacity = page === 'capacity';
     const showManpower = page === 'manpower';
+    const showRestTime = page === 'rest-time';
     const capacityPanel = document.getElementById('dailyCapacityPanel');
     const manpowerPanel = document.getElementById('manpowerPanel');
+    const restTimePanel = document.getElementById('restTimePanel');
     if (!showCapacity && capacityPanel?.style.display !== 'none') saveDailyCapacityInputs();
     if (!showManpower && manpowerPanel?.style.display !== 'none') saveManpowerInputs();
+    if (!showRestTime && restTimePanel?.style.display !== 'none') saveRestTimeInputs();
     if (!showCapacity) closeDailyCapacityTimeMenu();
     if (!showCapacity) closeDailyCapacityRandomModal(false);
     const menuPanel = document.getElementById('toolsMenuPanel');
@@ -637,18 +757,22 @@ function _setToolsPage(page) {
     const clockGroup = document.getElementById('dailyCapacityClockGroup');
     const footerActions = document.getElementById('dailyCapacityFooterActions');
     const manpowerClearButton = document.getElementById('manpowerClearButton');
-    if (menuPanel) menuPanel.style.display = showCapacity || showManpower ? 'none' : 'flex';
+    if (menuPanel) menuPanel.style.display = showCapacity || showManpower || showRestTime ? 'none' : 'flex';
     if (capacityPanel) capacityPanel.style.display = showCapacity ? '' : 'none';
     if (manpowerPanel) manpowerPanel.style.display = showManpower ? '' : 'none';
+    if (restTimePanel) restTimePanel.style.display = showRestTime ? '' : 'none';
     if (clock) {
         clock.setAttribute('aria-hidden', showCapacity ? 'false' : 'true');
     }
     if (clockGroup) clockGroup.style.visibility = showCapacity ? 'visible' : 'hidden';
-    if (footerActions) footerActions.style.display = showCapacity || showManpower ? 'flex' : 'none';
+    if (footerActions) footerActions.style.display = showCapacity || showManpower || showRestTime ? 'flex' : 'none';
     if (manpowerClearButton) manpowerClearButton.style.display = showManpower ? '' : 'none';
+    const restTimeClearButton = document.getElementById('restTimeClearButton');
+    if (restTimeClearButton) restTimeClearButton.style.display = showRestTime ? '' : 'none';
     footerActions?.querySelector('[data-action="daily-capacity-clear"]')?.style.setProperty('display', showCapacity ? '' : 'none');
     if (title) {
-        title.dataset.key = showCapacity ? 'daily_capacity_title' : showManpower ? 'manpower_title' : 'tools_title';
+        title.dataset.key = showCapacity ? 'daily_capacity_title' : showManpower ? 'manpower_title'
+            : showRestTime ? 'rest_time_title' : 'tools_title';
         title.textContent = t(title.dataset.key);
     }
     if (showCapacity) {
@@ -676,6 +800,7 @@ export function closeToolsModal() {
     const modal = document.getElementById('toolsModal');
     if (document.getElementById('dailyCapacityPanel')?.style.display !== 'none') saveDailyCapacityInputs();
     if (document.getElementById('manpowerPanel')?.style.display !== 'none') saveManpowerInputs();
+    if (document.getElementById('restTimePanel')?.style.display !== 'none') saveRestTimeInputs();
     closeDailyCapacityRandomModal(false);
     if (modal) modal.style.display = 'none';
     document.getElementById('dailyCapacityConfig').style.display = 'none';
@@ -693,7 +818,9 @@ export function closeToolsModal() {
 export function toolsBack() {
     const capacityPanel = document.getElementById('dailyCapacityPanel');
     const manpowerPanel = document.getElementById('manpowerPanel');
-    if (capacityPanel?.style.display !== 'none' || manpowerPanel?.style.display !== 'none') {
+    const restTimePanel = document.getElementById('restTimePanel');
+    if (capacityPanel?.style.display !== 'none' || manpowerPanel?.style.display !== 'none'
+        || restTimePanel?.style.display !== 'none') {
         _setToolsPage('menu');
         document.querySelector('#toolsMenuPanel .tools-card')?.focus({ preventScroll: true });
         return;

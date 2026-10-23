@@ -9,7 +9,7 @@
 // ============================================================
 import { APP_VERSION } from './version.js';
 import {
-    parseNum, pcsFromEff, calcDailyCapacity, calcRestTime, calcRequiredManpower, calcScheduledWorkMinutes, calcRecoveryProgress, calcCapacityRecovery, randomizeTargetPieces, calcAvgMin, calcActualEff,
+    parseNum, pcsFromEff, calcDailyCapacity, calcRestTimeBreakdown, convertRestTimeMinutes, calcRestTime, calcRequiredManpower, calcScheduledWorkMinutes, calcRecoveryProgress, calcCapacityRecovery, randomizeTargetPieces, calcAvgMin, calcActualEff,
     newSamFromEff, calcActualPcsPerHr, calcPassRate, calcTrainingDay,
 } from './calc.js';
 import {
@@ -273,7 +273,6 @@ export function closeStopwatchModal() {
 let _toolsReturnFocus = null;
 let _dailyCapacitySamUnit = 'min';
 let _manpowerSamUnit = 'min';
-let _restTimeSamUnit = 'min';
 let _dailyCapacityClockTimer = null;
 let _dailyCapacityTimeMenuPart = null;
 let _dailyCapacityTimeMenuTrigger = null;
@@ -607,6 +606,39 @@ export function calculateManpowerUI() {
     document.getElementById('manpowerHeadcount').textContent = result.headcount.toLocaleString();
 }
 
+const REST_TIME_DEFAULT_SETTINGS = Object.freeze({ raPercent: '16', mdaPercent: '6', caPercent: '1', tmuFactor: '0.0005' });
+let _restTimeDisplayUnit = 'min';
+const REST_TIME_SETTING_IDS = Object.freeze({
+    raPercent: 'restTimeRaInput',
+    mdaPercent: 'restTimeMdaInput',
+    caPercent: 'restTimeCaInput',
+});
+const REST_TIME_TMU_FACTOR_NAME = 'restTimeTmuFactor';
+
+function _syncRestTimeDisplayUnits() {
+    document.querySelectorAll('[data-action="rest-time-display-unit"]').forEach(button => {
+        const selected = button.dataset.arg === _restTimeDisplayUnit;
+        button.classList.toggle('active', selected);
+        button.setAttribute('aria-pressed', String(selected));
+    });
+}
+
+function _syncRestTimeTableHeaders() {
+    const unit = _restTimeDisplayUnit === 'sec' ? 'seconds' : 'minutes';
+    const headers = {
+        restTimeBasicHeader: `rest_time_basic_${unit}`,
+        restTimePaHeader: `rest_time_pa_${unit}`,
+        restTimeDelayHeader: `rest_time_delay_${unit}`,
+        restTimeTotalHeader: `rest_time_total_${unit}`,
+        restTimeCHeader: `rest_time_c_${unit}`,
+        restTimeSmvHeader: `rest_time_smv_${unit}`,
+    };
+    for (const [id, key] of Object.entries(headers)) {
+        const header = document.getElementById(id);
+        if (header) header.textContent = t(key);
+    }
+}
+
 function _restoreRestTimeInputs() {
     let saved;
     try {
@@ -615,29 +647,39 @@ function _restoreRestTimeInputs() {
         return;
     }
     if (!saved || typeof saved !== 'object') return;
-    if (saved.samUnit === 'min' || saved.samUnit === 'sec') _restTimeSamUnit = saved.samUnit;
-    document.querySelectorAll('[data-action="rest-time-sam-unit"]').forEach(button => {
-        button.classList.toggle('active', button.dataset.arg === _restTimeSamUnit);
-    });
+    if (saved.displayUnit === 'min' || saved.displayUnit === 'sec') _restTimeDisplayUnit = saved.displayUnit;
     for (const [key, id] of Object.entries({
-        sam: 'restTimeSamInput',
-        allowance: 'restTimeAllowanceInput',
-        workTime: 'restTimeWorkInput',
+        manualTmu: 'restTimeManualTmu',
+        machineTmu: 'restTimeMachineTmu',
+        bundleTmu: 'restTimeBundleTmu',
+        efficiency: 'restTimeEfficiencyInput',
         amv: 'restTimeAmvInput',
+        ...REST_TIME_SETTING_IDS,
     })) {
         const input = document.getElementById(id);
-        if (typeof saved[key] === 'string' && input) input.value = saved[key];
+        if ((typeof saved[key] === 'string' || typeof saved[key] === 'number') && input) input.value = String(saved[key]);
     }
+    if (typeof saved.tmuFactor === 'string') {
+        document.querySelectorAll(`input[name="${REST_TIME_TMU_FACTOR_NAME}"]`).forEach(input => {
+            input.checked = input.value === saved.tmuFactor;
+        });
+    }
+    _syncRestTimeDisplayUnits();
 }
 
 export function saveRestTimeInputs() {
     try {
         localStorage.setItem(REST_TIME_INPUTS_KEY, JSON.stringify({
-            sam: document.getElementById('restTimeSamInput')?.value ?? '',
-            samUnit: _restTimeSamUnit,
-            allowance: document.getElementById('restTimeAllowanceInput')?.value ?? '',
-            workTime: document.getElementById('restTimeWorkInput')?.value ?? '',
+            manualTmu: document.getElementById('restTimeManualTmu')?.value ?? '',
+            machineTmu: document.getElementById('restTimeMachineTmu')?.value ?? '',
+            bundleTmu: document.getElementById('restTimeBundleTmu')?.value ?? '',
+            efficiency: document.getElementById('restTimeEfficiencyInput')?.value ?? '',
             amv: document.getElementById('restTimeAmvInput')?.value ?? '',
+            displayUnit: _restTimeDisplayUnit,
+            ...Object.fromEntries(Object.entries(REST_TIME_SETTING_IDS).map(([key, id]) => [
+                key, document.getElementById(id)?.value ?? REST_TIME_DEFAULT_SETTINGS[key],
+            ])),
+            tmuFactor: document.querySelector(`input[name="${REST_TIME_TMU_FACTOR_NAME}"]:checked`)?.value ?? REST_TIME_DEFAULT_SETTINGS.tmuFactor,
         }));
     } catch {
         // Storage may be unavailable in private browsing or when full.
@@ -645,16 +687,49 @@ export function saveRestTimeInputs() {
 }
 
 export function calculateRestTimeUI() {
-    const result = calcRestTime(
-        _restTimeSamUnit === 'sec'
-            ? parseNum(document.getElementById('restTimeSamInput')?.value) / 60
-            : parseNum(document.getElementById('restTimeSamInput')?.value),
-        parseNum(document.getElementById('restTimeAllowanceInput')?.value),
-        parseNum(document.getElementById('restTimeWorkInput')?.value),
+    _syncRestTimeTableHeaders();
+    const breakdown = calcRestTimeBreakdown({
+        manualTmu: parseNum(document.getElementById('restTimeManualTmu')?.value),
+        machineTmu: parseNum(document.getElementById('restTimeMachineTmu')?.value),
+        bundleTmu: parseNum(document.getElementById('restTimeBundleTmu')?.value),
+        raPercent: parseNum(document.getElementById(REST_TIME_SETTING_IDS.raPercent)?.value),
+        mdaPercent: parseNum(document.getElementById(REST_TIME_SETTING_IDS.mdaPercent)?.value),
+        caPercent: parseNum(document.getElementById(REST_TIME_SETTING_IDS.caPercent)?.value),
+        tmuFactor: parseNum(document.querySelector(`input[name="${REST_TIME_TMU_FACTOR_NAME}"]:checked`)?.value),
+    });
+    const formatFixed = value => {
+        const converted = convertRestTimeMinutes(value, _restTimeDisplayUnit);
+        return Number.isFinite(converted) ? converted.toFixed(_restTimeDisplayUnit === 'sec' ? 2 : 4) : '—';
+    };
+    const setOutput = (id, value) => {
+        const output = document.getElementById(id);
+        if (output) output.textContent = value;
+    };
+    for (const key of ['manual', 'machine', 'bundle']) {
+        const row = breakdown?.rows[key];
+        const prefix = `restTime${key[0].toUpperCase()}${key.slice(1)}`;
+        setOutput(`${prefix}Basic`, formatFixed(row?.basicMinutes));
+        setOutput(`${prefix}Pa`, formatFixed(row?.paMinutes));
+        setOutput(`${prefix}Delay`, key === 'machine' ? formatFixed(row?.delayMinutes) : t('rest_time_not_applicable'));
+        setOutput(`${prefix}Total`, formatFixed(row?.totalMinutes));
+        setOutput(`${prefix}C`, formatFixed(row?.cMinutes));
+    }
+    const totals = breakdown?.totals;
+    setOutput('restTimeTotalTmu', Number.isFinite(totals?.tmu) ? totals.tmu.toFixed(1) : '—');
+    setOutput('restTimeTotalBasic', formatFixed(totals?.basicMinutes));
+    setOutput('restTimeTotalPa', formatFixed(totals?.paMinutes));
+    setOutput('restTimeTotalDelay', formatFixed(totals?.delayMinutes));
+    setOutput('restTimeTotalMinutes', formatFixed(totals?.totalMinutes));
+    setOutput('restTimeTotalC', formatFixed(totals?.cMinutes));
+    setOutput('restTimeSmv', formatFixed(totals?.smvMinutes));
+
+    const result = totals ? calcRestTime(
+        totals.smvMinutes,
+        parseNum(document.getElementById('restTimeEfficiencyInput')?.value),
         parseNum(document.getElementById('restTimeAmvInput')?.value),
-    );
-    const valueIds = ['restTimePerHour', 'restTimeShift', 'restTimeProductionPerHour',
-        'restTimeActualPerHour', 'restTimeStandardPerHour'];
+    ) : null;
+    const valueIds = ['restTimePerHour', 'restTimeForecast', 'restTimeProductionPerHour',
+        'restTimeActualPerHour', 'restTimeStandardPerHour', 'restTimeTarget8h', 'restTimeActual8h'];
     const bar = document.getElementById('restTimeBar');
     const status = document.getElementById('restTimeStatus');
     if (!result) {
@@ -668,10 +743,12 @@ export function calculateRestTimeUI() {
     }
     const format = value => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
     document.getElementById('restTimePerHour').textContent = format(result.restMinutesPerHour);
-    document.getElementById('restTimeShift').textContent = format(result.restMinutesForShift);
+    document.getElementById('restTimeForecast').textContent = format(result.restMinutesForForecast);
     document.getElementById('restTimeProductionPerHour').textContent = format(result.productionMinutesPerHour);
     document.getElementById('restTimeActualPerHour').textContent = format(result.actualPerHour);
     document.getElementById('restTimeStandardPerHour').textContent = format(result.standardPerHour);
+    document.getElementById('restTimeTarget8h').textContent = format(result.targetPiecesForForecast);
+    document.getElementById('restTimeActual8h').textContent = format(result.actualPiecesForForecast);
     if (bar) {
         bar.style.setProperty('--rest-production-width', `${result.productionMinutesPerHour / 60 * 100}%`);
         bar.style.setProperty('--rest-break-width', `${result.restMinutesPerHour / 60 * 100}%`);
@@ -687,39 +764,48 @@ export function openRestTimeTool() {
     _restoreRestTimeInputs();
     _setToolsPage('rest-time');
     calculateRestTimeUI();
-    document.getElementById('restTimeSamInput')?.focus({ preventScroll: true });
+    document.getElementById('restTimeManualTmu')?.focus({ preventScroll: true });
+}
+
+export function setRestTimeDisplayUnit(unit) {
+    if (unit !== 'min' && unit !== 'sec') return;
+    _restTimeDisplayUnit = unit;
+    _syncRestTimeDisplayUnits();
+    calculateRestTimeUI();
+    saveRestTimeInputs();
+}
+
+export function openRestTimeConfig() {
+    const dialog = document.getElementById('restTimeConfig');
+    if (!dialog) return;
+    dialog.style.display = 'flex';
+    dialog.querySelector('[data-action="rest-time-config-close"]')?.focus({ preventScroll: true });
+}
+
+export function closeRestTimeConfig() {
+    const dialog = document.getElementById('restTimeConfig');
+    if (dialog) dialog.style.display = 'none';
+    document.querySelector('[data-action="rest-time-config-open"]')?.focus({ preventScroll: true });
 }
 
 export function clearRestTimeData() {
     showConfirm(t('rest_time_clear_title'), t('rest_time_clear_confirm'), () => {
-        document.getElementById('restTimeSamInput').value = '';
-        document.getElementById('restTimeAllowanceInput').value = '15';
-        document.getElementById('restTimeWorkInput').value = '60';
+        document.getElementById('restTimeManualTmu').value = '';
+        document.getElementById('restTimeMachineTmu').value = '';
+        document.getElementById('restTimeBundleTmu').value = '100';
+        document.getElementById('restTimeEfficiencyInput').value = '80';
         document.getElementById('restTimeAmvInput').value = '';
-        _restTimeSamUnit = 'min';
-        document.querySelectorAll('[data-action="rest-time-sam-unit"]').forEach(button => {
-            button.classList.toggle('active', button.dataset.arg === 'min');
+        _restTimeDisplayUnit = 'min';
+        _syncRestTimeDisplayUnits();
+        for (const [key, id] of Object.entries(REST_TIME_SETTING_IDS)) {
+            document.getElementById(id).value = REST_TIME_DEFAULT_SETTINGS[key];
+        }
+        document.querySelectorAll(`input[name="${REST_TIME_TMU_FACTOR_NAME}"]`).forEach(input => {
+            input.checked = input.value === REST_TIME_DEFAULT_SETTINGS.tmuFactor;
         });
         try { localStorage.removeItem(REST_TIME_INPUTS_KEY); } catch {}
         calculateRestTimeUI();
     });
-}
-
-export function setRestTimeSamUnit(unit) {
-    if (unit !== 'min' && unit !== 'sec') return;
-    if (unit !== _restTimeSamUnit) {
-        const input = document.getElementById('restTimeSamInput');
-        const raw = parseNum(input?.value);
-        if (input && Number.isFinite(raw)) {
-            input.value = trimNum(unit === 'sec' ? raw * 60 : raw / 60);
-        }
-    }
-    _restTimeSamUnit = unit;
-    document.querySelectorAll('[data-action="rest-time-sam-unit"]').forEach(button => {
-        button.classList.toggle('active', button.dataset.arg === unit);
-    });
-    saveRestTimeInputs();
-    calculateRestTimeUI();
 }
 
 export function setManpowerSamUnit(unit) {
@@ -3694,9 +3780,14 @@ export function changeLanguage(lang) {
         const key = el.getAttribute('data-key-aria-label');
         if (translations[lang][key]) el.setAttribute('aria-label', translations[lang][key]);
     });
+    document.querySelectorAll('[data-key-title]').forEach(el => {
+        const key = el.getAttribute('data-key-title');
+        if (translations[lang][key]) el.setAttribute('title', translations[lang][key]);
+    });
 
     // Recovery values include translated time units and a translated verdict.
     calculateDailyCapacityUI();
+    if (document.getElementById('restTimePanel')?.style.display !== 'none') calculateRestTimeUI();
 
     // training day labels (generated dynamically)
     document.querySelectorAll('.day-label').forEach((el, idx) => {
@@ -4714,6 +4805,12 @@ document.addEventListener('keydown', e => {
         }
         if (document.getElementById('resultPrecisionModal')?.style.display === 'flex') {
             closeResultPrecisionModal();
+            return;
+        }
+        if (document.getElementById('restTimeConfig')?.style.display === 'flex') {
+            closeRestTimeConfig();
+            e.preventDefault();
+            e.stopImmediatePropagation();
             return;
         }
         if (document.getElementById('toolsModal')?.style.display === 'flex') { toolsBack(); return; }

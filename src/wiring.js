@@ -12,7 +12,7 @@ import {
     exportCSV, printReport, pwaInstall, toggleTheme,
     openSettingsModal, openResultPrecisionModal, resetForm, setSamUnit, closeActionsMenu, scrollToTop,
     openToolsModal, closeToolsModal, toolsBack, openDailyCapacityTool, openManpowerTool, clearManpowerData,
-    openRestTimeTool, calculateRestTimeUI, saveRestTimeInputs, clearRestTimeData, setRestTimeSamUnit,
+    openRestTimeTool, openRestTimeConfig, closeRestTimeConfig, setRestTimeDisplayUnit, calculateRestTimeUI, saveRestTimeInputs, clearRestTimeData,
     calculateManpowerUI, saveManpowerInputs,
     setManpowerSamUnit,
     setDailyCapacitySamUnit, calculateDailyCapacityUI,
@@ -61,12 +61,17 @@ document.getElementById('swRoundsInput')?.addEventListener('input', () => swSetS
         saveManpowerInputs();
     });
 });
-['restTimeSamInput', 'restTimeAllowanceInput', 'restTimeWorkInput', 'restTimeAmvInput'].forEach(id => {
+['restTimeManualTmu', 'restTimeMachineTmu', 'restTimeBundleTmu', 'restTimeEfficiencyInput',
+    'restTimeAmvInput', 'restTimeRaInput', 'restTimeMdaInput', 'restTimeCaInput'].forEach(id => {
     document.getElementById(id)?.addEventListener('input', () => {
         calculateRestTimeUI();
         saveRestTimeInputs();
     });
 });
+document.querySelectorAll('input[name="restTimeTmuFactor"]').forEach(input => input.addEventListener('change', () => {
+    calculateRestTimeUI();
+    saveRestTimeInputs();
+}));
 document.getElementById('dailyCapacityScheduleBody')?.addEventListener('input', event => {
     const input = event.target.closest('[data-capacity-period]');
     if (input) setDailyCapacityPeriod(Number(input.dataset.capacityPeriod), input.value);
@@ -168,7 +173,9 @@ const ACTIONS = {
     'manpower-clear': () => clearManpowerData(),
     'rest-time-open': () => openRestTimeTool(),
     'rest-time-clear': () => clearRestTimeData(),
-    'rest-time-sam-unit': arg => setRestTimeSamUnit(arg),
+    'rest-time-config-open': () => openRestTimeConfig(),
+    'rest-time-config-close': () => closeRestTimeConfig(),
+    'rest-time-display-unit': arg => setRestTimeDisplayUnit(arg),
     'manpower-sam-unit': arg => setManpowerSamUnit(arg),
     'daily-capacity-clear': () => clearDailyCapacityData(),
     'daily-capacity-scroll-top': () => scrollDailyCapacityPage('top'),

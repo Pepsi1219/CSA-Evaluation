@@ -10,6 +10,8 @@ import {
     calcPassRate,
     calcTrainingDay,
     calcDailyCapacity,
+    calcRestTimeBreakdown,
+    convertRestTimeMinutes,
     calcRestTime,
     calcRequiredManpower,
     calcScheduledWorkMinutes,
@@ -82,32 +84,67 @@ test('calcDailyCapacity', async t => {
     });
 });
 
+test('calcRestTimeBreakdown', async t => {
+    await t.test('matches the supplied Manual/Machine/Bundle SMV example', () => {
+        const result = calcRestTimeBreakdown({
+            manualTmu: 191,
+            machineTmu: 127.2,
+            bundleTmu: 100,
+            raPercent: 16,
+            mdaPercent: 6,
+            caPercent: 1,
+            tmuFactor: 0.0005,
+        });
+        assert.equal(result.totals.basicMinutes, 0.2091);
+        assert.ok(Math.abs(result.totals.paMinutes - 0.033456) < 1e-12);
+        assert.ok(Math.abs(result.totals.delayMinutes - 0.003816) < 1e-12);
+        assert.equal(result.totals.totalMinutes, 0.25);
+        assert.ok(Math.abs(result.totals.cMinutes - 0.0025) < 1e-12);
+        assert.ok(Math.abs(result.totals.smvMinutes - 0.248872) < 1e-12);
+    });
+    await t.test('keeps partial row results but withholds SMV until all TMUs are entered', () => {
+        const result = calcRestTimeBreakdown({
+            manualTmu: NaN, machineTmu: NaN, bundleTmu: 100,
+            raPercent: 16, mdaPercent: 6, caPercent: 1, tmuFactor: 0.0005,
+        });
+        assert.equal(result.rows.bundle.basicMinutes, 0.05);
+        assert.equal(result.totals, null);
+    });
+    await t.test('returns null for invalid allowance settings', () => {
+        assert.equal(calcRestTimeBreakdown({
+            manualTmu: 1, machineTmu: 1, bundleTmu: 1,
+            raPercent: -1, mdaPercent: 6, caPercent: 1, tmuFactor: 0.0005,
+        }), null);
+    });
+});
+
+test('convertRestTimeMinutes', () => {
+    assert.equal(convertRestTimeMinutes(0.2091, 'min'), 0.2091);
+    assert.ok(Math.abs(convertRestTimeMinutes(0.2091, 'sec') - 12.546) < 1e-12);
+    assert.equal(convertRestTimeMinutes(Number.NaN, 'sec'), null);
+});
+
 test('calcRestTime', async t => {
-    await t.test('calculates hourly rest and shift total from target output', () => {
-        const result = calcRestTime(1, 0, 480, 55);
-        assert.equal(result.restMinutesPerHour, 5);
-        assert.equal(result.restMinutesForShift, 40);
-        assert.equal(result.productionMinutesPerHour, 55);
-        assert.equal(result.actualPerHour, 3600 / 55);
-        assert.equal(result.targetPiecesForShift, 480);
+    await t.test('uses total SMV for target, AMV for actual output, and forecasts eight hours', () => {
+        const result = calcRestTime(0.2489, 80, 2.01);
+        assert.equal(result.standardPerHour, Math.floor((60 / 0.2489) * 0.8));
+        assert.equal(result.actualPerHour, 3600 / 2.01);
+        assert.ok(Math.abs(result.restMinutesPerHour - (60 - result.standardPerHour * 2.01 / 60)) < 1e-10);
+        assert.equal(result.restMinutesForForecast, result.restMinutesPerHour * 8);
+        assert.equal(result.targetPiecesForForecast, result.standardPerHour * 8);
+        assert.equal(result.actualPiecesForForecast, result.actualPerHour * 8);
+        assert.equal(result.forecastHours, 8);
         assert.equal(result.targetMet, true);
-        assert.equal(result.standardPerHour, 60);
     });
-    await t.test('includes allowance in the SAM reference rate', () => {
-        const result = calcRestTime(1, 10, 60, 55);
-        assert.equal(result.standardPerHour, 60 / 1.1);
-        assert.ok(Math.abs(result.restMinutesPerHour - 10) < 1e-10);
-    });
-    await t.test('reports no available rest when AMV cannot meet the SAM target', () => {
-        const result = calcRestTime(1, 0, 60, 70);
+    await t.test('reports no available rest when AMV cannot meet the target', () => {
+        const result = calcRestTime(1, 80, 80);
         assert.equal(result.restMinutesPerHour, 0);
         assert.equal(result.targetMet, false);
     });
     await t.test('returns null for invalid inputs', () => {
-        assert.equal(calcRestTime(0, 0, 60, 55), null);
-        assert.equal(calcRestTime(1, -1, 60, 55), null);
-        assert.equal(calcRestTime(1, 0, 0, 55), null);
-        assert.equal(calcRestTime(1, 0, 60, 0), null);
+        assert.equal(calcRestTime(0, 80, 55), null);
+        assert.equal(calcRestTime(1, 0, 55), null);
+        assert.equal(calcRestTime(1, 80, 0), null);
     });
 });
 

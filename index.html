@@ -372,7 +372,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · <span id="appVersion">v1.30.12</span></p>
+    <p>© CSA Evaluation · <span id="appVersion">v1.30.21</span></p>
 </footer>
 
 <!-- ============ Mobile bottom navigation ============ -->
@@ -1053,7 +1053,7 @@
                 </div>
             </div>
             <div class="daily-capacity-hourly-wrap" role="region" tabindex="0" data-key-aria-label="daily_capacity_hourly_title" aria-label="ตารางเป้าหมายรายชั่วโมง">
-                <table class="daily-capacity-hourly-table">
+                <table class="daily-capacity-hourly-table tools-data-table">
                     <thead>
                         <tr>
                             <th scope="col" class="lang-text" data-key="daily_capacity_time">เวลา</th>
@@ -1177,38 +1177,68 @@
             </div>
         </section>
         <section class="rest-time-panel" id="restTimePanel" style="display:none;">
-            <div class="rest-time-grid">
+            <div class="rest-time-toolbar">
+                <div class="unit-toggle-group rest-time-display-unit" role="group" aria-label="หน่วยแสดงผล">
+                    <button type="button" class="unit-toggle-btn active" data-action="rest-time-display-unit" data-arg="min" aria-pressed="true"><span class="lang-text" data-key="unit_min">นาที</span></button>
+                    <button type="button" class="unit-toggle-btn" data-action="rest-time-display-unit" data-arg="sec" aria-pressed="false"><span class="lang-text" data-key="unit_sec">วินาที</span></button>
+                </div>
+                <button type="button" class="rest-time-settings-btn" data-action="rest-time-config-open" data-key-title="rest_time_settings" data-key-aria-label="rest_time_settings" title="ตั้งค่า Allowances" aria-label="ตั้งค่า Allowances"><span aria-hidden="true">⚙</span></button>
+            </div>
+            <div class="manpower-grid rest-time-main-inputs">
                 <div class="input-group">
-                    <div class="label-row">
-                        <label for="restTimeSamInput" class="lang-text" data-key="rest_time_sam">SAM</label>
-                        <div class="unit-toggle-group" role="group" aria-label="SAM unit">
-                            <button type="button" class="unit-toggle-btn active" data-action="rest-time-sam-unit" data-arg="min"><span class="lang-text" data-key="unit_min">นาที</span></button>
-                            <button type="button" class="unit-toggle-btn" data-action="rest-time-sam-unit" data-arg="sec"><span class="lang-text" data-key="unit_sec">วินาที</span></button>
-                        </div>
-                    </div>
-                    <input type="text" id="restTimeSamInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="rest_time_sam">
+                    <label for="restTimeEfficiencyInput" class="lang-text" data-key="rest_time_efficiency">Efficiency (%)</label>
+                    <input type="text" id="restTimeEfficiencyInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="80" data-numpad="decimal" data-numpad-label="rest_time_efficiency">
                 </div>
                 <div class="input-group">
-                    <label for="restTimeAllowanceInput" class="lang-text" data-key="rest_time_allowance">Allowance (%)</label>
-                    <input type="text" id="restTimeAllowanceInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="15" data-numpad="decimal" data-numpad-label="rest_time_allowance">
-                </div>
-                <div class="input-group">
-                    <label class="lang-text" data-key="rest_time_standard_output">เป้าหมาย/ชั่วโมง จาก SAM + Allowance</label>
-                    <div class="rest-time-derived"><output id="restTimeStandardPerHour">—</output><span class="lang-text" data-key="rest_time_pieces_hour">ชิ้น/ชั่วโมง</span></div>
-                </div>
-                <div class="input-group">
-                    <label for="restTimeAmvInput" class="lang-text" data-key="rest_time_amv">AMV (วินาที/ชิ้น)</label>
+                    <label for="restTimeAmvInput" class="lang-text" data-key="rest_time_amv">AMV</label>
                     <input type="text" id="restTimeAmvInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="rest_time_amv">
                 </div>
-                <div class="input-group">
-                    <label for="restTimeWorkInput" class="lang-text" data-key="rest_time_work">เวลาทำงาน (นาที)</label>
-                    <input type="text" id="restTimeWorkInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="60" data-numpad="decimal" data-numpad-label="rest_time_work">
-                </div>
-                <div class="input-group">
-                    <label class="lang-text" data-key="rest_time_actual_output">เป้าหมาย/ชั่วโมง จาก AMV</label>
-                    <div class="rest-time-derived"><output id="restTimeActualPerHour">—</output><span class="lang-text" data-key="rest_time_pieces_hour">ชิ้น/ชั่วโมง</span></div>
-                </div>
             </div>
+            <div class="rest-time-table-wrap" role="region" tabindex="0" data-key-aria-label="rest_time_table_label" aria-label="Standard minute value breakdown">
+                <table class="rest-time-table tools-data-table">
+                    <thead><tr>
+                        <th scope="col" class="lang-text" data-key="rest_time_component">รายการ</th>
+                        <th scope="col" class="lang-text" data-key="rest_time_tmu">TMU</th>
+                        <th scope="col" id="restTimeBasicHeader" class="lang-text" data-key="rest_time_basic_minutes">Basic (min)</th>
+                        <th scope="col" id="restTimePaHeader" class="lang-text" data-key="rest_time_pa_minutes">PA (min)</th>
+                        <th scope="col" id="restTimeDelayHeader" class="lang-text" data-key="rest_time_delay_minutes">Delay (min)</th>
+                        <th scope="col" id="restTimeTotalHeader" class="lang-text" data-key="rest_time_total_minutes">Total (min)</th>
+                        <th scope="col" id="restTimeCHeader" class="lang-text" data-key="rest_time_c_minutes">C (min)</th>
+                        <th scope="col" id="restTimeSmvHeader" class="lang-text" data-key="rest_time_smv_minutes">SMV (min)</th>
+                    </tr></thead>
+                    <tbody>
+                        <tr>
+                            <th scope="row" class="lang-text" data-key="rest_time_manual">Manual</th>
+                            <td><input type="text" id="restTimeManualTmu" class="glass-input rest-time-tmu-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="rest_time_manual_tmu"></td>
+                            <td><output id="restTimeManualBasic">—</output></td><td><output id="restTimeManualPa">—</output></td><td><output id="restTimeManualDelay">—</output></td><td><output id="restTimeManualTotal">—</output></td><td><output id="restTimeManualC">—</output></td><td></td>
+                        </tr>
+                        <tr>
+                            <th scope="row" class="lang-text" data-key="rest_time_machine">Machine</th>
+                            <td><input type="text" id="restTimeMachineTmu" class="glass-input rest-time-tmu-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="rest_time_machine_tmu"></td>
+                            <td><output id="restTimeMachineBasic">—</output></td><td><output id="restTimeMachinePa">—</output></td><td><output id="restTimeMachineDelay">—</output></td><td><output id="restTimeMachineTotal">—</output></td><td><output id="restTimeMachineC">—</output></td><td></td>
+                        </tr>
+                        <tr>
+                            <th scope="row" class="lang-text" data-key="rest_time_bundle">Bundle</th>
+                            <td><input type="text" id="restTimeBundleTmu" class="glass-input rest-time-tmu-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="100" data-numpad="decimal" data-numpad-label="rest_time_bundle_tmu"></td>
+                            <td><output id="restTimeBundleBasic">—</output></td><td><output id="restTimeBundlePa">—</output></td><td><output id="restTimeBundleDelay">—</output></td><td><output id="restTimeBundleTotal">—</output></td><td><output id="restTimeBundleC">—</output></td><td></td>
+                        </tr>
+                        <tr class="rest-time-table-totals">
+                            <th scope="row" class="lang-text" data-key="rest_time_totals">Totals</th>
+                            <td><output id="restTimeTotalTmu">—</output></td><td><output id="restTimeTotalBasic">—</output></td><td><output id="restTimeTotalPa">—</output></td><td><output id="restTimeTotalDelay">—</output></td><td><output id="restTimeTotalMinutes">—</output></td><td><output id="restTimeTotalC">—</output></td><td><output id="restTimeSmv">—</output></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <section class="capacity-recovery" aria-labelledby="restTimeForecastTitle">
+                <h3 id="restTimeForecastTitle" class="lang-text" data-key="rest_time_forecast_title">เป้าหมายและคาดการณ์ 8 ชั่วโมง</h3>
+                <div class="capacity-recovery-progress rest-time-dashboard" aria-live="polite">
+                    <div class="capacity-recovery-progress-metric"><span class="lang-text" data-key="rest_time_standard_output">เป้าหมาย/ชั่วโมงจาก SMV</span><strong><span id="restTimeStandardPerHour">—</span> <span class="lang-text" data-key="daily_capacity_pieces_hour">ชิ้น/ชั่วโมง</span></strong></div>
+                    <div class="capacity-recovery-progress-metric"><span class="lang-text" data-key="rest_time_actual_output">กำลังผลิตจริงจาก AMV</span><strong><span id="restTimeActualPerHour">—</span> <span class="lang-text" data-key="daily_capacity_pieces_hour">ชิ้น/ชั่วโมง</span></strong></div>
+                    <div class="capacity-recovery-progress-metric"><span class="lang-text" data-key="rest_time_target_8h">เป้าหมาย 8 ชั่วโมง</span><strong><span id="restTimeTarget8h">—</span> <span class="lang-text" data-key="daily_capacity_pieces_day">ชิ้น</span></strong></div>
+                    <div class="capacity-recovery-progress-metric"><span class="lang-text" data-key="rest_time_actual_8h">กำลังผลิต 8 ชั่วโมงจาก AMV</span><strong><span id="restTimeActual8h">—</span> <span class="lang-text" data-key="daily_capacity_pieces_day">ชิ้น</span></strong></div>
+                    <div class="capacity-recovery-progress-metric"><span class="lang-text" data-key="rest_time_rest_8h">เวลาพักคาดการณ์ 8 ชั่วโมง</span><strong><span id="restTimeForecast">—</span> <span class="lang-text" data-key="rest_time_minutes">นาที</span></strong></div>
+                </div>
+            </section>
             <section class="rest-time-visual" aria-labelledby="restTimeVisualTitle">
                 <h3 id="restTimeVisualTitle" class="lang-text" data-key="rest_time_per_hour_title">เวลาในหนึ่งชั่วโมง</h3>
                 <div id="restTimeBar" class="rest-time-bar" role="img" data-key-aria-label="rest_time_bar_label" aria-label="สัดส่วนเวลาผลิตและเวลาพักต่อชั่วโมง">
@@ -1221,13 +1251,30 @@
                 </div>
             </section>
             <p id="restTimeStatus" class="rest-time-status" role="status" aria-live="polite"></p>
-            <div class="rest-time-results" aria-live="polite">
-                <div class="rest-time-result-main">
-                    <span class="lang-text" data-key="rest_time_shift_total">เวลาพักรวมตามเวลาทำงาน</span>
-                    <strong><span id="restTimeShift">—</span> <span class="lang-text" data-key="rest_time_minutes">นาที</span></strong>
-                </div>
-            </div>
         </section>
+        <div id="restTimeConfig" class="capacity-config-backdrop" style="display:none;" role="presentation">
+            <section class="capacity-config-dialog rest-time-config-dialog" role="dialog" aria-modal="true" aria-labelledby="restTimeConfigTitle">
+                <header class="capacity-config-header">
+                    <h3 id="restTimeConfigTitle" class="lang-text" data-key="rest_time_settings">ตั้งค่า</h3>
+                    <button type="button" class="capacity-config-close" data-action="rest-time-config-close" data-key-title="tools_close" data-key-aria-label="tools_close" title="ปิด" aria-label="ปิด">×</button>
+                </header>
+                <fieldset class="rest-time-settings-fieldset">
+                    <legend class="lang-text" data-key="rest_time_allowances_title">Allowances</legend>
+                    <div class="rest-time-config-grid">
+                    <div class="input-group"><label for="restTimeRaInput" class="lang-text" data-key="rest_time_ra">RA (%)</label><input type="text" id="restTimeRaInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="16" data-numpad="decimal" data-numpad-label="rest_time_ra"></div>
+                    <div class="input-group"><label for="restTimeMdaInput" class="lang-text" data-key="rest_time_mda">MDA (%)</label><input type="text" id="restTimeMdaInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="6" data-numpad="decimal" data-numpad-label="rest_time_mda"></div>
+                    <div class="input-group"><label for="restTimeCaInput" class="lang-text" data-key="rest_time_ca">CA (%)</label><input type="text" id="restTimeCaInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="1" data-numpad="decimal" data-numpad-label="rest_time_ca"></div>
+                    </div>
+                </fieldset>
+                <fieldset class="rest-time-settings-fieldset">
+                    <legend class="lang-text" data-key="rest_time_factor">ตัวคูณ TMU</legend>
+                    <div class="rest-time-factor-options" role="radiogroup" aria-label="TMU factor">
+                        <label class="rest-time-factor-card"><input type="radio" name="restTimeTmuFactor" value="0.0005" checked><span>0.0005</span></label>
+                        <label class="rest-time-factor-card"><input type="radio" name="restTimeTmuFactor" value="0.0006"><span>0.0006</span></label>
+                    </div>
+                </fieldset>
+            </section>
+        </div>
         <div id="dailyCapacityConfig" class="capacity-config-backdrop" style="display:none;" role="presentation">
             <section class="capacity-config-dialog" role="dialog" aria-modal="true" aria-labelledby="dailyCapacityConfigTitle">
                 <header class="capacity-config-header">

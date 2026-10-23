@@ -36,25 +36,66 @@ function calcDailyCapacity(samMinutes, effPercent, workingMinutes, workers) {
     return { perHour, total };
 }
 
-function calcRestTime(samMinutes, allowancePercent, workingMinutes, amvSeconds) {
+function calcRestTimeBreakdown({ manualTmu, machineTmu, bundleTmu, raPercent, mdaPercent, caPercent, tmuFactor }) {
+    if (![raPercent, mdaPercent, caPercent, tmuFactor].every(Number.isFinite)
+        || raPercent < 0 || mdaPercent < 0 || caPercent < 0 || !(tmuFactor > 0)) return null;
+
+    const makeRow = (tmu, hasDelay = false) => {
+        if (tmu === null || tmu === undefined || !Number.isFinite(tmu)) return null;
+        if (tmu < 0) return null;
+        const basicMinutes = tmu * tmuFactor;
+        const paMinutes = basicMinutes * raPercent / 100;
+        const delayMinutes = hasDelay ? basicMinutes * mdaPercent / 100 : 0;
+        const totalMinutes = Math.round((basicMinutes + paMinutes + delayMinutes) * 100) / 100;
+        const cMinutes = totalMinutes * caPercent / 100;
+        return { tmu, basicMinutes, paMinutes, delayMinutes, totalMinutes, cMinutes };
+    };
+    const rows = {
+        manual: makeRow(manualTmu),
+        machine: makeRow(machineTmu, true),
+        bundle: makeRow(bundleTmu),
+    };
+    if (Object.values(rows).some(row => row === null)) return { rows, totals: null };
+
+    const totals = Object.values(rows).reduce((sum, row) => ({
+        tmu: sum.tmu + row.tmu,
+        basicMinutes: sum.basicMinutes + row.basicMinutes,
+        paMinutes: sum.paMinutes + row.paMinutes,
+        delayMinutes: sum.delayMinutes + row.delayMinutes,
+        totalMinutes: sum.totalMinutes + row.totalMinutes,
+        cMinutes: sum.cMinutes + row.cMinutes,
+    }), { tmu: 0, basicMinutes: 0, paMinutes: 0, delayMinutes: 0, totalMinutes: 0, cMinutes: 0 });
+    totals.smvMinutes = totals.basicMinutes + totals.paMinutes + totals.delayMinutes + totals.cMinutes;
+    return { rows, totals };
+}
+
+function convertRestTimeMinutes(value, unit) {
+    if (!Number.isFinite(value)) return null;
+    return unit === 'sec' ? value * 60 : value;
+}
+
+const REST_TIME_FORECAST_HOURS = 8;
+
+function calcRestTime(samMinutes, efficiencyPercent, amvSeconds) {
     if (!(samMinutes > 0) || !Number.isFinite(samMinutes)
-        || !(allowancePercent >= 0) || !Number.isFinite(allowancePercent)
-        || !(workingMinutes > 0) || !Number.isFinite(workingMinutes)
+        || !(efficiencyPercent > 0) || !Number.isFinite(efficiencyPercent)
         || !(amvSeconds > 0) || !Number.isFinite(amvSeconds)) return null;
-    const standardPerHour = 60 / (samMinutes * (1 + allowancePercent / 100));
+    const standardPerHour = Math.floor((60 / samMinutes) * (efficiencyPercent / 100));
     const actualPerHour = 3600 / amvSeconds;
     const productionMinutesPerHour = Math.min(60, standardPerHour * amvSeconds / 60);
-    const restMinutesPerHour = 60 - productionMinutesPerHour;
-    const shiftHours = workingMinutes / 60;
-    if (![standardPerHour, actualPerHour, productionMinutesPerHour, restMinutesPerHour, shiftHours]
+    const restMinutesPerHour = Math.max(0, 60 - productionMinutesPerHour);
+    const forecastHours = REST_TIME_FORECAST_HOURS;
+    if (![standardPerHour, actualPerHour, productionMinutesPerHour, restMinutesPerHour, forecastHours]
         .every(Number.isFinite)) return null;
     return {
         standardPerHour,
         actualPerHour,
         productionMinutesPerHour,
         restMinutesPerHour,
-        restMinutesForShift: restMinutesPerHour * shiftHours,
-        targetPiecesForShift: standardPerHour * shiftHours,
+        restMinutesForForecast: restMinutesPerHour * forecastHours,
+        targetPiecesForForecast: standardPerHour * forecastHours,
+        actualPiecesForForecast: actualPerHour * forecastHours,
+        forecastHours,
         targetMet: actualPerHour >= standardPerHour,
     };
 }
@@ -233,6 +274,8 @@ export {
     parseNum,
     pcsFromEff,
     calcDailyCapacity,
+    calcRestTimeBreakdown,
+    convertRestTimeMinutes,
     calcRestTime,
     calcRequiredManpower,
     randomizeTargetPieces,

@@ -635,7 +635,20 @@ function _syncRestTimeTableHeaders() {
     };
     for (const [id, key] of Object.entries(headers)) {
         const header = document.getElementById(id);
-        if (header) header.textContent = t(key);
+        if (!header) continue;
+        const label = t(key);
+        const unitStart = label.lastIndexOf(' (');
+        if (unitStart < 0) {
+            header.textContent = label;
+        } else {
+            const name = document.createElement('span');
+            name.textContent = label.slice(0, unitStart);
+            const unitLabel = document.createElement('span');
+            unitLabel.className = 'rest-time-header-unit';
+            unitLabel.textContent = label.slice(unitStart);
+            header.replaceChildren(name, unitLabel);
+        }
+        header.setAttribute('aria-label', label);
     }
 }
 
@@ -764,7 +777,6 @@ export function openRestTimeTool() {
     _restoreRestTimeInputs();
     _setToolsPage('rest-time');
     calculateRestTimeUI();
-    document.getElementById('restTimeManualTmu')?.focus({ preventScroll: true });
 }
 
 export function setRestTimeDisplayUnit(unit) {
@@ -4620,9 +4632,69 @@ export function numpadClear() {
     _commitNumpad();
 }
 
+let _efficiencySliderField = null;
+
+export function openEfficiencySlider(field) {
+    const modal = document.getElementById('restEfficiencySliderModal');
+    const slider = document.getElementById('restEfficiencySlider');
+    if (!field || !modal || !slider) return;
+
+    _efficiencySliderField = field;
+    const title = document.getElementById('restEfficiencySliderTitle');
+    const labelKey = field.dataset.efficiencySliderLabel;
+    if (title && labelKey) {
+        title.dataset.key = labelKey;
+        title.textContent = t(labelKey);
+    }
+    const parsedValue = Number.parseFloat(field.value);
+    const value = Number.isFinite(parsedValue) ? Math.min(100, Math.max(0, parsedValue)) : 80;
+    slider.value = String(value);
+    _syncRestEfficiencySliderValue();
+    field.blur();
+    modal.style.display = 'flex';
+    slider.focus({ preventScroll: true });
+}
+
+function _syncRestEfficiencySliderValue() {
+    const slider = document.getElementById('restEfficiencySlider');
+    const output = document.getElementById('restEfficiencySliderValue');
+    if (slider && output) output.textContent = `${slider.value}%`;
+}
+
+function closeRestEfficiencySlider() {
+    const modal = document.getElementById('restEfficiencySliderModal');
+    document.getElementById('restEfficiencySlider')?.blur();
+    if (modal) modal.style.display = 'none';
+    _efficiencySliderField = null;
+}
+
+document.getElementById('restEfficiencySlider')?.addEventListener('input', event => {
+    const slider = event.currentTarget;
+    _syncRestEfficiencySliderValue();
+    if (!_efficiencySliderField) return;
+    _efficiencySliderField.value = slider.value;
+    _efficiencySliderField.dispatchEvent(new Event('input', { bubbles: true }));
+});
+document.getElementById('restEfficiencySliderDoneBtn')?.addEventListener('click', closeRestEfficiencySlider);
+document.getElementById('restEfficiencySliderModal')?.addEventListener('click', event => {
+    if (event.target.id === 'restEfficiencySliderModal') closeRestEfficiencySlider();
+});
+document.getElementById('restEfficiencySliderModal')?.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        closeRestEfficiencySlider();
+    }
+});
+
 // Open on click of any numpad field (delegated so it also covers the two
 // fields living inside the stopwatch / Time-Study modals).
 document.addEventListener('click', e => {
+    const efficiencyField = e.target.closest('input[data-efficiency-slider]');
+    if (efficiencyField) {
+        openEfficiencySlider(efficiencyField);
+        return;
+    }
     const field = e.target.closest('input[data-numpad]');
     if (field) openNumpad(field);
 });

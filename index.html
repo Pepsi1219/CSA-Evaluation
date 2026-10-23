@@ -372,7 +372,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · <span id="appVersion">v1.30.21</span></p>
+    <p>© CSA Evaluation · <span id="appVersion">v1.30.27</span></p>
 </footer>
 
 <!-- ============ Mobile bottom navigation ============ -->
@@ -1135,8 +1135,8 @@
                     <input type="text" id="manpowerAvailableTimeInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="480" data-numpad="decimal" data-numpad-label="manpower_available_time">
                 </div>
                 <div class="input-group">
-                    <label for="manpowerEfficiencyInput" class="lang-text" data-key="manpower_efficiency">Eff</label>
-                    <input type="text" id="manpowerEfficiencyInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="80" data-numpad="decimal" data-numpad-label="manpower_efficiency">
+                    <label for="manpowerEfficiencyInput" class="lang-text" data-key="manpower_efficiency">Efficiency (%)</label>
+                    <input type="text" id="manpowerEfficiencyInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="80" data-efficiency-slider data-efficiency-slider-label="manpower_efficiency">
                 </div>
             </div>
             <div class="manpower-formula" aria-live="polite">
@@ -1187,7 +1187,7 @@
             <div class="manpower-grid rest-time-main-inputs">
                 <div class="input-group">
                     <label for="restTimeEfficiencyInput" class="lang-text" data-key="rest_time_efficiency">Efficiency (%)</label>
-                    <input type="text" id="restTimeEfficiencyInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="80" data-numpad="decimal" data-numpad-label="rest_time_efficiency">
+                    <input type="text" id="restTimeEfficiencyInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" value="80" data-efficiency-slider data-efficiency-slider-label="rest_time_efficiency">
                 </div>
                 <div class="input-group">
                     <label for="restTimeAmvInput" class="lang-text" data-key="rest_time_amv">AMV</label>
@@ -1724,6 +1724,24 @@
 </div>
 <!-- Off-screen canvas the certificate is drawn onto for PNG export -->
 <canvas id="certCanvas" width="1600" height="1131" style="display:none;"></canvas>
+
+<!-- ============ Efficiency slider ============ -->
+<div id="restEfficiencySliderModal" class="efficiency-slider-overlay" style="display:none;">
+    <div class="efficiency-slider-dialog" role="dialog" aria-modal="true" aria-labelledby="restEfficiencySliderTitle">
+        <div class="numpad-header">
+            <span id="restEfficiencySliderTitle" class="numpad-field-label lang-text" data-key="rest_time_efficiency">Efficiency (%)</span>
+        </div>
+        <div class="numpad-display"><output id="restEfficiencySliderValue" class="numpad-value" aria-live="polite">80%</output></div>
+        <div class="rest-efficiency-slider-control">
+            <span>0%</span>
+            <input type="range" id="restEfficiencySlider" min="0" max="100" step="1" value="80" aria-labelledby="restEfficiencySliderTitle">
+            <span>100%</span>
+        </div>
+        <div class="numpad-actions rest-efficiency-slider-actions">
+            <button type="button" class="numpad-done" id="restEfficiencySliderDoneBtn"><span class="lang-text" data-key="numpad_done">ตกลง</span></button>
+        </div>
+    </div>
+</div>
 
 <!-- ============ In-app Numpad (replaces the mobile OS numeric keyboard) ============ -->
 <div id="numpadModal" class="numpad-overlay" style="display:none;">

@@ -74,29 +74,50 @@ function convertRestTimeMinutes(value, unit) {
     return unit === 'sec' ? value * 60 : value;
 }
 
+function splitMinutesAndSeconds(totalMinutes) {
+    if (!Number.isFinite(totalMinutes) || totalMinutes < 0) return null;
+    const totalSeconds = Math.round(totalMinutes * 60 * 100) / 100;
+    let minutes = Math.floor(totalSeconds / 60);
+    let seconds = Math.round((totalSeconds - minutes * 60) * 100) / 100;
+    if (seconds >= 60) {
+        minutes += 1;
+        seconds = 0;
+    }
+    return { minutes, seconds };
+}
+
 const REST_TIME_FORECAST_HOURS = 8;
+
+function meetsDisplayedTarget(actual, target) {
+    return Math.round(actual * 100) >= Math.round(target * 100);
+}
 
 function calcRestTime(samMinutes, efficiencyPercent, amvSeconds) {
     if (!(samMinutes > 0) || !Number.isFinite(samMinutes)
         || !(efficiencyPercent > 0) || !Number.isFinite(efficiencyPercent)
         || !(amvSeconds > 0) || !Number.isFinite(amvSeconds)) return null;
-    const standardPerHour = Math.floor((60 / samMinutes) * (efficiencyPercent / 100));
+    const standardPerHour = (60 / samMinutes) * (efficiencyPercent / 100);
     const actualPerHour = 3600 / amvSeconds;
+    const actualEfficiencyPercent = samMinutes * 60 / amvSeconds * 100;
     const productionMinutesPerHour = Math.min(60, standardPerHour * amvSeconds / 60);
     const restMinutesPerHour = Math.max(0, 60 - productionMinutesPerHour);
     const forecastHours = REST_TIME_FORECAST_HOURS;
-    if (![standardPerHour, actualPerHour, productionMinutesPerHour, restMinutesPerHour, forecastHours]
+    const targetPiecesForForecast = standardPerHour * forecastHours;
+    const actualPiecesForForecast = actualPerHour * forecastHours;
+    if (![standardPerHour, actualPerHour, actualEfficiencyPercent, productionMinutesPerHour, restMinutesPerHour, forecastHours]
         .every(Number.isFinite)) return null;
     return {
         standardPerHour,
         actualPerHour,
+        actualEfficiencyPercent,
         productionMinutesPerHour,
         restMinutesPerHour,
         restMinutesForForecast: restMinutesPerHour * forecastHours,
-        targetPiecesForForecast: standardPerHour * forecastHours,
-        actualPiecesForForecast: actualPerHour * forecastHours,
+        targetPiecesForForecast,
+        actualPiecesForForecast,
         forecastHours,
-        targetMet: actualPerHour >= standardPerHour,
+        targetMet: meetsDisplayedTarget(actualPerHour, standardPerHour),
+        target8hMet: meetsDisplayedTarget(actualPiecesForForecast, targetPiecesForForecast),
     };
 }
 
@@ -113,6 +134,16 @@ function calcRequiredManpower(demand, standardTime, availableTime, efficiencyRat
         required,
         headcount: Math.ceil(required),
     };
+}
+
+function calcLineBalanceRate(totalCycleTime, operatorCount, bottleneckCycleTime) {
+    if (!(totalCycleTime > 0) || !Number.isFinite(totalCycleTime)
+        || !Number.isSafeInteger(operatorCount) || operatorCount <= 0
+        || !(bottleneckCycleTime > 0) || !Number.isFinite(bottleneckCycleTime)) return null;
+    const denominator = operatorCount * bottleneckCycleTime;
+    if (!(denominator > 0) || !Number.isFinite(denominator)) return null;
+    const rate = totalCycleTime / denominator * 100;
+    return Number.isFinite(rate) ? rate : null;
 }
 
 function randomizeTargetPieces(targetPieces, mode, belowMaxPercent, aboveMaxPercent, random = Math.random) {
@@ -276,8 +307,10 @@ export {
     calcDailyCapacity,
     calcRestTimeBreakdown,
     convertRestTimeMinutes,
+    splitMinutesAndSeconds,
     calcRestTime,
     calcRequiredManpower,
+    calcLineBalanceRate,
     randomizeTargetPieces,
     calcScheduledWorkMinutes,
     calcDailyTarget,

@@ -12,8 +12,10 @@ import {
     calcDailyCapacity,
     calcRestTimeBreakdown,
     convertRestTimeMinutes,
+    splitMinutesAndSeconds,
     calcRestTime,
     calcRequiredManpower,
+    calcLineBalanceRate,
     calcScheduledWorkMinutes,
     randomizeTargetPieces,
     calcDailyTarget,
@@ -124,11 +126,20 @@ test('convertRestTimeMinutes', () => {
     assert.equal(convertRestTimeMinutes(Number.NaN, 'sec'), null);
 });
 
+test('splitMinutesAndSeconds', () => {
+    assert.deepEqual(splitMinutesAndSeconds(0.68), { minutes: 0, seconds: 40.8 });
+    assert.deepEqual(splitMinutesAndSeconds(5.46), { minutes: 5, seconds: 27.6 });
+    assert.deepEqual(splitMinutesAndSeconds(59.9999 / 60), { minutes: 1, seconds: 0 });
+    assert.equal(splitMinutesAndSeconds(-1), null);
+    assert.equal(splitMinutesAndSeconds(Number.NaN), null);
+});
+
 test('calcRestTime', async t => {
     await t.test('uses total SMV for target, AMV for actual output, and forecasts eight hours', () => {
         const result = calcRestTime(0.2489, 80, 2.01);
-        assert.equal(result.standardPerHour, Math.floor((60 / 0.2489) * 0.8));
+        assert.equal(result.standardPerHour, (60 / 0.2489) * 0.8);
         assert.equal(result.actualPerHour, 3600 / 2.01);
+        assert.ok(Math.abs(result.actualEfficiencyPercent - (0.2489 * 60 / 2.01 * 100)) < 1e-10);
         assert.ok(Math.abs(result.restMinutesPerHour - (60 - result.standardPerHour * 2.01 / 60)) < 1e-10);
         assert.equal(result.restMinutesForForecast, result.restMinutesPerHour * 8);
         assert.equal(result.targetPiecesForForecast, result.standardPerHour * 8);
@@ -140,6 +151,18 @@ test('calcRestTime', async t => {
         const result = calcRestTime(1, 80, 80);
         assert.equal(result.restMinutesPerHour, 0);
         assert.equal(result.targetMet, false);
+    });
+    await t.test('matches status to displayed two-decimal values', () => {
+        const samMinutes = 0.885368;
+        const displayedEqual = calcRestTime(samMinutes, 100, 53.1221);
+        assert.equal(displayedEqual.standardPerHour.toFixed(2), displayedEqual.actualPerHour.toFixed(2));
+        assert.equal(displayedEqual.targetPiecesForForecast.toFixed(2), displayedEqual.actualPiecesForForecast.toFixed(2));
+        assert.equal(displayedEqual.targetMet, true);
+        assert.equal(displayedEqual.target8hMet, true);
+
+        const belowTarget = calcRestTime(samMinutes, 100, 53.13);
+        assert.equal(belowTarget.targetMet, false);
+        assert.equal(belowTarget.target8hMet, false);
     });
     await t.test('returns null for invalid inputs', () => {
         assert.equal(calcRestTime(0, 80, 55), null);
@@ -166,6 +189,14 @@ test('calcRequiredManpower', async t => {
         assert.equal(calcRequiredManpower(100, 2, 480, 0), null);
         assert.equal(calcRequiredManpower(1e308, 2, 480, 0.85), null);
     });
+});
+
+test('calcLineBalanceRate', () => {
+    assert.equal(calcLineBalanceRate(270, 5, 60), 90);
+    assert.equal(calcLineBalanceRate(300, 5, 60), 100);
+    assert.equal(calcLineBalanceRate(0, 5, 60), null);
+    assert.equal(calcLineBalanceRate(270, 0, 60), null);
+    assert.equal(calcLineBalanceRate(270, 5, 0), null);
 });
 
 test('calcScheduledWorkMinutes', async t => {

@@ -3247,9 +3247,8 @@ body.boot-login .container { visibility: hidden; }
 .rest-time-factor-card { min-width: 0; min-height: 54px; display: flex; align-items: center; gap: 9px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); color: var(--text-1); font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; cursor: pointer; }
 .rest-time-factor-card:has(input:checked) { border-color: var(--accent-400); background: var(--accent-50); color: var(--accent-700); }
 .rest-time-factor-card input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent-600); }
-.rest-time-main-inputs { margin-bottom: var(--sp-4); }
+.manpower-grid.rest-time-main-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: var(--sp-4); }
 .capacity-recovery-progress.rest-time-dashboard { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.capacity-recovery-progress.rest-time-dashboard > :last-child { grid-column: 1 / -1; }
 .rest-time-visual { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border); }
 .rest-time-visual h3 { margin: 0 0 12px; color: var(--text-1); font-size: 16px; }
 .rest-time-bar { display: flex; width: 100%; height: 36px; overflow: hidden; border-radius: 18px; background: var(--surface-3); }
@@ -3273,6 +3272,7 @@ body.boot-login .container { visibility: hidden; }
 .rest-time-result-main { border-color: var(--accent-300); background: var(--accent-50); }
 .rest-time-result-main strong { color: var(--accent-700); font-size: 24px; }
 .manpower-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
+.manpower-grid.line-balance-inputs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .manpower-grid > .input-group { gap: var(--sp-1); margin: 0; }
 .manpower-grid > .input-group > label,
 .manpower-grid > .input-group > .label-row { display: flex; align-items: center; min-height: 32px; margin: 0; }
@@ -3282,6 +3282,21 @@ body.boot-login .container { visibility: hidden; }
 .manpower-equation-scroll { width: 100%; overflow-x: auto; }
 .manpower-equation { min-width: max-content; margin: 4px auto; color: var(--text-1); font-family: "Cambria Math", "STIX Two Math", "Times New Roman", serif; font-size: 30px; }
 .manpower-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.line-balance-results { grid-template-columns: 1fr; }
+.line-balance-formula { margin: 18px 0 0; color: var(--text-2); font-size: 14px; line-height: 1.5; text-align: center; }
+.line-balance-formula .manpower-equation { font-size: 20px; }
+.line-balance-explanation { margin-top: 12px; padding: 0 14px; color: var(--text-2); }
+.line-balance-explanation-item > strong,
+.line-balance-explanation-capacity > strong { color: var(--text-1); }
+.line-balance-explanation-item,
+.line-balance-explanation-capacity { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.line-balance-explanation-item > strong,
+.line-balance-explanation-capacity > strong { font-size: 13px; line-height: 1.4; }
+.line-balance-explanation-value { color: var(--text-1); font-size: 14px; font-variant-numeric: tabular-nums; text-align: right; }
+.line-balance-explanation-item p,
+.line-balance-explanation-capacity p { grid-column: 1 / -1; margin: 0; font-size: 12px; line-height: 1.5; }
+.line-balance-explanation-capacity { border-bottom: 0; }
+.line-balance-explanation-capacity .line-balance-explanation-value { font-weight: 700; }
 .manpower-result-detail,
 .manpower-result-main { min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); }
 .manpower-result-detail > span,
@@ -3299,8 +3314,11 @@ body.boot-login .container { visibility: hidden; }
 }
 @media (max-width: 560px) {
     .capacity-recovery-progress.rest-time-dashboard { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .capacity-recovery-progress.rest-time-dashboard > :last-child { grid-column: 1 / -1; }
     .rest-time-table .rest-time-header-unit { display: none; }
+    .line-balance-formula .manpower-equation { font-size: 16px; }
+    .line-balance-explanation { padding: 0 4px; }
+    .line-balance-explanation-item,
+    .line-balance-explanation-capacity { gap: 4px 8px; }
 }
 @media (max-width: 360px) {
     .capacity-recovery-progress.rest-time-dashboard { grid-template-columns: 1fr; }

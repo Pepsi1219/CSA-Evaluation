@@ -9,7 +9,7 @@
 // ============================================================
 import { APP_VERSION } from './version.js';
 import {
-    parseNum, pcsFromEff, calcDailyCapacity, calcRestTimeBreakdown, convertRestTimeMinutes, calcRestTime, calcRequiredManpower, calcScheduledWorkMinutes, calcRecoveryProgress, calcCapacityRecovery, randomizeTargetPieces, calcAvgMin, calcActualEff,
+    parseNum, pcsFromEff, calcDailyCapacity, calcRestTimeBreakdown, convertRestTimeMinutes, splitMinutesAndSeconds, calcRestTime, calcRequiredManpower, calcLineBalanceRate, calcScheduledWorkMinutes, calcRecoveryProgress, calcCapacityRecovery, randomizeTargetPieces, calcAvgMin, calcActualEff,
     newSamFromEff, calcActualPcsPerHr, calcPassRate, calcTrainingDay,
 } from './calc.js';
 import {
@@ -279,6 +279,7 @@ let _dailyCapacityTimeMenuTrigger = null;
 let _dailyCapacityRandomTrigger = null;
 const DAILY_CAPACITY_INPUTS_KEY = 'csa_daily_capacity_inputs_v1';
 const MANPOWER_INPUTS_KEY = 'csa_manpower_inputs_v1';
+const LINE_BALANCE_INPUTS_KEY = 'csa_line_balance_inputs_v1';
 const REST_TIME_INPUTS_KEY = 'csa_rest_time_inputs_v1';
 const DAILY_CAPACITY_DEFAULT_PERIODS = Object.freeze([60, 60, 60, 30, 30, 60, 60, 60, 60, 30, 60, 30]);
 let _dailyCapacityPeriods = [...DAILY_CAPACITY_DEFAULT_PERIODS];
@@ -606,6 +607,79 @@ export function calculateManpowerUI() {
     document.getElementById('manpowerHeadcount').textContent = result.headcount.toLocaleString();
 }
 
+function _restoreLineBalanceInputs() {
+    let saved;
+    try {
+        saved = JSON.parse(localStorage.getItem(LINE_BALANCE_INPUTS_KEY) || 'null');
+    } catch {
+        return;
+    }
+    if (!saved || typeof saved !== 'object') return;
+    for (const [key, id] of Object.entries({
+        totalCycleTime: 'lineBalanceTotalCycleTimeInput',
+        operatorCount: 'lineBalanceOperatorCountInput',
+        bottleneckCycleTime: 'lineBalanceBottleneckCycleTimeInput',
+    })) {
+        const input = document.getElementById(id);
+        if (typeof saved[key] === 'string' && input) input.value = saved[key];
+    }
+}
+
+export function saveLineBalanceInputs() {
+    try {
+        localStorage.setItem(LINE_BALANCE_INPUTS_KEY, JSON.stringify({
+            totalCycleTime: document.getElementById('lineBalanceTotalCycleTimeInput')?.value ?? '',
+            operatorCount: document.getElementById('lineBalanceOperatorCountInput')?.value ?? '',
+            bottleneckCycleTime: document.getElementById('lineBalanceBottleneckCycleTimeInput')?.value ?? '',
+        }));
+    } catch {
+        // Storage may be unavailable in private browsing or when full.
+    }
+}
+
+export function calculateLineBalanceUI() {
+    const totalCycleTime = parseNum(document.getElementById('lineBalanceTotalCycleTimeInput')?.value);
+    const operatorCount = parseNum(document.getElementById('lineBalanceOperatorCountInput')?.value);
+    const bottleneckCycleTime = parseNum(document.getElementById('lineBalanceBottleneckCycleTimeInput')?.value);
+    const setFormulaValue = (id, value, symbol) => {
+        const slot = document.getElementById(id);
+        if (!slot) return;
+        const node = document.createElementNS('http://www.w3.org/1998/Math/MathML', Number.isFinite(value) ? 'mn' : 'mi');
+        node.textContent = Number.isFinite(value)
+            ? value.toLocaleString(undefined, { maximumFractionDigits: 3 })
+            : symbol;
+        if (!Number.isFinite(value) && symbol.length > 1) node.setAttribute('mathvariant', 'italic');
+        slot.replaceChildren(node);
+    };
+    setFormulaValue('lineBalanceFormulaCycleTime', totalCycleTime, 'ΣCT');
+    setFormulaValue('lineBalanceFormulaOperators', operatorCount, 'N');
+    setFormulaValue('lineBalanceFormulaBottleneck', bottleneckCycleTime, 'CTmax');
+    const format = value => Number.isFinite(value)
+        ? value.toLocaleString(undefined, { maximumFractionDigits: 3 })
+        : '—';
+    const explanationValues = [
+        ['lineBalanceExplainCycleTime', totalCycleTime],
+        ['lineBalanceExplainOperators', operatorCount],
+        ['lineBalanceExplainBottleneck', bottleneckCycleTime],
+    ];
+    explanationValues.forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = format(value);
+    });
+    const bottleneckCapacity = operatorCount * bottleneckCycleTime;
+    const capacityOutput = document.getElementById('lineBalanceBottleneckCapacity');
+    if (capacityOutput) {
+        capacityOutput.textContent = `${format(operatorCount)} × ${format(bottleneckCycleTime)} = ${format(bottleneckCapacity)}`;
+    }
+    const rate = calcLineBalanceRate(
+        totalCycleTime,
+        operatorCount,
+        bottleneckCycleTime,
+    );
+    const output = document.getElementById('lineBalanceRate');
+    if (output) output.textContent = format(rate);
+}
+
 const REST_TIME_DEFAULT_SETTINGS = Object.freeze({ raPercent: '16', mdaPercent: '6', caPercent: '1', tmuFactor: '0.0005' });
 let _restTimeDisplayUnit = 'min';
 const REST_TIME_SETTING_IDS = Object.freeze({
@@ -714,6 +788,10 @@ export function calculateRestTimeUI() {
         const converted = convertRestTimeMinutes(value, _restTimeDisplayUnit);
         return Number.isFinite(converted) ? converted.toFixed(_restTimeDisplayUnit === 'sec' ? 2 : 4) : '—';
     };
+    const formatSmv = value => {
+        const converted = convertRestTimeMinutes(value, _restTimeDisplayUnit);
+        return Number.isFinite(converted) ? converted.toFixed(4) : '—';
+    };
     const setOutput = (id, value) => {
         const output = document.getElementById(id);
         if (output) output.textContent = value;
@@ -734,19 +812,21 @@ export function calculateRestTimeUI() {
     setOutput('restTimeTotalDelay', formatFixed(totals?.delayMinutes));
     setOutput('restTimeTotalMinutes', formatFixed(totals?.totalMinutes));
     setOutput('restTimeTotalC', formatFixed(totals?.cMinutes));
-    setOutput('restTimeSmv', formatFixed(totals?.smvMinutes));
+    setOutput('restTimeSmv', formatSmv(totals?.smvMinutes));
 
     const result = totals ? calcRestTime(
         totals.smvMinutes,
         parseNum(document.getElementById('restTimeEfficiencyInput')?.value),
         parseNum(document.getElementById('restTimeAmvInput')?.value),
     ) : null;
-    const valueIds = ['restTimePerHour', 'restTimeForecast', 'restTimeProductionPerHour',
-        'restTimeActualPerHour', 'restTimeStandardPerHour', 'restTimeTarget8h', 'restTimeActual8h'];
+    const valueIds = ['restTimePerHour', 'restTimeForecast', 'restTimeForecastSeconds', 'restTimeForecast1h', 'restTimeForecast1hSeconds', 'restTimeProductionPerHour',
+        'restTimeActualEffOutput', 'restTimeActualPerHour', 'restTimeStandardPerHour', 'restTimeTarget8h', 'restTimeActual8h'];
     const bar = document.getElementById('restTimeBar');
     const status = document.getElementById('restTimeStatus');
     if (!result) {
         valueIds.forEach(id => { document.getElementById(id).textContent = '—'; });
+        ['restTimeActualPerHourMetric', 'restTimeActual8hMetric', 'restTimeForecastMetric', 'restTimeForecast1hMetric']
+            .forEach(id => document.getElementById(id)?.removeAttribute('data-status'));
         if (bar) {
             bar.style.setProperty('--rest-production-width', '0%');
             bar.style.setProperty('--rest-break-width', '0%');
@@ -756,12 +836,27 @@ export function calculateRestTimeUI() {
     }
     const format = value => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
     document.getElementById('restTimePerHour').textContent = format(result.restMinutesPerHour);
-    document.getElementById('restTimeForecast').textContent = format(result.restMinutesForForecast);
+    const setForecastDuration = (minuteId, secondId, totalMinutes) => {
+        const duration = splitMinutesAndSeconds(totalMinutes);
+        document.getElementById(minuteId).textContent = format(duration.minutes);
+        document.getElementById(secondId).textContent = format(duration.seconds);
+    };
+    setForecastDuration('restTimeForecast', 'restTimeForecastSeconds', result.restMinutesForForecast);
+    setForecastDuration('restTimeForecast1h', 'restTimeForecast1hSeconds', result.restMinutesPerHour);
+    document.getElementById('restTimeActualEffOutput').value = format(result.actualEfficiencyPercent);
     document.getElementById('restTimeProductionPerHour').textContent = format(result.productionMinutesPerHour);
     document.getElementById('restTimeActualPerHour').textContent = format(result.actualPerHour);
     document.getElementById('restTimeStandardPerHour').textContent = format(result.standardPerHour);
     document.getElementById('restTimeTarget8h').textContent = format(result.targetPiecesForForecast);
     document.getElementById('restTimeActual8h').textContent = format(result.actualPiecesForForecast);
+    document.getElementById('restTimeActualPerHourMetric').dataset.status =
+        result.targetMet ? 'ok' : 'bad';
+    document.getElementById('restTimeActual8hMetric').dataset.status =
+        result.target8hMet ? 'ok' : 'bad';
+    document.getElementById('restTimeForecastMetric').dataset.status =
+        result.restMinutesForForecast > 0 ? 'ok' : 'bad';
+    document.getElementById('restTimeForecast1hMetric').dataset.status =
+        result.restMinutesPerHour > 0 ? 'ok' : 'bad';
     if (bar) {
         bar.style.setProperty('--rest-production-width', `${result.productionMinutesPerHour / 60 * 100}%`);
         bar.style.setProperty('--rest-break-width', `${result.restMinutesPerHour / 60 * 100}%`);
@@ -841,12 +936,15 @@ function _setToolsPage(page) {
     const showCapacity = page === 'capacity';
     const showManpower = page === 'manpower';
     const showRestTime = page === 'rest-time';
+    const showLineBalance = page === 'line-balance';
     const capacityPanel = document.getElementById('dailyCapacityPanel');
     const manpowerPanel = document.getElementById('manpowerPanel');
     const restTimePanel = document.getElementById('restTimePanel');
+    const lineBalancePanel = document.getElementById('lineBalancePanel');
     if (!showCapacity && capacityPanel?.style.display !== 'none') saveDailyCapacityInputs();
     if (!showManpower && manpowerPanel?.style.display !== 'none') saveManpowerInputs();
     if (!showRestTime && restTimePanel?.style.display !== 'none') saveRestTimeInputs();
+    if (!showLineBalance && lineBalancePanel?.style.display !== 'none') saveLineBalanceInputs();
     if (!showCapacity) closeDailyCapacityTimeMenu();
     if (!showCapacity) closeDailyCapacityRandomModal(false);
     const menuPanel = document.getElementById('toolsMenuPanel');
@@ -855,22 +953,25 @@ function _setToolsPage(page) {
     const clockGroup = document.getElementById('dailyCapacityClockGroup');
     const footerActions = document.getElementById('dailyCapacityFooterActions');
     const manpowerClearButton = document.getElementById('manpowerClearButton');
-    if (menuPanel) menuPanel.style.display = showCapacity || showManpower || showRestTime ? 'none' : 'flex';
+    const lineBalanceClearButton = document.getElementById('lineBalanceClearButton');
+    if (menuPanel) menuPanel.style.display = showCapacity || showManpower || showRestTime || showLineBalance ? 'none' : 'flex';
     if (capacityPanel) capacityPanel.style.display = showCapacity ? '' : 'none';
     if (manpowerPanel) manpowerPanel.style.display = showManpower ? '' : 'none';
     if (restTimePanel) restTimePanel.style.display = showRestTime ? '' : 'none';
+    if (lineBalancePanel) lineBalancePanel.style.display = showLineBalance ? '' : 'none';
     if (clock) {
         clock.setAttribute('aria-hidden', showCapacity ? 'false' : 'true');
     }
     if (clockGroup) clockGroup.style.visibility = showCapacity ? 'visible' : 'hidden';
-    if (footerActions) footerActions.style.display = showCapacity || showManpower || showRestTime ? 'flex' : 'none';
+    if (footerActions) footerActions.style.display = showCapacity || showManpower || showRestTime || showLineBalance ? 'flex' : 'none';
     if (manpowerClearButton) manpowerClearButton.style.display = showManpower ? '' : 'none';
     const restTimeClearButton = document.getElementById('restTimeClearButton');
     if (restTimeClearButton) restTimeClearButton.style.display = showRestTime ? '' : 'none';
+    if (lineBalanceClearButton) lineBalanceClearButton.style.display = showLineBalance ? '' : 'none';
     footerActions?.querySelector('[data-action="daily-capacity-clear"]')?.style.setProperty('display', showCapacity ? '' : 'none');
     if (title) {
         title.dataset.key = showCapacity ? 'daily_capacity_title' : showManpower ? 'manpower_title'
-            : showRestTime ? 'rest_time_title' : 'tools_title';
+            : showRestTime ? 'rest_time_title' : showLineBalance ? 'line_balance_title' : 'tools_title';
         title.textContent = t(title.dataset.key);
     }
     if (showCapacity) {
@@ -899,6 +1000,7 @@ export function closeToolsModal() {
     if (document.getElementById('dailyCapacityPanel')?.style.display !== 'none') saveDailyCapacityInputs();
     if (document.getElementById('manpowerPanel')?.style.display !== 'none') saveManpowerInputs();
     if (document.getElementById('restTimePanel')?.style.display !== 'none') saveRestTimeInputs();
+    if (document.getElementById('lineBalancePanel')?.style.display !== 'none') saveLineBalanceInputs();
     closeDailyCapacityRandomModal(false);
     if (modal) modal.style.display = 'none';
     document.getElementById('dailyCapacityConfig').style.display = 'none';
@@ -917,8 +1019,9 @@ export function toolsBack() {
     const capacityPanel = document.getElementById('dailyCapacityPanel');
     const manpowerPanel = document.getElementById('manpowerPanel');
     const restTimePanel = document.getElementById('restTimePanel');
+    const lineBalancePanel = document.getElementById('lineBalancePanel');
     if (capacityPanel?.style.display !== 'none' || manpowerPanel?.style.display !== 'none'
-        || restTimePanel?.style.display !== 'none') {
+        || restTimePanel?.style.display !== 'none' || lineBalancePanel?.style.display !== 'none') {
         _setToolsPage('menu');
         document.querySelector('#toolsMenuPanel .tools-card')?.focus({ preventScroll: true });
         return;
@@ -939,6 +1042,24 @@ export function openManpowerTool() {
     _setToolsPage('manpower');
     calculateManpowerUI();
     document.getElementById('manpowerDemandInput')?.focus({ preventScroll: true });
+}
+
+export function openLineBalanceTool() {
+    if (document.getElementById('toolsModal')?.style.display === 'none') openToolsModal();
+    _restoreLineBalanceInputs();
+    _setToolsPage('line-balance');
+    calculateLineBalanceUI();
+    document.getElementById('lineBalanceTotalCycleTimeInput')?.focus({ preventScroll: true });
+}
+
+export function clearLineBalanceData() {
+    showConfirm(t('line_balance_clear_title'), t('line_balance_clear_confirm'), () => {
+        document.getElementById('lineBalanceTotalCycleTimeInput').value = '';
+        document.getElementById('lineBalanceOperatorCountInput').value = '';
+        document.getElementById('lineBalanceBottleneckCycleTimeInput').value = '';
+        try { localStorage.removeItem(LINE_BALANCE_INPUTS_KEY); } catch {}
+        calculateLineBalanceUI();
+    });
 }
 
 export function clearManpowerData() {

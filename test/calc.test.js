@@ -100,9 +100,26 @@ test('calcRestTimeBreakdown', async t => {
         assert.equal(result.totals.basicMinutes, 0.2091);
         assert.ok(Math.abs(result.totals.paMinutes - 0.033456) < 1e-12);
         assert.ok(Math.abs(result.totals.delayMinutes - 0.003816) < 1e-12);
-        assert.equal(result.totals.totalMinutes, 0.25);
-        assert.ok(Math.abs(result.totals.cMinutes - 0.0025) < 1e-12);
-        assert.ok(Math.abs(result.totals.smvMinutes - 0.248872) < 1e-12);
+        assert.ok(Math.abs(result.totals.totalMinutes - 0.246372) < 1e-12);
+        assert.ok(Math.abs(result.totals.cMinutes - 0.00246372) < 1e-12);
+        assert.ok(Math.abs(result.totals.smvMinutes - 0.24883572) < 1e-12);
+    });
+    await t.test('preserves precision when totaling the reported TMU values', () => {
+        const result = calcRestTimeBreakdown({
+            manualTmu: 260,
+            machineTmu: 28,
+            bundleTmu: 100,
+            raPercent: 16,
+            mdaPercent: 6,
+            caPercent: 1,
+            tmuFactor: 0.0005,
+        });
+        assert.ok(Math.abs(result.rows.manual.totalMinutes - 0.1508) < 1e-12);
+        assert.ok(Math.abs(result.rows.machine.totalMinutes - 0.01708) < 1e-12);
+        assert.ok(Math.abs(result.rows.bundle.totalMinutes - 0.058) < 1e-12);
+        assert.ok(Math.abs(result.totals.totalMinutes - 0.22588) < 1e-12);
+        assert.equal(result.totals.totalMinutes.toFixed(4), '0.2259');
+        assert.equal(result.totals.smvMinutes.toFixed(4), '0.2281');
     });
     await t.test('keeps partial row results but withholds SMV until all TMUs are entered', () => {
         const result = calcRestTimeBreakdown({

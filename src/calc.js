@@ -46,7 +46,7 @@ function calcRestTimeBreakdown({ manualTmu, machineTmu, bundleTmu, raPercent, md
         const basicMinutes = tmu * tmuFactor;
         const paMinutes = basicMinutes * raPercent / 100;
         const delayMinutes = hasDelay ? basicMinutes * mdaPercent / 100 : 0;
-        const totalMinutes = Math.round((basicMinutes + paMinutes + delayMinutes) * 100) / 100;
+        const totalMinutes = basicMinutes + paMinutes + delayMinutes;
         const cMinutes = totalMinutes * caPercent / 100;
         return { tmu, basicMinutes, paMinutes, delayMinutes, totalMinutes, cMinutes };
     };

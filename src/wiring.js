@@ -13,6 +13,7 @@ import {
     openSettingsModal, openResultPrecisionModal, resetForm, setSamUnit, closeActionsMenu, scrollToTop,
     openToolsModal, closeToolsModal, toolsBack, openDailyCapacityTool, openManpowerTool, clearManpowerData,
     openLineBalanceTool, calculateLineBalanceUI, saveLineBalanceInputs, clearLineBalanceData,
+    openLineEfficiencyTool, calculateLineEfficiencyUI, saveLineEfficiencyInputs, clearLineEfficiencyData,
     openRestTimeTool, openRestTimeConfig, closeRestTimeConfig, setRestTimeDisplayUnit, calculateRestTimeUI, saveRestTimeInputs, clearRestTimeData,
     calculateManpowerUI, saveManpowerInputs,
     setManpowerSamUnit,
@@ -66,6 +67,12 @@ document.getElementById('swRoundsInput')?.addEventListener('input', () => swSetS
     document.getElementById(id)?.addEventListener('input', () => {
         calculateLineBalanceUI();
         saveLineBalanceInputs();
+    });
+});
+['lineEfficiencyTotalSmvInput', 'lineEfficiencyOperatorCountInput', 'lineEfficiencyBottleneckCycleTimeInput'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', () => {
+        calculateLineEfficiencyUI();
+        saveLineEfficiencyInputs();
     });
 });
 ['restTimeManualTmu', 'restTimeMachineTmu', 'restTimeBundleTmu', 'restTimeEfficiencyInput',
@@ -125,6 +132,7 @@ window.addEventListener('pagehide', () => {
     if (document.getElementById('manpowerPanel')?.style.display !== 'none') saveManpowerInputs();
     if (document.getElementById('restTimePanel')?.style.display !== 'none') saveRestTimeInputs();
     if (document.getElementById('lineBalancePanel')?.style.display !== 'none') saveLineBalanceInputs();
+    if (document.getElementById('lineEfficiencyPanel')?.style.display !== 'none') saveLineEfficiencyInputs();
 });
 ['dailyCapacityEff100Toggle', 'dailyCapacityEffToggle'].forEach(id => {
     document.getElementById(id)?.addEventListener('click', event => {
@@ -183,6 +191,8 @@ const ACTIONS = {
     'rest-time-clear': () => clearRestTimeData(),
     'line-balance-open': () => openLineBalanceTool(),
     'line-balance-clear': () => clearLineBalanceData(),
+    'line-efficiency-open': () => openLineEfficiencyTool(),
+    'line-efficiency-clear': () => clearLineEfficiencyData(),
     'rest-time-config-open': () => openRestTimeConfig(),
     'rest-time-config-close': () => closeRestTimeConfig(),
     'rest-time-display-unit': arg => setRestTimeDisplayUnit(arg),

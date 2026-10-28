@@ -372,7 +372,7 @@
 <!-- ============ Footer ============ -->
 <footer class="app-footer">
     <hr>
-    <p>© CSA Evaluation · <span id="appVersion">v1.30.48</span></p>
+    <p>© CSA Evaluation · <span id="appVersion">v1.30.51</span></p>
 </footer>
 
 <!-- ============ Mobile bottom navigation ============ -->
@@ -1025,11 +1025,22 @@
             <button type="button" class="tools-card" data-action="line-balance-open">
                 <span class="tools-card-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
-                        <path d="M3 6h5M3 12h9M3 18h13"/><path d="m16 6 2 2 3-4M18 12l2 2 2-3M20 18l1 1 2-2"/>
+                        <path d="M4 20h16M7 20v-6m5 6V5m5 15V9"/>
                     </svg>
                 </span>
                 <span class="tools-card-copy">
                     <span class="tools-card-title lang-text" data-key="line_balance_title">สมดุลการผลิต (Line Balance)</span>
+                </span>
+                <svg class="tools-card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+            <button type="button" class="tools-card" data-action="line-efficiency-open">
+                <span class="tools-card-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="24" height="24">
+                        <path d="M5.2 18a8 8 0 1 1 13.6 0"/><path d="M12 14l4-4"/><circle cx="12" cy="14" r="1"/>
+                    </svg>
+                </span>
+                <span class="tools-card-copy">
+                    <span class="tools-card-title lang-text" data-key="line_efficiency_title">Line Efficiency</span>
                 </span>
                 <svg class="tools-card-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
             </button>
@@ -1245,6 +1256,67 @@
                 <div class="manpower-result-main">
                     <span class="lang-text" data-key="line_balance_rate">Line Balance Rate</span>
                     <strong><span id="lineBalanceRate">—</span>%</strong>
+                </div>
+            </div>
+        </section>
+        <section class="manpower-panel line-balance-panel" id="lineEfficiencyPanel" style="display:none;">
+            <div class="manpower-grid line-balance-inputs">
+                <div class="input-group">
+                    <label for="lineEfficiencyTotalSmvInput" class="lang-text" data-key="line_efficiency_sum_smv">Σ SMV</label>
+                    <input type="text" id="lineEfficiencyTotalSmvInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="line_efficiency_sum_smv">
+                </div>
+                <div class="input-group">
+                    <label for="lineEfficiencyOperatorCountInput" class="lang-text" data-key="line_balance_operator_count">Σ Operator</label>
+                    <input type="text" id="lineEfficiencyOperatorCountInput" class="glass-input" inputmode="none" pattern="[0-9]*" data-numpad="int" data-numpad-label="line_balance_operator_count">
+                </div>
+                <div class="input-group">
+                    <label for="lineEfficiencyBottleneckCycleTimeInput" class="lang-text" data-key="line_balance_bottleneck_cycle_time">Max Cycle Time</label>
+                    <input type="text" id="lineEfficiencyBottleneckCycleTimeInput" class="glass-input" inputmode="none" pattern="[0-9]*[.,]?[0-9]*" data-numpad="decimal" data-numpad-label="line_balance_bottleneck_cycle_time">
+                </div>
+            </div>
+            <div class="manpower-formula line-balance-formula" aria-live="polite">
+                <div class="manpower-equation-scroll">
+                    <math class="manpower-equation" display="block">
+                        <mrow>
+                            <mi mathvariant="italic">Line Eff</mi><mo>=</mo>
+                            <mfrac>
+                                <mrow><mrow id="lineEfficiencyFormulaSmv"><mi>ΣSMV</mi></mrow></mrow>
+                                <mrow>
+                                    <mrow id="lineEfficiencyFormulaOperators"><mi>N</mi></mrow><mo>×</mo>
+                                    <mrow id="lineEfficiencyFormulaBottleneck"><mi>CTmax</mi></mrow>
+                                </mrow>
+                            </mfrac>
+                            <mo>×</mo><mn>100</mn><mo>%</mo>
+                        </mrow>
+                    </math>
+                </div>
+            </div>
+            <div class="line-balance-explanation" aria-live="polite">
+                <div class="line-balance-explanation-item">
+                    <strong class="lang-text" data-key="line_efficiency_numerator_label">Numerator: Σ SMV</strong>
+                    <span class="line-balance-explanation-value" id="lineEfficiencyExplainSmv">—</span>
+                    <p class="lang-text" data-key="line_efficiency_numerator_help">Total SMV of all operations in the line.</p>
+                </div>
+                <div class="line-balance-explanation-item">
+                    <strong class="lang-text" data-key="line_balance_operators_label">N: Total operators</strong>
+                    <span class="line-balance-explanation-value" id="lineEfficiencyExplainOperators">—</span>
+                    <p class="lang-text" data-key="line_balance_operators_help">The total number of people or operators in the production line.</p>
+                </div>
+                <div class="line-balance-explanation-item">
+                    <strong class="lang-text" data-key="line_balance_bottleneck_label">CTmax: Bottleneck Cycle Time</strong>
+                    <span class="line-balance-explanation-value" id="lineEfficiencyExplainBottleneck">—</span>
+                    <p class="lang-text" data-key="line_balance_bottleneck_help">The cycle time of the slowest station in the line.</p>
+                </div>
+                <div class="line-balance-explanation-capacity">
+                    <strong class="lang-text" data-key="line_balance_bottleneck_capacity">Theoretical maximum capacity</strong>
+                    <span class="line-balance-explanation-value" id="lineEfficiencyBottleneckCapacity">— × — = —</span>
+                    <p class="lang-text" data-key="line_balance_capacity_help">If everyone worked at the bottleneck cycle time</p>
+                </div>
+            </div>
+            <div class="manpower-results line-balance-results" aria-live="polite">
+                <div class="manpower-result-main">
+                    <span class="lang-text" data-key="line_efficiency_rate">Line Efficiency</span>
+                    <strong><span id="lineEfficiencyRate">—</span>%</strong>
                 </div>
             </div>
         </section>

@@ -280,6 +280,7 @@ let _dailyCapacityRandomTrigger = null;
 const DAILY_CAPACITY_INPUTS_KEY = 'csa_daily_capacity_inputs_v1';
 const MANPOWER_INPUTS_KEY = 'csa_manpower_inputs_v1';
 const LINE_BALANCE_INPUTS_KEY = 'csa_line_balance_inputs_v1';
+const LINE_EFFICIENCY_INPUTS_KEY = 'csa_line_efficiency_inputs_v1';
 const REST_TIME_INPUTS_KEY = 'csa_rest_time_inputs_v1';
 const DAILY_CAPACITY_DEFAULT_PERIODS = Object.freeze([60, 60, 60, 30, 30, 60, 60, 60, 60, 30, 60, 30]);
 let _dailyCapacityPeriods = [...DAILY_CAPACITY_DEFAULT_PERIODS];
@@ -680,6 +681,74 @@ export function calculateLineBalanceUI() {
     if (output) output.textContent = format(rate);
 }
 
+function _restoreLineEfficiencyInputs() {
+    let saved;
+    try {
+        saved = JSON.parse(localStorage.getItem(LINE_EFFICIENCY_INPUTS_KEY) || 'null');
+    } catch {
+        return;
+    }
+    if (!saved || typeof saved !== 'object') return;
+    for (const [key, id] of Object.entries({
+        totalSmv: 'lineEfficiencyTotalSmvInput',
+        operatorCount: 'lineEfficiencyOperatorCountInput',
+        bottleneckCycleTime: 'lineEfficiencyBottleneckCycleTimeInput',
+    })) {
+        const input = document.getElementById(id);
+        if (typeof saved[key] === 'string' && input) input.value = saved[key];
+    }
+}
+
+export function saveLineEfficiencyInputs() {
+    try {
+        localStorage.setItem(LINE_EFFICIENCY_INPUTS_KEY, JSON.stringify({
+            totalSmv: document.getElementById('lineEfficiencyTotalSmvInput')?.value ?? '',
+            operatorCount: document.getElementById('lineEfficiencyOperatorCountInput')?.value ?? '',
+            bottleneckCycleTime: document.getElementById('lineEfficiencyBottleneckCycleTimeInput')?.value ?? '',
+        }));
+    } catch {
+        // Storage may be unavailable in private browsing or when full.
+    }
+}
+
+export function calculateLineEfficiencyUI() {
+    const totalSmv = parseNum(document.getElementById('lineEfficiencyTotalSmvInput')?.value);
+    const operatorCount = parseNum(document.getElementById('lineEfficiencyOperatorCountInput')?.value);
+    const bottleneckCycleTime = parseNum(document.getElementById('lineEfficiencyBottleneckCycleTimeInput')?.value);
+    const setFormulaValue = (id, value, symbol) => {
+        const slot = document.getElementById(id);
+        if (!slot) return;
+        const node = document.createElementNS('http://www.w3.org/1998/Math/MathML', Number.isFinite(value) ? 'mn' : 'mi');
+        node.textContent = Number.isFinite(value)
+            ? value.toLocaleString(undefined, { maximumFractionDigits: 3 })
+            : symbol;
+        if (!Number.isFinite(value) && symbol.length > 1) node.setAttribute('mathvariant', 'italic');
+        slot.replaceChildren(node);
+    };
+    setFormulaValue('lineEfficiencyFormulaSmv', totalSmv, 'ΣSMV');
+    setFormulaValue('lineEfficiencyFormulaOperators', operatorCount, 'N');
+    setFormulaValue('lineEfficiencyFormulaBottleneck', bottleneckCycleTime, 'CTmax');
+    const format = value => Number.isFinite(value)
+        ? value.toLocaleString(undefined, { maximumFractionDigits: 3 })
+        : '—';
+    [
+        ['lineEfficiencyExplainSmv', totalSmv],
+        ['lineEfficiencyExplainOperators', operatorCount],
+        ['lineEfficiencyExplainBottleneck', bottleneckCycleTime],
+    ].forEach(([id, value]) => {
+        const element = document.getElementById(id);
+        if (element) element.textContent = format(value);
+    });
+    const capacity = operatorCount * bottleneckCycleTime;
+    const capacityOutput = document.getElementById('lineEfficiencyBottleneckCapacity');
+    if (capacityOutput) {
+        capacityOutput.textContent = `${format(operatorCount)} × ${format(bottleneckCycleTime)} = ${format(capacity)}`;
+    }
+    const rate = calcLineBalanceRate(totalSmv, operatorCount, bottleneckCycleTime);
+    const output = document.getElementById('lineEfficiencyRate');
+    if (output) output.textContent = format(rate);
+}
+
 const REST_TIME_DEFAULT_SETTINGS = Object.freeze({ raPercent: '16', mdaPercent: '6', caPercent: '1', tmuFactor: '0.0005' });
 let _restTimeDisplayUnit = 'min';
 const REST_TIME_SETTING_IDS = Object.freeze({
@@ -937,14 +1006,17 @@ function _setToolsPage(page) {
     const showManpower = page === 'manpower';
     const showRestTime = page === 'rest-time';
     const showLineBalance = page === 'line-balance';
+    const showLineEfficiency = page === 'line-efficiency';
     const capacityPanel = document.getElementById('dailyCapacityPanel');
     const manpowerPanel = document.getElementById('manpowerPanel');
     const restTimePanel = document.getElementById('restTimePanel');
     const lineBalancePanel = document.getElementById('lineBalancePanel');
+    const lineEfficiencyPanel = document.getElementById('lineEfficiencyPanel');
     if (!showCapacity && capacityPanel?.style.display !== 'none') saveDailyCapacityInputs();
     if (!showManpower && manpowerPanel?.style.display !== 'none') saveManpowerInputs();
     if (!showRestTime && restTimePanel?.style.display !== 'none') saveRestTimeInputs();
     if (!showLineBalance && lineBalancePanel?.style.display !== 'none') saveLineBalanceInputs();
+    if (!showLineEfficiency && lineEfficiencyPanel?.style.display !== 'none') saveLineEfficiencyInputs();
     if (!showCapacity) closeDailyCapacityTimeMenu();
     if (!showCapacity) closeDailyCapacityRandomModal(false);
     const menuPanel = document.getElementById('toolsMenuPanel');
@@ -954,24 +1026,28 @@ function _setToolsPage(page) {
     const footerActions = document.getElementById('dailyCapacityFooterActions');
     const manpowerClearButton = document.getElementById('manpowerClearButton');
     const lineBalanceClearButton = document.getElementById('lineBalanceClearButton');
-    if (menuPanel) menuPanel.style.display = showCapacity || showManpower || showRestTime || showLineBalance ? 'none' : 'flex';
+    const lineEfficiencyClearButton = document.getElementById('lineEfficiencyClearButton');
+    if (menuPanel) menuPanel.style.display = showCapacity || showManpower || showRestTime || showLineBalance || showLineEfficiency ? 'none' : 'flex';
     if (capacityPanel) capacityPanel.style.display = showCapacity ? '' : 'none';
     if (manpowerPanel) manpowerPanel.style.display = showManpower ? '' : 'none';
     if (restTimePanel) restTimePanel.style.display = showRestTime ? '' : 'none';
     if (lineBalancePanel) lineBalancePanel.style.display = showLineBalance ? '' : 'none';
+    if (lineEfficiencyPanel) lineEfficiencyPanel.style.display = showLineEfficiency ? '' : 'none';
     if (clock) {
         clock.setAttribute('aria-hidden', showCapacity ? 'false' : 'true');
     }
     if (clockGroup) clockGroup.style.visibility = showCapacity ? 'visible' : 'hidden';
-    if (footerActions) footerActions.style.display = showCapacity || showManpower || showRestTime || showLineBalance ? 'flex' : 'none';
+    if (footerActions) footerActions.style.display = showCapacity || showManpower || showRestTime || showLineBalance || showLineEfficiency ? 'flex' : 'none';
     if (manpowerClearButton) manpowerClearButton.style.display = showManpower ? '' : 'none';
     const restTimeClearButton = document.getElementById('restTimeClearButton');
     if (restTimeClearButton) restTimeClearButton.style.display = showRestTime ? '' : 'none';
     if (lineBalanceClearButton) lineBalanceClearButton.style.display = showLineBalance ? '' : 'none';
+    if (lineEfficiencyClearButton) lineEfficiencyClearButton.style.display = showLineEfficiency ? '' : 'none';
     footerActions?.querySelector('[data-action="daily-capacity-clear"]')?.style.setProperty('display', showCapacity ? '' : 'none');
     if (title) {
         title.dataset.key = showCapacity ? 'daily_capacity_title' : showManpower ? 'manpower_title'
-            : showRestTime ? 'rest_time_title' : showLineBalance ? 'line_balance_title' : 'tools_title';
+            : showRestTime ? 'rest_time_title' : showLineBalance ? 'line_balance_title'
+                : showLineEfficiency ? 'line_efficiency_title' : 'tools_title';
         title.textContent = t(title.dataset.key);
     }
     if (showCapacity) {
@@ -1001,6 +1077,7 @@ export function closeToolsModal() {
     if (document.getElementById('manpowerPanel')?.style.display !== 'none') saveManpowerInputs();
     if (document.getElementById('restTimePanel')?.style.display !== 'none') saveRestTimeInputs();
     if (document.getElementById('lineBalancePanel')?.style.display !== 'none') saveLineBalanceInputs();
+    if (document.getElementById('lineEfficiencyPanel')?.style.display !== 'none') saveLineEfficiencyInputs();
     closeDailyCapacityRandomModal(false);
     if (modal) modal.style.display = 'none';
     document.getElementById('dailyCapacityConfig').style.display = 'none';
@@ -1020,8 +1097,10 @@ export function toolsBack() {
     const manpowerPanel = document.getElementById('manpowerPanel');
     const restTimePanel = document.getElementById('restTimePanel');
     const lineBalancePanel = document.getElementById('lineBalancePanel');
+    const lineEfficiencyPanel = document.getElementById('lineEfficiencyPanel');
     if (capacityPanel?.style.display !== 'none' || manpowerPanel?.style.display !== 'none'
-        || restTimePanel?.style.display !== 'none' || lineBalancePanel?.style.display !== 'none') {
+        || restTimePanel?.style.display !== 'none' || lineBalancePanel?.style.display !== 'none'
+        || lineEfficiencyPanel?.style.display !== 'none') {
         _setToolsPage('menu');
         document.querySelector('#toolsMenuPanel .tools-card')?.focus({ preventScroll: true });
         return;
@@ -1050,6 +1129,24 @@ export function openLineBalanceTool() {
     _setToolsPage('line-balance');
     calculateLineBalanceUI();
     document.getElementById('lineBalanceTotalCycleTimeInput')?.focus({ preventScroll: true });
+}
+
+export function openLineEfficiencyTool() {
+    if (document.getElementById('toolsModal')?.style.display === 'none') openToolsModal();
+    _restoreLineEfficiencyInputs();
+    _setToolsPage('line-efficiency');
+    calculateLineEfficiencyUI();
+    document.getElementById('lineEfficiencyTotalSmvInput')?.focus({ preventScroll: true });
+}
+
+export function clearLineEfficiencyData() {
+    showConfirm(t('line_efficiency_clear_title'), t('line_efficiency_clear_confirm'), () => {
+        document.getElementById('lineEfficiencyTotalSmvInput').value = '';
+        document.getElementById('lineEfficiencyOperatorCountInput').value = '';
+        document.getElementById('lineEfficiencyBottleneckCycleTimeInput').value = '';
+        try { localStorage.removeItem(LINE_EFFICIENCY_INPUTS_KEY); } catch {}
+        calculateLineEfficiencyUI();
+    });
 }
 
 export function clearLineBalanceData() {
